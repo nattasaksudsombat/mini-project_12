@@ -1,0 +1,323 @@
+/* 5. CSS Styles (ใส่ในไฟล์ CSS หรือใน <style> tag) */
+
+.table th {
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+    transform: translateY(-1px);
+    transition: all 0.2s ease;
+}
+
+.input-group-sm .form-control {
+    font-size: 0.875rem;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+.card-header {
+    background-color: #e9ecef;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.card-header h5 {
+    color: #495057;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.775rem;
+}
+
+.modal-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.form-text {
+    font-size: 0.825em;
+    color: #6c757d;
+}
+
+.alert-info {
+    background-color: #d1ecf1;
+    border-color: #b6d4db;
+    color: #0c5460;
+}
+
+#search-results {
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    position: relative;
+    border-radius: 0.375rem;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.table-responsive {
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.fw-bold {
+    font-weight: 600 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
+
+.py-4 {
+    padding-top: 1.5rem !important;
+    padding-bottom: 1.5rem !important;
+}
+
+.fa-2x {
+    font-size: 2em;
+}
+
+.mb-2 {
+    margin-bottom: 0.5rem !important;
+}
+
+.me-2 {
+    margin-right: 0.5rem !important;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Loading spinner */
+.btn .fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Improved form styling */
+.form-control:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.is-invalid {
+    border-color: #dc3545;
+}
+
+.is-invalid:focus {
+    border-color: #dc3545;
+    box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
+}
+
+/* Search results styling */
+.list-group-item {
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    margin-bottom: -1px;
+}
+
+.list-group-item:first-child {
+    border-top-left-radius: 0.375rem;
+    border-top-right-radius: 0.375rem;
+}
+
+.list-group-item:last-child {
+    margin-bottom: 0;
+    border-bottom-left-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+}
+
+/* Table improvements */
+.table tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.025);
+}
+
+.table .input-group {
+    margin-bottom: 0;
+}
+
+.table input[type="number"] {
+    text-align: center;
+}
+
+/* Button improvements */
+.btn {
+    transition: all 0.15s ease-in-out;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+/* Modal improvements */
+.modal-content {
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+
+/* Alert improvements */
+.alert {
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.alert .fas {
+    margin-right: 0.5rem;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .btn-group {
+        width: 100%;
+    }
+    
+    .btn-group .btn {
+        flex: 1;
+    }
+    
+    .table-responsive {
+        max-height: 400px;
+    }
+    
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+}
+
+/* Loading states */
+.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* Custom scrollbar */
+.table-responsive::-webkit-scrollbar,
+#search-results::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track,
+#search-results::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb,
+#search-results::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover,
+#search-results::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Form validation styling */
+.was-validated .form-control:valid {
+    border-color: #198754;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='m2.3 6.73.094-.094L6.982 2.049l.094-.094L8 2.879l-.094.094-4.682 4.682-.094.094-.094-.094L.142 4.562l-.094-.094.094-.094z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+.was-validated .form-control:invalid {
+    border-color: #dc3545;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath d='M5.8 5.8l.4.4.4-.4m-.4.4l-.4.4m.4-.4l.4-.4'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+/* Success/Error states */
+.success-flash {
+    animation: successFlash 0.5s ease-in-out;
+}
+
+.error-flash {
+    animation: errorFlash 0.5s ease-in-out;
+}
+
+@keyframes successFlash {
+    0% { background-color: transparent; }
+    50% { background-color: rgba(25, 135, 84, 0.1); }
+    100% { background-color: transparent; }
+}
+
+@keyframes errorFlash {
+    0% { background-color: transparent; }
+    50% { background-color: rgba(220, 53, 69, 0.1); }
+    100% { background-color: transparent; }
+}
+
+/* Print styles */
+@media print {
+    .btn, .modal, .alert {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+    }
+    
+    .table {
+        border-collapse: collapse !important;
+    }
+    
+    .table th,
+    .table td {
+        border: 1px solid #000 !important;
+    }
+}

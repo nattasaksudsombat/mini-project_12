@@ -1,0 +1,111 @@
+</head>
+<body>
+    Particle background
+    <div class="particles" id="particles">
+        <!-- Particles will be added by JavaScript -->
+    </div>
+    
+<nav class="navbar navbar-expand-lg navbar-dark glow-effect">
+    <div class="container">
+        <a class="navbar-brand" href="{{ route('dashboard') }}">
+            <i class="fas fa-wallet me-2 pulse-effect"></i>
+            <span class="neon-text">ระบบจัดการร้านค้า</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+               aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item fade-in delay-1">
+                    <a class="nav-link {{ Route::is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                        <i class="fas fa-chart-line me-1"></i> แดชบอร์ด
+                    </a>
+                </li>
+                <li class="nav-item fade-in delay-2">
+                    <a class="nav-link {{ Route::is('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}">
+                        <i class="fas fa-box me-1"></i> จัดการสินค้า
+                    </a>
+                </li>
+                <li class="nav-item fade-in delay-3">
+                    <a class="nav-link {{ Route::is('orders.*') ? 'active' : '' }}" href="{{ route('orders.index') }}">
+                        <i class="fas fa-receipt me-1"></i> รายการคำสั่งซื้อ
+                    </a>
+                </li>
+                <li class="nav-item fade-in delay-4">
+                    <a class="nav-link {{ Route::is('reports.*') ? 'active' : '' }}" href="{{ route('reports.index') }}">
+                        <i class="fas fa-chart-bar me-1"></i> รายงานและวิเคราะห์
+                    </a>
+                </li>
+                <li class="nav-item fade-in delay-5">
+                    <a class="nav-link {{ Route::is('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">
+                        <i class="fas fa-cog me-1"></i> การตั้งค่า
+                    </a>
+                </li>
+                <li class="nav-item fade-in delay-6">
+                    <a class="nav-link text-danger" href="">
+                        <i class="fas fa-sign-out-alt me-1"></i> ออกจากระบบ
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3 col-lg-2 d-md-block sidebar collapse" id="sidebarMenu">
+                <div class="position-sticky">
+                    <div class="loader"></div>
+                    <ul class="nav flex-column">
+                        <li class="nav-item fade-in delay-1">
+                            <a class="nav-link {{ Route::is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                                <i class="fas fa-chart-line me-2"></i>แดชบอร์ด
+                            </a>
+                        </li>
+                        <li class="nav-item fade-in delay-2">
+                            <a class="nav-link {{ Route::is('incomes.index') ? 'active' : '' }}" href="{{ route('incomes.index') }}">
+                                <i class="fas fa-list me-2"></i>ดูรายรับทั้งหมด
+                            </a>
+                        </li>
+                        <li class="nav-item fade-in delay-3">
+                            <a class="nav-link {{ Route::is('incomes.create') ? 'active' : '' }}" href="{{ route('incomes.create') }}">
+                                <i class="fas fa-plus-circle me-2"></i>เพิ่มรายรับ
+                            </a>
+                        </li>
+                        <li class="nav-item fade-in delay-4">
+                            <a class="nav-link {{ Route::is('expenses.index') ? 'active' : '' }}" href="{{ route('expenses.index') }}">
+                                <i class="fas fa-list me-2"></i>ดูรายจ่ายทั้งหมด
+                            </a>
+                        </li>
+                        <li class="nav-item fade-in delay-5">
+                            <a class="nav-link {{ Route::is('expenses.create') ? 'active' : '' }}" href="{{ route('expenses.create') }}">
+                                <i class="fas fa-plus-circle me-2"></i>เพิ่มรายจ่าย
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                @if(session('success'))
+                    <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+                        <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                @if(session('error'))
+                    <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
+                        <i class="fas fa-exclamation-circle me-2"></i>{{ session('error') }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                @endif
+
+                <!-- Page content will be yielded here -->
+                @yield('content')
+            </main>
+        </div>
+    </div>
+</body>
