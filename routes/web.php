@@ -27,7 +27,7 @@ use App\Http\Controllers\ProductExcelController;
 use App\Http\Controllers\StockController;
 
 /**
- * หน้าแรก -> Dashboard
+ * หน้าแรก -> Dashboard123456
  */
 Route::get('/', fn () => redirect('/dashboard'));
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
