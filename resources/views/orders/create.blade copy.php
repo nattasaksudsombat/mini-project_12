@@ -117,4 +117,5 @@
     </div>
 </div>
 @include('orders.partials.order-script')
+
 @endsection

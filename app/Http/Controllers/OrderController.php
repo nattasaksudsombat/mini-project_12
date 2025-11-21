@@ -106,6 +106,9 @@ class OrderController extends Controller
     /* =========================
        สร้างออเดอร์ + จองสต๊อก
     ========================== */
+   /* =========================
+       สร้างออเดอร์ + จองสต๊อก
+    ========================== */
     public function store(Request $request)
     {
         $request->validate([
@@ -136,7 +139,12 @@ class OrderController extends Controller
             ]);
 
             $nextId      = (int) (Order::max('id') ?? 0) + 1;
-            $orderNumber = 'ORD' . str_pad($nextId, 5, '0', STR_PAD_LEFT);
+            // ✅ แก้ไข: เพิ่มการตรวจสอบการสร้าง Order Number ให้เหมือนใน Model
+            $latestOrder = Order::latest('id')->first();
+            $number = $latestOrder ? ((int) str_replace('ORD', '', $latestOrder->order_number)) + 1 : 1;
+            $orderNumber = 'ORD' . str_pad($number, 4, '0', STR_PAD_LEFT);
+            // $orderNumber = 'ORD' . str_pad($nextId, 5, '0', STR_PAD_LEFT); // (ใช้ Logic จาก Model ดีกว่า)
+
 
             $order = Order::create([
                 'customer_id'       => $customer->id,
@@ -144,8 +152,8 @@ class OrderController extends Controller
                 'subtotal'          => $subtotal,
                 'shipping_fee'      => $shippingFee,
                 'discount'          => $discount,
-                'total_price'       => $totalPrice,
-                'total_amount'      => $subtotal,
+                'total_price'       => $totalPrice, // total_price ใน DB คือยอดรวม (อาจสับสนกับ total_amount)
+                'total_amount'      => $totalPrice, // total_amount คือยอดสุทธิ (จากโค้ดเดิมของคุณ)
                 'notes'             => $request->notes,
                 'status'            => 'pending',
                 'payment_status'    => 'pending',
@@ -170,9 +178,18 @@ class OrderController extends Controller
 
                 if ($hasVariants) {
                     if (!$variant) throw new \Exception("กรุณาเลือกสี/ไซส์ให้ครบถ้วนสำหรับสินค้า: {$productName}");
-                    $this->stockService->reserveStock(
-                        $variant->id, $qty, $order->id, $orderNumber
+                    
+                    // ✅ ==================  จุดที่แก้ไข ================== ✅
+                    // เปลี่ยนชื่อเมธอดจาก reserveStock -> reserveNewForOrderVariant
+                    // และสลับลำดับตัวแปร $order->id และ $qty
+                    $this->stockService->reserveNewForOrderVariant(
+                        $variant->id,    // 1. variantId
+                        $order->id,      // 2. orderId
+                        $qty,            // 3. quantity
+                        $orderNumber,    // 4. orderNumber
+                        'สร้างออเดอร์ใหม่' // 5. reason
                     );
+                    // ✅ =================================================== ✅
                 }
 
                 $colorName   = $colorId ? (Color::find($colorId)->name ?? null) : ($item['color_name'] ?? null);
@@ -195,6 +212,86 @@ class OrderController extends Controller
             return redirect()->route('orders.index')->with('success', 'สร้างออเดอร์และจองสต๊อคเรียบร้อยแล้ว');
         });
     }
+  public function reserveStock(
+        int $productColorSizeId,
+        int $quantity,
+        int $orderId,
+        string $orderNumber,
+        ?string $expiresAt = null
+    ): void {
+        if ($quantity <= 0) {
+            throw new \Exception('จำนวนที่จองต้องมากกว่า 0');
+        }
+
+        DB::transaction(function () use ($productColorSizeId, $quantity, $orderId, $orderNumber, $expiresAt) {
+
+            // 1) ล็อกแถว variant
+            $pcs = DB::table('product_color_size')
+                ->where('id', $productColorSizeId)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$pcs) {
+                throw new \Exception('ไม่พบสินค้า Variant ที่จะจองสต๊อก');
+            }
+
+            // 2) คำนวณสต๊อกที่ถูกจองอยู่ (active)
+            $reservedActive = (int) DB::table('stock_holds')
+                ->where('product_color_size_id', $productColorSizeId)
+                ->where('status', 'active')
+                ->sum('quantity');
+
+            $currentStock = (int) $pcs->quantity;
+            $available    = max(0, $currentStock - $reservedActive);
+
+            if ($quantity > $available) {
+                throw new \Exception(
+                    "สต๊อกไม่พอ จองได้สูงสุด {$available} ชิ้น (คงคลัง {$currentStock}, กำลังถูกจับ {$reservedActive})"
+                );
+            }
+
+            // 3) ถ้ามี hold เดิมของออเดอร์นี้อยู่แล้ว -> บวกเพิ่ม
+            $existing = DB::table('stock_holds')
+                ->where('product_color_size_id', $productColorSizeId)
+                ->where('order_id', $orderId)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                DB::table('stock_holds')
+                    ->where('id', $existing->id)
+                    ->update([
+                        'quantity'   => (int)$existing->quantity + $quantity,
+                        'updated_at' => now(),
+                    ]);
+            } else {
+                DB::table('stock_holds')->insert([
+                    'product_color_size_id' => $productColorSizeId,
+                    'order_id'   => $orderId,
+                    'quantity'   => $quantity,
+                    'status'     => 'active',
+                    'expires_at' => $expiresAt,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // ไม่หัก product_color_size.quantity ตอนนี้
+            // จะไปหักจริงในเมธอด shipConsumeAll() ตามที่คุณใช้อยู่แล้ว
+        });
+    }
+
+    /* ------------------------------------------------------
+     * หมายเหตุ:
+     * จาก Controller ของคุณ ยังเรียกใช้เมธอดเหล่านี้ด้วย:
+     *   - getVariantSummary($variantId, $orderId)
+     *   - setHoldByReleaseThenReserve($variantId, $orderId, $desiredQty, $orderNumber)
+     *   - cancelOrderReleaseAll($orderId, $orderNumber)
+     *   - shipConsumeAll($orderId, $orderNumber)
+     * ต้องมีเมธอดเหล่านี้อยู่ในคลาสนี้แล้ว (ตามโปรเจ็กต์เดิม)
+     * ถ้ายังไม่มี แจ้งมาได้ เดี๋ยวผมเติมให้ครบชุด
+     * ---------------------------------------------------- */
 
     /* =========================
        แสดง / แก้ไข
@@ -261,86 +358,234 @@ class OrderController extends Controller
        อัปเดตออเดอร์ (ปล่อยเดิม → จองใหม่)
     ========================== */
     public function update(Request $request, $id)
-    {
-        $formItems = $request->input('items', []);
-        if (!is_array($formItems)) $formItems = [];
+{
+    // อ่าน order + lock กันแข่ง
+    $order = Order::with('customer')->lockForUpdate()->findOrFail($id);
 
-        return DB::transaction(function () use ($id, $formItems) {
-            // โหลดออเดอร์ภายในทรานแซกชันแล้วค่อย lock
-            $order = DB::table('orders')->where('id',$id)->lockForUpdate()->first();
-            abort_unless($order, 404);
-
-            $old = DB::table('order_items as oi')
-                ->leftJoin('product_color_size as pcs', function($j){
-                    $j->on('pcs.product_id','=','oi.product_id')
-                      ->on('pcs.color_id','=','oi.color_id')
-                      ->on('pcs.size_id','=','oi.size_id');
-                })
-                ->selectRaw('
-                    oi.id,
-                    COALESCE(pcs.id,0) as variant_id,
-                    oi.quantity,
-                    COALESCE(oi.unit_price, oi.total_price/NULLIF(oi.quantity,0), 0) as price
-                ')
-                ->where('oi.order_id', $id)
-                ->lockForUpdate()
-                ->get();
-
-            $orderNumber = $order->order_number ?? ('ORD'.str_pad($id,5,'0',STR_PAD_LEFT));
-            $svc = $this->stockService;
-
-            $newSubtotal = 0.0;
-
-            foreach ($old as $row) {
-                $itemId  = (int)$row->id;
-                $variant = (int)$row->variant_id;
-                $oldQty  = (int)$row->quantity;
-                $price   = (float)$row->price;
-
-                $desired = isset($formItems[$itemId]['quantity'])
-                    ? max(0, (int)$formItems[$itemId]['quantity'])
-                    : $oldQty;
-
-                if ($variant > 0) {
-                    $sum = $svc->getVariantSummary($variant, (int)$id);
-                    if ($desired > $sum['max_total_for_order']) {
-                        throw new \Exception("ตั้งจำนวนเกินโควต้า (สูงสุด {$sum['max_total_for_order']} ชิ้น)");
-                    }
-                    // ปล่อยทั้งหมด → จองใหม่ตาม desired
-                    $svc->setHoldByReleaseThenReserve($variant, (int)$id, $desired, $orderNumber);
-                }
-
-                $updates = [
-                    'quantity'    => $desired,
-                    'total_price' => $desired * $price,
-                ];
-                if (Schema::hasColumn('order_items','updated_at')) {
-                    $updates['updated_at'] = now();
-                }
-
-                DB::table('order_items')->where('id', $itemId)->update($updates);
-                $newSubtotal += $desired * $price;
-            }
-
-            $shipping = (float)($order->shipping_fee ?? 0);
-            $discount = (float)($order->discount_amount ?? 0);
-            $grand    = $newSubtotal + $shipping - $discount;
-
-            $orderUpdates = [
-                'subtotal'     => $newSubtotal,
-                'total_amount' => $grand,
-            ];
-            if (Schema::hasColumn('orders','updated_at')) {
-                $orderUpdates['updated_at'] = now();
-            }
-
-            DB::table('orders')->where('id', $id)->update($orderUpdates);
-
-            return redirect()->route('orders.edit', $id)
-                ->with('success', 'บันทึกการแก้ไขเรียบร้อย (ปล่อยของเดิมทั้งหมด แล้วจองใหม่)');
-        });
+    // รับ payload จากฟอร์ม (items_json จากหน้าที่คุณรวมไว้)
+    $payload = json_decode($request->input('items_json', '[]'), true);
+    if (!is_array($payload)) {
+        $payload = [];
     }
 
+    // optional: อนุญาตแก้ข้อมูลลูกค้า/สถานะ/ค่าส่ง ตามฟอร์มหน้า edit
+    $customerInput = (array) $request->input('customer', []);
+    $status        = $request->input('status', $order->status);
+    $paymentStatus = $request->input('payment_status', $order->payment_status);
+    $shippingFee   = (float) ($request->input('shipping_fee', $order->shipping_fee ?? 0));
+    $discount      = (float) ($request->input('discount', 0));
+
+    // เตรียม service + เบอร์ออเดอร์
+    /** @var \App\Services\StockService $svc */
+    $svc          = app(StockService::class);
+    $orderNumber  = $order->order_number ?? ('ORD' . str_pad($order->id, 5, '0', STR_PAD_LEFT));
+
+    DB::beginTransaction();
+    try {
+
+        /* -------------------- อัปเดตข้อมูลลูกค้า/คำสั่งซื้อพื้นฐาน -------------------- */
+        if ($order->customer_id && !empty($customerInput)) {
+            $order->customer->update([
+                'name'             => $customerInput['name'] ?? $order->customer->name,
+                'phone'            => $customerInput['phone'] ?? $order->customer->phone,
+                'address'          => $customerInput['address'] ?? $order->customer->address,
+                'purchase_channel' => $this->normalizePurchaseChannel($customerInput['purchase_channel'] ?? $order->customer->purchase_channel),
+                'payment_method'   => $this->normalizePaymentMethod($customerInput['payment_method'] ?? $order->customer->payment_method),
+            ]);
+
+            // sync ไปที่ order ด้วย
+            $order->shipping_address = $order->customer->address;
+        }
+
+        $order->status         = $status;
+        $order->payment_status = $paymentStatus;
+
+        /* -------------------- ดึงรายการเดิมในออเดอร์ -------------------- */
+        $existing = OrderItem::where('order_id', $order->id)->get();
+
+        // map เดิมตามคีย์ product/color/size เพื่อเช็คว่ามี/ไม่มี
+        $makeKey = fn($pid, $cid, $sid) => $pid . ':' . (int)($cid ?? 0) . ':' . (int)($sid ?? 0);
+
+        $existingByKey = [];
+        foreach ($existing as $e) {
+            $existingByKey[$makeKey($e->product_id, $e->color_id, $e->size_id)] = $e;
+        }
+
+        $seenKeys   = [];
+        $newSubtotal = 0.0;
+
+        /* -------------------- วน payload ใหม่ (สร้าง/อัปเดต/จองสต๊อก) -------------------- */
+        foreach ($payload as $row) {
+            $productId   = (int) ($row['product_id'] ?? 0);
+            $qty         = max(0, (int) ($row['quantity'] ?? 0));
+            $unitPrice   = (float) ($row['unit_price'] ?? $row['price'] ?? 0);
+            $productName = trim((string)($row['product_name'] ?? $row['name'] ?? ''));
+
+            // resolve variant
+            [$colorId, $sizeId, $variant, $hasVariants] = $this->resolveVariant(
+                $productId,
+                $row['color_id']     ?? null,
+                $row['size_id']      ?? null,
+                $row['color_name']   ?? null,
+                $row['size_name']    ?? null,
+                $row['variant_name'] ?? null
+            );
+
+            if ($hasVariants && !$variant) {
+                throw new \Exception("กรุณาเลือกสี/ไซส์ให้ครบถ้วนสำหรับสินค้า: {$productName}");
+            }
+
+            $key = $makeKey($productId, $colorId, $sizeId);
+            $seenKeys[$key] = true;
+
+            // ถ้ามีอยู่แล้ว → อัปเดตจำนวน + re-hold ผ่าน service
+            if (isset($existingByKey[$key])) {
+                $item = $existingByKey[$key];
+
+                if ($hasVariants) {
+                    // โหมด “ปล่อยทั้งหมดเดิม แล้วจองใหม่ตาม desired”
+                    $svc->setHoldByReleaseThenReserve($variant->id, (int)$order->id, $qty, $orderNumber);
+                }
+
+                $item->update([
+                    'quantity'    => $qty,
+                    'unit_price'  => $unitPrice,
+                    'total_price' => $qty * $unitPrice,
+                ]);
+            }
+            // ถ้าเป็นของใหม่ → สร้างแถวใหม่ + จอง hold
+            else {
+                $colorName   = $colorId ? (Color::find($colorId)->name ?? '') : ($row['color_name'] ?? '');
+                $sizeName    = $sizeId  ? (Size::find($sizeId)->size_name ?? '') : ($row['size_name'] ?? '');
+                $variantName = $this->createVariantName($colorName, $sizeName);
+
+                if ($hasVariants) {
+                    $svc->setHoldByReleaseThenReserve($variant->id, (int)$order->id, $qty, $orderNumber);
+                }
+
+                OrderItem::create([
+                    'order_id'     => $order->id,
+                    'product_id'   => $productId,
+                    'product_name' => $productName ?: (Product::find($productId)->name ?? 'ไม่ระบุ'),
+                    'color_id'     => $colorId,
+                    'size_id'      => $sizeId,
+                    'variant_name' => $variantName,
+                    'quantity'     => $qty,
+                    'unit_price'   => $unitPrice,
+                    'total_price'  => $qty * $unitPrice,
+                ]);
+            }
+
+            $newSubtotal += ($qty * $unitPrice);
+        }
+
+        /* -------------------- ของที่ถูกลบออกจาก payload → ปล่อย hold + ลบแถว -------------------- */
+        foreach ($existing as $e) {
+            $key = $makeKey($e->product_id, $e->color_id, $e->size_id);
+            if (!isset($seenKeys[$key])) {
+                // หา variant เพื่อปล่อย hold
+                if ($e->color_id && $e->size_id) {
+                    $pcs = ProductColorSize::where('product_id', $e->product_id)
+                        ->where('color_id', $e->color_id)
+                        ->where('size_id', $e->size_id)
+                        ->first();
+
+                    if ($pcs) {
+                        $svc->setHoldByReleaseThenReserve($pcs->id, (int)$order->id, 0, $orderNumber);
+                    }
+                }
+                $e->delete();
+            }
+        }
+
+        /* -------------------- อัปเดตยอดรวม/ค่าส่ง/ส่วนลด -------------------- */
+        $grand = $newSubtotal + $shippingFee - $discount;
+
+        $order->subtotal     = $newSubtotal;
+        $order->shipping_fee = $shippingFee;
+        $order->discount     = $discount;      // ถ้ามีคอลัมน์ชื่อ discount_amount ให้เปลี่ยนชื่อฟิลด์ตรงนี้
+        $order->total_price  = $grand;
+        $order->total_amount = $grand;
+        $order->updated_at   = now();
+        $order->save();
+
+        DB::commit();
+
+        return redirect()
+            ->route('orders.edit', $order->id)
+            ->with('success', 'บันทึกการแก้ไขเรียบร้อย (เพิ่ม/ลด/ลบสินค้า และจัดการสต๊อกครบถ้วน)');
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        report($e);
+        return back()->with('error', $e->getMessage());
+    }
+}
+
+
+// ===== Normalizers สำหรับ ENUM =====
+private function normalizePurchaseChannel($value): string
+{
+    $value = trim((string)$value);
+
+    // mapping ค่าที่มากับฟอร์ม -> ค่า enum ที่บันทึกใน DB
+    $map = [
+        'facebook' => 'facebook',
+        'เฟซบุ๊ก'   => 'facebook',
+        'fb'       => 'facebook',
+
+        'line'     => 'line',
+        'ไลน์'      => 'line',
+
+        'website'  => 'website',
+        'เว็บ'       => 'website',
+        'เว็บไซต์'   => 'website',
+
+        'shopee'   => 'shopee',
+        'lazada'   => 'lazada',
+
+        'offline'  => 'offline',
+        'หน้าร้าน'   => 'offline',
+    ];
+
+    $lower = mb_strtolower($value, 'UTF-8');
+    foreach ($map as $k => $v) {
+        if (mb_strtolower($k, 'UTF-8') === $lower) return $v;
+    }
+    // ค่า fallback
+    return 'facebook';
+}
+
+private function normalizePaymentMethod($value): string
+{
+    $value = trim((string)$value);
+
+    $map = [
+        'bank_transfer'    => 'bank_transfer',
+        'โอน'               => 'bank_transfer',
+        'พร้อมเพย์'         => 'bank_transfer',
+        'โอน/พร้อมเพย์'      => 'bank_transfer',
+
+        'cash_on_delivery' => 'cash_on_delivery',
+        'ชำระปลายทาง'        => 'cash_on_delivery',
+        'ชำระปลายทาง (cod)' => 'cash_on_delivery',
+        'cod'               => 'cash_on_delivery',
+
+        'credit_card'      => 'credit_card',
+        'บัตรเครดิต'         => 'credit_card',
+        'บัตรเครดิต/เดบิต'   => 'credit_card',
+        'เครดิต'             => 'credit_card',
+
+        'e_wallet'         => 'e_wallet',
+        'วอลเล็ต'            => 'e_wallet',
+        'wallet'            => 'e_wallet',
+    ];
+
+    $lower = mb_strtolower($value, 'UTF-8');
+    foreach ($map as $k => $v) {
+        if (mb_strtolower($k, 'UTF-8') === $lower) return $v;
+    }
+    return 'bank_transfer';
+}
     /* =========================
        ยกเลิก/จัดส่ง (จุดเปลี่ยนสต๊อก)
     ========================== */
@@ -480,41 +725,102 @@ class OrderController extends Controller
        Live Search / Variants (AJAX)
     ========================== */
     public function searchProducts(Request $request)
-    {
-        $query = $request->get('q');
+{
+    $query = trim((string)$request->get('q', ''));
 
-        $products = Product::with(['colorSizes.color','colorSizes.size'])
-            ->where('is_active', 1)
-            ->where(function($q2) use ($query){
-                $q2->where('name','LIKE',"%{$query}%")
-                   ->orWhere('id_stock','LIKE',"%{$query}%");
-            })
-            ->limit(10)->get();
-
-        return response()->json($products);
+    if (mb_strlen($query) < 2) {
+        return response()->json([]); // พิมพ์น้อยกว่า 2 ตัวอักษรไม่ค้นหา
     }
 
-    public function getProductVariants($productId)
-    {
-        $variants = ProductColorSize::with(['color','size'])
-            ->where('product_id',$productId)->get()
-            ->map(function($v){
-                $colorName = $v->color?->name ?? '';
-                $sizeName  = $v->size?->size_name ?? '';
-                $display   = $this->createVariantName($colorName, $sizeName);
-                return [
-                    'id'           => $v->id,
-                    'color_id'     => $v->color_id,
-                    'size_id'      => $v->size_id,
-                    'color_name'   => $colorName,
-                    'size_name'    => $sizeName,
-                    'quantity'     => (int)$v->quantity,
-                    'display_name' => $display . " (คงเหลือ: {$v->quantity})",
-                ];
+    // ถ้าไม่มีคอลัมน์ is_active เอาออกได้
+    $products = \App\Models\Product::query()
+        ->when($request->has('only_active'), fn($q)=>$q->where('is_active', 1))
+        ->where(function ($q2) use ($query) {
+            $q2->where('name', 'LIKE', "%{$query}%")
+               ->orWhere('id_stock', 'LIKE', "%{$query}%")
+               ->orWhere('sku', 'LIKE', "%{$query}%");
+        })
+        ->orderBy('name')
+        ->limit(10)
+        ->get(['id','name','price','id_stock','sku']);
+
+    // คืนข้อมูลที่ JS ใช้แน่ๆ
+    $payload = $products->map(function($p){
+        return [
+            'id'       => (int) $p->id,
+            'name'     => (string) ($p->name ?? '-'),
+            'price'    => (float) ($p->price ?? 0),
+            'id_stock' => (string) ($p->id_stock ?? $p->sku ?? ''),
+            'sku'      => (string) ($p->sku ?? ''),
+        ];
+    });
+
+    return response()->json($payload);
+}
+
+    public function getProductVariants(Request $request, $productId)
+{
+    $excludeOrderId = (int)$request->query('exclude_order_id', 0);
+
+    // 1) base variants ของสินค้านี้
+    $variants = DB::table('product_color_size as pcs')
+        ->leftJoin('colors as c', 'c.id', '=', 'pcs.color_id')
+        ->leftJoin('sizes  as s', 's.id', '=', 'pcs.size_id')
+        ->where('pcs.product_id', $productId)
+        ->selectRaw('
+            pcs.id,
+            pcs.color_id,
+            pcs.size_id,
+            pcs.quantity,
+            c.name      as color_name,
+            s.size_name as size_name
+        ')
+        ->get();
+
+    if ($variants->isEmpty()) {
+        // ส่งเป็นอาเรย์ว่าง (รูปแบบเดิม) เพื่อไม่กระทบ JS หน้าต่าง ๆ
+        return response()->json([]);
+    }
+
+    $ids = $variants->pluck('id')->all();
+
+    // 2) ยอดจอง (active) ของทุก variant โดยยกเว้นออเดอร์ที่ระบุ (ถ้ามี)
+    $reserved = DB::table('stock_holds')
+        ->whereIn('product_color_size_id', $ids)
+        ->where('status', 'active')
+        ->when($excludeOrderId > 0, function ($q) use ($excludeOrderId) {
+            $q->where(function ($qq) use ($excludeOrderId) {
+                $qq->whereNull('order_id')
+                   ->orWhere('order_id', '<>', $excludeOrderId);
             });
+        })
+        ->selectRaw('product_color_size_id, SUM(quantity) as qty')
+        ->groupBy('product_color_size_id')
+        ->pluck('qty', 'product_color_size_id');
 
-        return response()->json($variants);
-    }
+    // 3) map กลับ: คงรูปแบบเดิมที่ JS ใช้ (มี field quantity สำหรับ “คงเหลือ”)
+    $out = $variants->map(function ($v) use ($reserved) {
+        $base      = (int)$v->quantity;                          // สต็อกในตาราง pcs
+        $resv      = (int)($reserved[$v->id] ?? 0);              // สต็อกที่ถูกจับไว้
+        $available = max(0, $base - $resv);                      // คงเหลือจริง
+        $display   = trim(($v->color_name ?? '') . ' - ' . ($v->size_name ?? ''), ' -');
+
+        return [
+            'id'            => (int)$v->id,                       // ✅ id ของ variant (pcs.id)
+            'color_id'      => $v->color_id,
+            'size_id'       => $v->size_id,
+            'color_name'    => $v->color_name ?? '',
+            'size_name'     => $v->size_name ?? '',
+            'base_quantity' => $base,                             // ฐาน (ออปชัน)
+            'available'     => $available,                        // คงเหลือจริง
+            'quantity'      => $available,                        // ✅ alias เดิมที่ JS อ่านอยู่
+            'display_name'  => $display . " (คงเหลือ: {$available})",
+        ];
+    });
+
+    // ส่ง “อาเรย์” ตรง ๆ (ไม่ห่อ) → ไม่กระทบโค้ดเดิม
+    return response()->json($out);
+}
 
     /* =========================
        Tracking / Payment

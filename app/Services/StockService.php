@@ -11,32 +11,73 @@ use Exception;
 
 class StockService
 {
+      public function reserveStock(int $variantId, int $qty, int $orderId, string $orderNumber = ''): void
+    {
+        if ($qty <= 0) return;
+
+        DB::transaction(function () use ($variantId, $qty, $orderId) {
+            // lock แถวสต๊อค & hold ที่เกี่ยวข้อง
+            DB::table('product_color_size')->where('id', $variantId)->lockForUpdate()->first();
+
+            $sum = $this->getVariantSummary($variantId, $orderId);
+            if ($qty > $sum['available_stock']) {
+                throw new \Exception("สต๊อคไม่พอ (คงเหลือ {$sum['available_stock']} ชิ้น)");
+            }
+
+            // อัปเซ็ต hold แถวเดียวต่อ (variant, order)
+            $hold = DB::table('stock_holds')->where([
+                'product_color_size_id' => $variantId,
+                'order_id' => $orderId,
+                'status'   => 'active',
+            ])->lockForUpdate()->first();
+
+            if ($hold) {
+                DB::table('stock_holds')->where('id', $hold->id)->update([
+                    'quantity'   => (int)$hold->quantity + $qty,
+                    'updated_at' => now(),
+                ]);
+            } else {
+                DB::table('stock_holds')->insert([
+                    'product_color_size_id' => $variantId,
+                    'order_id' => $orderId,
+                    'quantity' => $qty,
+                    'status'   => 'active',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+        });
+    }
     /**
      * อ่านค่าจาก view + นับ hold ของออเดอร์นี้
      */
-    public function getVariantSummary(int $variantId, ?int $orderId = null): array
+    public function getVariantSummary(int $variantId, int $orderId = 0): array
     {
-        $v = DB::table('v_current_stock')->where('id', $variantId)->first();
-        if (!$v) throw new \Exception("ไม่พบ variant id={$variantId} ใน v_current_stock");
+        $row = DB::table('product_color_size')->where('id', $variantId)->lockForUpdate()->first();
+        $current = (int)($row->quantity ?? 0);
 
-        $reservedByThis = 0;
-        if ($orderId) {
-            $reservedByThis = (int) DB::table('stock_holds')
-                ->where('product_color_size_id', $variantId)
-                ->where('order_id', $orderId)
-                ->where('status', 'active')
-                ->sum('quantity');
-        }
+        $reservedAllExceptThis = (int) DB::table('stock_holds')
+            ->where('product_color_size_id', $variantId)
+            ->where('status', 'active')
+            ->when($orderId > 0, fn($q) => $q->where(function($qq) use ($orderId){
+                $qq->whereNull('order_id')->orWhere('order_id', '<>', $orderId);
+            }))
+            ->sum('quantity');
+
+        $reservedByThis = (int) DB::table('stock_holds')
+            ->where('product_color_size_id', $variantId)
+            ->where('status', 'active')
+            ->where('order_id', $orderId)
+            ->sum('quantity');
+
+        $available = max(0, $current - $reservedAllExceptThis);
 
         return [
-            'current_stock'       => (int)$v->current_stock,
-            'reserved_stock'      => (int)$v->reserved_stock,
-            'available_stock'     => (int)$v->available_stock,
-            'reserved_by_this'    => (int)$reservedByThis,
-            'reserved_by_others'  => max(0, (int)$v->reserved_stock - (int)$reservedByThis),
-            // โควต้าที่ “ตั้งรวมได้สูงสุด” สำหรับออเดอร์นี้ขณะนี้
-            'max_total_for_order' => (int)$v->current_stock - max(0, (int)$v->reserved_stock - (int)$reservedByThis),
-            // โควต้าเพิ่มได้อีกจากจำนวนปัจจุบันที่ถืออยู่ (คำนวณนอกเมธอดตอนรู้จำนวนเดิมของรายการ)
+            'current_stock'       => $current,
+            'reserved_stock'      => $reservedAllExceptThis,
+            'reserved_by_this'    => $reservedByThis,
+            'available_stock'     => $available,
+            'max_total_for_order' => $available + $reservedByThis,
         ];
     }
     public function adjustSave(int $variantId, Request $request, StockService $svc)
@@ -411,83 +452,74 @@ class StockService
      * SET แบบที่คุณกำหนด: ปล่อยของเดิมทั้งหมด แล้วจองใหม่ตามจำนวน desiredQty
      * (บันทึก 2 ทรานแซกชัน: release + reserve)
      */
-    public function setHoldByReleaseThenReserve(int $variantId, int $orderId, int $desiredQty, string $orderNumber): void
+     public function setHoldByReleaseThenReserve(int $variantId, int $orderId, int $desiredQty, string $orderNumber = ''): void
     {
-        DB::transaction(function () use ($variantId, $orderId, $desiredQty, $orderNumber) {
-            // 1) ปล่อยของเดิมทั้งหมด
-            $this->releaseAllForOrderVariant($variantId, $orderId, $orderNumber, 'แก้ไขออเดอร์');
+        DB::transaction(function () use ($variantId, $orderId, $desiredQty) {
+            // ปล่อยของเดิมทั้งหมดของออเดอร์นี้ก่อน
+            DB::table('stock_holds')
+                ->where('product_color_size_id', $variantId)
+                ->where('order_id', $orderId)
+                ->where('status', 'active')
+                ->update([
+                    'status' => 'released',
+                    'updated_at' => now(),
+                ]);
 
-            // 2) จองใหม่ตามจำนวนที่ต้องการ
-            if ($desiredQty > 0) {
-                $this->reserveNewForOrderVariant($variantId, $orderId, $desiredQty, $orderNumber, 'แก้ไขออเดอร์');
+            if ($desiredQty <= 0) {
+                return;
             }
+
+            // แล้วจองใหม่ตาม desiredQty
+            $this->reserveStock($variantId, $desiredQty, $orderId);
         });
     }
 
     /**
      * ยกเลิกออเดอร์: ปล่อย hold ของออเดอร์นี้ทุก variant
      */
-    public function cancelOrderReleaseAll(int $orderId, string $orderNumber): void
+   public function cancelOrderReleaseAll(int $orderId, string $orderNumber = ''): void
     {
-        DB::transaction(function () use ($orderId, $orderNumber) {
-            $rows = DB::table('stock_holds')
-                ->select('product_color_size_id', DB::raw('SUM(quantity) AS qty'))
+        DB::transaction(function () use ($orderId) {
+            DB::table('stock_holds')
                 ->where('order_id', $orderId)
                 ->where('status', 'active')
-                ->groupBy('product_color_size_id')
-                ->lockForUpdate()
-                ->get();
-
-            foreach ($rows as $r) {
-                $this->releaseAllForOrderVariant((int)$r->product_color_size_id, $orderId, $orderNumber, 'ยกเลิกออเดอร์');
-            }
+                ->update([
+                    'status' => 'released',
+                    'updated_at' => now(),
+                ]);
         });
     }
 
     /**
      * จัดส่ง (ตัดสต๊อกจริง): mark hold เป็น consumed และลด current_stock
      */
-    public function shipConsumeAll(int $orderId, string $orderNumber): void
+    public function shipConsumeAll(int $orderId, string $orderNumber = ''): void
     {
-        DB::transaction(function () use ($orderId, $orderNumber) {
-            // ดึง hold active ของออเดอร์นี้ทุก variant
+        DB::transaction(function () use ($orderId) {
+
             $holds = DB::table('stock_holds')
-                ->select('id', 'product_color_size_id', 'quantity')
-                ->where('order_id', $orderId)->where('status', 'active')
-                ->lockForUpdate()->get();
+                ->where('order_id', $orderId)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->get();
 
             foreach ($holds as $h) {
-                $variantId = (int)$h->product_color_size_id;
-                $qty       = (int)$h->quantity;
+                $pcs = DB::table('product_color_size')->where('id', $h->product_color_size_id)->lockForUpdate()->first();
+                if (!$pcs) continue;
 
-                // 1) mark consumed
-                DB::table('stock_holds')->where('id', $h->id)->update([
-                    'status' => 'consumed',
+                $newQty = (int)$pcs->quantity - (int)$h->quantity;
+                if ($newQty < 0) {
+                    throw new \Exception("ตัดสต๊อคติดลบ (variant {$h->product_color_size_id})");
+                }
+
+                DB::table('product_color_size')->where('id', $h->product_color_size_id)->update([
+                    'quantity'   => $newQty,
                     'updated_at' => now(),
                 ]);
 
-                // 2) ลดของจริง (current_stock) ใน product_color_size
-                $before = (int) DB::table('product_color_size')->where('id', $variantId)->lockForUpdate()->value('quantity');
-                if ($before < $qty) {
-                    throw new \Exception("สต๊อกจริงไม่พอจะตัด (มี {$before}, ต้องการ {$qty})");
-                }
-                $after = $before - $qty;
-
-                DB::table('product_color_size')->where('id', $variantId)->update(['quantity' => $after]);
-
-                // 3) log out (physical)
-                DB::table('stock_transactions')->insert([
-                    'product_color_size_id' => $variantId,
-                    'order_id'              => $orderId,
-                    'type'                  => 'out',
-                    'quantity'              => -$qty,
-                    'quantity_before'       => $before,
-                    'quantity_after'        => $after,
-                    'reason'                => "จัดส่งออเดอร์ {$orderNumber}",
-                    'user_id'               => Auth::id(),
-                    'user_name'             => Auth::user()->name ?? null,
-                    'reference_number'      => $orderNumber,
-                    'created_at'            => now(),
+                DB::table('stock_holds')->where('id', $h->id)->update([
+                    'status'     => 'consumed',
+                    'updated_at' => now(),
                 ]);
             }
         });

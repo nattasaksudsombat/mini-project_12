@@ -20,6 +20,19 @@ class StockController extends Controller
     }
 
     /**
+     * เลือกชื่อคอลัมน์คีย์หลักของ v_current_stock แบบยืดหยุ่น:
+     * - ถ้ามี variant_id ใช้อันนี้
+     * - ถ้าไม่มีก็ดู product_color_size_id
+     * - ถ้ายังไม่มีก็ fallback เป็น id
+     */
+    protected function vStockPk(): string
+    {
+        return Schema::hasColumn('v_current_stock', 'variant_id') ? 'variant_id'
+            : (Schema::hasColumn('v_current_stock', 'product_color_size_id') ? 'product_color_size_id'
+            : 'id');
+    }
+
+    /**
      * ประวัติปรับเข้า/ออกล่าสุด 10 รายการของ variant
      */
     public function adjustHistory(int $variantId)
@@ -66,11 +79,16 @@ class StockController extends Controller
         $product = DB::table('products')->find($productId);
         if (!$product) { abort(404); }
 
+        $pk = $this->vStockPk();
+
         $rows = DB::table('v_current_stock as v')
-            ->join('product_color_size as pcs','pcs.id','=','v.id')
-            ->leftJoin('colors as c','c.id','=','pcs.color_id')
-            ->leftJoin('sizes  as s','s.id','=','pcs.size_id')
-            ->selectRaw('v.id as variant_id, c.name as color_name, s.size_name, v.current_stock, v.reserved_stock, v.available_stock')
+            ->join('product_color_size as pcs', function ($j) use ($pk) {
+                // v.<pk> = pcs.id
+                $j->on('pcs.id', '=', DB::raw('v.'.$pk));
+            })
+            ->leftJoin('colors as c', 'c.id', '=', 'pcs.color_id')
+            ->leftJoin('sizes  as s', 's.id', '=', 'pcs.size_id')
+            ->selectRaw("v.$pk as variant_id, c.name as color_name, s.size_name, v.current_stock, v.reserved_stock, v.available_stock")
             ->where('v.product_id', $productId)
             ->orderBy('c.name')->orderBy('s.size_name')
             ->get();
@@ -125,7 +143,8 @@ class StockController extends Controller
 
         if (!$variant) { abort(404); }
 
-        $v = DB::table('v_current_stock')->where('id',$variantId)->first();
+        $pk = $this->vStockPk();
+        $v = DB::table('v_current_stock')->where($pk, $variantId)->first();
         if (!$v) { abort(500,"ไม่พบ variant id={$variantId} ใน v_current_stock"); }
 
         $last10 = DB::table('stock_transactions')
@@ -182,8 +201,7 @@ class StockController extends Controller
     }
 
     /**
-     * ดูประวัติ/ไทม์ไลน์ของ Variant + Holds ปัจจุบัน (Golden Rule)
-     * ส่ง summary/holds/history ให้ view ครบ
+     * ดูประวัติ/ไทม์ไลน์ของ Variant + Holds ปัจจุบัน
      */
     public function variantHistory(int $variantId, Request $request)
     {
@@ -197,8 +215,9 @@ class StockController extends Controller
             ->first();
         if (!$variant) { abort(404); }
 
-        // summary จาก v_current_stock
-        $v = DB::table('v_current_stock')->where('id',$variantId)->first();
+        // summary จาก v_current_stock (ใช้ pk ที่ยืดหยุ่น)
+        $pk = $this->vStockPk();
+        $v = DB::table('v_current_stock')->where($pk, $variantId)->first();
         if (!$v) { abort(500,"ไม่พบ variant id={$variantId} ใน v_current_stock"); }
 
         $summary = (object)[

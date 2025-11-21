@@ -2,6 +2,7 @@
 
 @section('content')
 <div class="container">
+  
 
     <!-- แสดงข้อมูลที่ซ่อนสำหรับ JavaScript -->
     <script type="application/json" id="order-data">
@@ -605,49 +606,42 @@ function clearSearch() {
 }
 
 /* ---------------- Variant Modal ---------------- */
-async function showVariantModal(id, name, price) {
-    currentProduct = { id, name, price: N(price || 0) };
-    const el = document.getElementById('selected-product-name');
-    if (el) el.textContent = name;
-    
-    try {
-        const res = await fetch(`/products/${id}/variants`);
-        const data = res.ok ? await res.json() : [];
-        await populateVariantSelect(data, currentProduct.price);
-        const modal = new bootstrap.Modal(document.getElementById('variantModal'));
-        modal.show();
-    } catch(e) {
-        showAlert('โหลดรายการสี-ไซส์ไม่สำเร็จ', 'danger');
-    }
+async function showVariantModal(id, name, price){
+  currentProduct = { id, name, price: N(price||0) };
+  const el = document.getElementById('selected-product-name');
+  if (el) el.textContent = name;
+  try {
+    const res = await fetch(`/products/${id}/variants?exclude_order_id={{ $order->id }}`);
+    const data = res.ok ? await res.json() : [];
+    populateVariantSelect(data, currentProduct.price);
+    const modal = new bootstrap.Modal(document.getElementById('variantModal'));
+    modal.show();
+  } catch {
+    showAlert('โหลดรายการสี-ไซส์ไม่สำเร็จ', 'danger');
+  }
 }
 
-async function populateVariantSelect(variants, defaultPrice) {
-    const select = document.getElementById('variant-select');
-    const priceInput = document.getElementById('variant-price');
-    if (!select) return;
-    
-    select.innerHTML = '<option value="">-- เลือกสี-ไซส์ --</option>';
-    
-    // Fetch available stock for each variant (excluding current order)
-    for (const v of variants) {
-        const color = v.color_name || v.color?.name || 'สีมาตรฐาน';
-        const size = v.size_name || v.size?.size_name || v.size?.name || 'ไซส์มาตรฐาน';
-        
-        // Get available stock for this variant
-        const availableStock = await getAvailableStock(currentProduct.id, v.id);
-        
-        const opt = document.createElement('option');
-        opt.value = v.id;
-        opt.textContent = `${color} - ${size} (คงเหลือ: ${availableStock})`;
-        opt.dataset.stock = String(availableStock);
-        opt.dataset.colorId = String(v.color_id ?? '');
-        opt.dataset.sizeId = String(v.size_id ?? '');
-        opt.dataset.colorName = color;
-        opt.dataset.sizeName = size;
-        select.appendChild(opt);
-    }
-    
-    if (priceInput) priceInput.value = Number(defaultPrice || 0).toFixed(2);
+function populateVariantSelect(variants, defaultPrice){
+  const select = document.getElementById('variant-select');
+  const priceInput = document.getElementById('variant-price');
+  if (!select) return;
+  select.innerHTML = '<option value="">-- เลือกสี-ไซส์ --</option>';
+  (variants||[]).forEach(v=>{
+    const color = v.color_name || 'สีมาตรฐาน';
+    const size  = v.size_name  || 'ไซส์มาตรฐาน';
+    // ใช้ available ก่อน ถ้าไม่มีให้ fallback เป็น quantity/base_quantity
+    const stock = N(v.available ?? v.quantity ?? v.base_quantity ?? 0);
+    const opt = document.createElement('option');
+    opt.value = v.id;
+    opt.textContent = `${color} - ${size} (คงเหลือ: ${stock})`;
+    opt.dataset.stock = String(stock);
+    opt.dataset.colorId = String(v.color_id ?? '');
+    opt.dataset.sizeId  = String(v.size_id  ?? '');
+    opt.dataset.colorName = color;
+    opt.dataset.sizeName  = size;
+    select.appendChild(opt);
+  });
+  if (priceInput) priceInput.value = Number(defaultPrice||0).toFixed(2);
 }
 
 async function getAvailableStock(productId, variantId) {
@@ -1113,6 +1107,7 @@ function showAlert(message, type = 'info') {
         if (div.parentNode) div.remove();
     }, 5000);
 }
+
 </script>
 
 @endsection
