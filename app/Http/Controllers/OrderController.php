@@ -15,6 +15,11 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
+use App\Models\CustomerAddress;
+
+
+
+
 
 class OrderController extends Controller
 {
@@ -102,116 +107,343 @@ class OrderController extends Controller
         }
         return [$colorId, $sizeId, $variant, $hasVariants];
     }
+/**
+     * ค้นหาลูกค้าจากชื่อหรือเบอร์โทร (สำหรับหน้า create)
+     * GET /customers/search?q=...
+     * ผลลัพธ์: { customers: [ {id, name, phone, address, purchase_channel, payment_method} ] }
+     */
+    public function searchCustomers(Request $request)
+{
+    // รองรับทั้ง ?q=, ?term=, ?search=
+    $keyword = trim((string)(
+        $request->input('q')
+        ?? $request->input('term')
+        ?? $request->input('search')
+        ?? ''
+    ));
 
-    /* =========================
-       สร้างออเดอร์ + จองสต๊อก
-    ========================== */
+    if ($keyword === '') {
+        // ถ้าไม่พิมพ์อะไรเลย ดึงลูกค้าล่าสุดมาสัก 10 คน
+        $customers = Customer::query()
+            ->with('addresses')
+            ->orderByDesc('id')
+            ->limit(10)
+            ->get();
+    } else {
+        $customers = Customer::query()
+            ->with('addresses')
+            ->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                  ->orWhere('phone', 'like', "%{$keyword}%");
+            })
+            ->orderBy('name')
+            ->limit(10)
+            ->get();
+    }
+
+    $result = $customers->map(function (Customer $c) {
+        return [
+            'id'    => $c->id,
+            'name'  => $c->name,
+            'phone' => $c->phone,
+            // ที่อยู่วิ่งตามความสัมพันธ์ hasMany
+            'addresses' => $c->addresses->map(function (CustomerAddress $addr) {
+                $full = trim(
+                    ($addr->address ?? '') . ' ' .
+                    ($addr->district ?? '') . ' ' .
+                    ($addr->province ?? '') . ' ' .
+                    ($addr->postal_code ?? '')
+                );
+
+                return [
+                    'id'          => $addr->id,
+                    'name'        => $addr->name,         // เช่น บ้าน / ที่ทำงาน
+                    'full_address'=> $full,               // เอาไว้ใช้ตอนโชว์ยาว ๆ
+                    'label'       => ($addr->name ? $addr->name . ': ' : '') . $full,
+                    'address'     => $addr->address,
+                    'district'    => $addr->district,
+                    'province'    => $addr->province,
+                    'postal_code' => $addr->postal_code,
+                ];
+            })->values(),
+        ];
+    })->values();
+
+    return response()->json($result);
+}
+    /**
+     * ดึงรายการที่อยู่ทั้งหมดของลูกค้าคนหนึ่ง (รองรับทั้งมี/ไม่มีตาราง customer_addresses)
+     * GET /customers/{customerId}/addresses
+     * ผลลัพธ์: { addresses: [ {id, name, address, district, province, postal_code, display} ] }
+     */
+    public function getCustomerAddresses(Customer $customer)
+{
+    // โหลดสัมพันธ์ addresses ให้ครบ
+    $customer->load('addresses');
+
+    $addresses = $customer->addresses
+        ->sortBy('id')
+        ->values()
+        ->map(function ($addr) {
+            // ✅ ใช้ชื่อ field จริงใน DB (name, address, district, province, postal_code)
+            $label       = $addr->name        ?? ''; // ชื่อที่อยู่ เช่น "บ้าน", "ที่ทำงาน"
+            $address     = $addr->address     ?? ''; // ที่อยู่เต็ม
+            $district    = $addr->district    ?? ''; // ตำบล/แขวง
+            $province    = $addr->province    ?? ''; // จังหวัด
+            $postal      = $addr->postal_code ?? ''; // รหัสไปรษณีย์
+
+            // ข้อความรวมไว้โชว์ยาว ๆ
+            $full = trim(implode(' ', array_filter([
+                $address,
+                $district,
+                $province,
+                $postal,
+            ])));
+
+            return [
+                'id'          => $addr->id,
+                'name'        => $label,             // ✅ ชื่อที่อยู่ (บ้าน/ที่ทำงาน)
+                'address'     => $address,
+                'district'    => $district,
+                'province'    => $province,
+                'postal_code' => $postal,
+                'full_address'=> $full,              // ✅ ใช้ตอนโชว์ใน <select>
+                'label'       => $label ? "{$label}: {$full}" : $full, // แสดงใน option
+            ];
+        });
+
+    return response()->json([
+        'customer'  => [
+            'id'               => $customer->id,
+            'name'             => $customer->name,
+            'phone'            => $customer->phone,
+            'purchase_channel' => $customer->purchase_channel,
+            'payment_method'   => $customer->payment_method,
+        ],
+        'addresses' => $addresses,
+    ]);
+}
+
    /* =========================
        สร้างออเดอร์ + จองสต๊อก
     ========================== */
     public function store(Request $request)
-    {
-        $request->validate([
-            'customer.name'             => 'required|string|max:255',
-            'customer.address'          => 'required|string',
-            'customer.purchase_channel' => 'required|string',
-            'customer.payment_method'   => 'required|string',
-            'items_json'                => 'required|json',
-            'shipping_fee'              => 'required|numeric',
-        ]);
+{
+    // 1) Validate
+    $request->validate([
+        'customer.name'             => 'required|string|max:255',
+        'customer.phone'            => 'nullable|string|max:20',
+        'customer.purchase_channel' => 'required|string',
+        'customer.payment_method'   => 'required|string',
+        'items_json'                => 'required|json',
+        'shipping_fee'              => 'required|numeric|min:0',
+        'discount'                  => 'nullable|numeric|min:0',
 
-        return DB::transaction(function () use ($request) {
-            $items = json_decode($request->items_json, true) ?: [];
-            if (empty($items)) {
-                throw new \Exception('ต้องเพิ่มสินค้าอย่างน้อย 1 รายการ');
-            }
+        // ลูกค้าเก่า/ใหม่
+        'customer_id'               => 'nullable|integer|exists:customers,id',
+        'existing_address_id'       => 'nullable|integer|exists:customer_addresses,id',
 
-            $subtotal    = collect($items)->sum(fn($i) => (float)$i['unit_price'] * (int)$i['quantity']);
-            $discount    = (float)($request->discount ?? 0);
-            $shippingFee = (float)$request->shipping_fee;
-            $totalPrice  = $subtotal + $shippingFee - $discount;
+        // ที่อยู่ใหม่ (optional)
+        'new_address.address'       => 'nullable|string',
+        'new_address.district'      => 'nullable|string',
+        'new_address.city'          => 'nullable|string',
+        'new_address.province'      => 'nullable|string',
+        'new_address.postal_code'   => 'nullable|string',
+
+        // จะถูกเติมโดย JS ก่อน submit
+        'shipping_address'          => 'nullable|string',
+    ]);
+
+    return DB::transaction(function () use ($request) {
+
+        // ---------------- 2) เตรียมสินค้า / ยอดเงิน ----------------
+        $items = json_decode($request->items_json, true) ?: [];
+        if (empty($items)) {
+            throw new \Exception('ต้องเพิ่มสินค้าอย่างน้อย 1 รายการ');
+        }
+
+        $subtotal    = collect($items)->sum(fn($i) => (float)$i['unit_price'] * (int)$i['quantity']);
+        $discount    = (float)($request->discount ?? 0);
+        $shippingFee = (float)$request->shipping_fee;
+        $totalPrice  = $subtotal + $shippingFee - $discount;
+
+        // ---------------- 3) ลูกค้าเก่า/ใหม่ ----------------
+        $customerId  = (int)($request->input('customer_id') ?? $request->input('customer.id') ?? 0);
+        $existingAddressId = (int)$request->input('existing_address_id', 0);
+        $newAddr = $request->input('new_address', []);
+        $hasNewAddress = !empty(trim($newAddr['address'] ?? ''));
+
+        if ($customerId > 0) {
+            // --- ลูกค้าเก่า ---
+            $customer = Customer::findOrFail($customerId);
+
+            // อัปเดตข้อมูลพื้นฐาน (ถ้ามีการแก้)
+            $customer->name             = $request->input('customer.name', $customer->name);
+            $customer->phone            = $request->input('customer.phone', $customer->phone);
+            $customer->purchase_channel = $request->input('customer.purchase_channel', $customer->purchase_channel);
+            $customer->payment_method   = $request->input('customer.payment_method', $customer->payment_method);
+            $customer->save();
+
+        } else {
+            // --- ลูกค้าใหม่ ---
+            // สำหรับลูกค้าใหม่ ถ้าไม่มี new_address ให้ fallback ใช้ customer[address] (สรุป)
+            $fallbackAddress = trim($request->input('customer.address', ''));
 
             $customer = Customer::create([
                 'name'             => $request->input('customer.name'),
-                'address'          => $request->input('customer.address'),
+                'phone'            => $request->input('customer.phone'),
                 'purchase_channel' => $request->input('customer.purchase_channel'),
                 'payment_method'   => $request->input('customer.payment_method'),
+                'address'          => $fallbackAddress, // เก็บที่อยู่หลักไว้ที่ customer ตามเดิม
             ]);
 
-            $nextId      = (int) (Order::max('id') ?? 0) + 1;
-            // ✅ แก้ไข: เพิ่มการตรวจสอบการสร้าง Order Number ให้เหมือนใน Model
-            $latestOrder = Order::latest('id')->first();
-            $number = $latestOrder ? ((int) str_replace('ORD', '', $latestOrder->order_number)) + 1 : 1;
-            $orderNumber = 'ORD' . str_pad($number, 4, '0', STR_PAD_LEFT);
-            // $orderNumber = 'ORD' . str_pad($nextId, 5, '0', STR_PAD_LEFT); // (ใช้ Logic จาก Model ดีกว่า)
+            $customerId = $customer->id;
+        }
 
+        // ---------------- 4) ที่อยู่จัดส่ง (CustomerAddress + shipping_address) ----------------
+        $shippingAddress = trim((string)$request->input('shipping_address', ''));
 
-            $order = Order::create([
-                'customer_id'       => $customer->id,
-                'shipping_address'  => $customer->address,
-                'subtotal'          => $subtotal,
-                'shipping_fee'      => $shippingFee,
-                'discount'          => $discount,
-                'total_price'       => $totalPrice, // total_price ใน DB คือยอดรวม (อาจสับสนกับ total_amount)
-                'total_amount'      => $totalPrice, // total_amount คือยอดสุทธิ (จากโค้ดเดิมของคุณ)
-                'notes'             => $request->notes,
-                'status'            => 'pending',
-                'payment_status'    => 'pending',
-                'order_number'      => $orderNumber,
-                'stock_reserved_at' => now(),
-            ]);
+        // helper รวมที่อยู่เต็มบรรทัดจาก CustomerAddress array
+        $buildFullAddress = function (array $addrRow) {
+            $parts = [];
+            if (!empty($addrRow['address']))      $parts[] = $addrRow['address'];
+            if (!empty($addrRow['district']))     $parts[] = $addrRow['district'];
+            if (!empty($addrRow['city']))         $parts[] = $addrRow['city'];
+            if (!empty($addrRow['province']))     $parts[] = $addrRow['province'];
+            if (!empty($addrRow['postal_code']))  $parts[] = $addrRow['postal_code'];
+            return trim(implode(' ', $parts));
+        };
 
-            foreach ($items as $item) {
-                $productId   = (int)$item['product_id'];
-                $productName = $item['product_name'] ?? ($item['name'] ?? '');
-                $qty         = (int)$item['quantity'];
-                $unitPrice   = (float)$item['unit_price'];
+        // ถ้า shipping_address ยังไม่มี (เช่น JS ไม่ได้เติม) ให้เราเติมจาก logic นี้
+        if ($shippingAddress === '') {
 
-                [$colorId, $sizeId, $variant, $hasVariants] = $this->resolveVariant(
-                    $productId,
-                    $item['color_id']     ?? null,
-                    $item['size_id']      ?? null,
-                    $item['color_name']   ?? null,
-                    $item['size_name']    ?? null,
-                    $item['variant_name'] ?? null
-                );
+            if ($customerId > 0 && $existingAddressId > 0) {
+                // ใช้ที่อยู่เดิมของลูกค้า
+                $addr = CustomerAddress::where('customer_id', $customerId)
+                    ->where('id', $existingAddressId)
+                    ->first();
 
-                if ($hasVariants) {
-                    if (!$variant) throw new \Exception("กรุณาเลือกสี/ไซส์ให้ครบถ้วนสำหรับสินค้า: {$productName}");
-                    
-                    // ✅ ==================  จุดที่แก้ไข ================== ✅
-                    // เปลี่ยนชื่อเมธอดจาก reserveStock -> reserveNewForOrderVariant
-                    // และสลับลำดับตัวแปร $order->id และ $qty
-                    $this->stockService->reserveNewForOrderVariant(
-                        $variant->id,    // 1. variantId
-                        $order->id,      // 2. orderId
-                        $qty,            // 3. quantity
-                        $orderNumber,    // 4. orderNumber
-                        'สร้างออเดอร์ใหม่' // 5. reason
-                    );
-                    // ✅ =================================================== ✅
+                if ($addr) {
+                    $shippingAddress = $buildFullAddress([
+                        'address'      => $addr->address,
+                        'district'     => $addr->district,
+                        'city'         => $addr->city,
+                        'province'     => $addr->province,
+                        'postal_code'  => $addr->postal_code,
+                    ]);
                 }
 
-                $colorName   = $colorId ? (Color::find($colorId)->name ?? null) : ($item['color_name'] ?? null);
-                $sizeName    = $sizeId  ? (Size::find($sizeId)->size_name ?? null) : ($item['size_name'] ?? null);
-                $variantName = $this->createVariantName($colorName, $sizeName);
-
-                OrderItem::create([
-                    'order_id'     => $order->id,
-                    'product_id'   => $productId,
-                    'product_name' => $productName,
-                    'color_id'     => $colorId,
-                    'size_id'      => $sizeId,
-                    'variant_name' => $variantName,
-                    'quantity'     => $qty,
-                    'unit_price'   => $unitPrice,
-                    'total_price'  => $qty * $unitPrice,
+            } elseif ($hasNewAddress) {
+                // เพิ่มที่อยู่ใหม่ลง customer_addresses แล้วใช้เป็น shipping
+                $addr = CustomerAddress::create([
+                    'customer_id' => $customerId,
+                    'name'        => $newAddr['label']       ?? null,
+                    'address'     => $newAddr['address']     ?? null,
+                    'district'    => $newAddr['district']    ?? null,
+                    'city'        => $newAddr['city']        ?? null,
+                    'province'    => $newAddr['province']    ?? null,
+                    'postal_code' => $newAddr['postal_code'] ?? null,
                 ]);
+
+                $shippingAddress = $buildFullAddress([
+                    'address'      => $addr->address,
+                    'district'     => $addr->district,
+                    'city'         => $addr->city,
+                    'province'     => $addr->province,
+                    'postal_code'  => $addr->postal_code,
+                ]);
+
+                // อัปเดต address หลักของลูกค้าด้วย (ถ้ายังว่าง)
+                if (empty($customer->address)) {
+                    $customer->address = $shippingAddress;
+                    $customer->save();
+                }
+
+            } else {
+                // ไม่มีทั้ง existing / new ให้ fallback ใช้ customer->address เดิม
+                $shippingAddress = (string)($customer->address ?? '');
+            }
+        }
+
+        // ---------------- 5) สร้างเลขออเดอร์ ----------------
+        $latestOrder = Order::latest('id')->first();
+        $number      = $latestOrder ? ((int) str_replace('ORD', '', $latestOrder->order_number)) + 1 : 1;
+        $orderNumber = 'ORD' . str_pad($number, 4, '0', STR_PAD_LEFT);
+
+        // ---------------- 6) สร้าง Order ----------------
+        $order = Order::create([
+            'customer_id'       => $customerId,
+            'shipping_address'  => $shippingAddress,
+            'subtotal'          => $subtotal,
+            'shipping_fee'      => $shippingFee,
+            'discount'          => $discount,
+            'total_price'       => $totalPrice,
+            'total_amount'      => $subtotal, // ถ้าคุณใช้ logic เดิมแบบนี้อยู่
+            'notes'             => $request->notes,
+            'status'            => 'pending',
+            'payment_status'    => 'pending',
+            'order_number'      => $orderNumber,
+            'stock_reserved_at' => now(),
+        ]);
+
+        // ---------------- 7) วนลูปสร้าง OrderItem + จองสต๊อก ----------------
+        foreach ($items as $item) {
+            $productId   = (int)$item['product_id'];
+            $productName = $item['product_name'] ?? ($item['name'] ?? '');
+            $qty         = (int)$item['quantity'];
+            $unitPrice   = (float)$item['unit_price'];
+
+            // หาข้อมูล variant (color/size)
+            [$colorId, $sizeId, $variant, $hasVariants] = $this->resolveVariant(
+                $productId,
+                $item['color_id']     ?? null,
+                $item['size_id']      ?? null,
+                $item['color_name']   ?? null,
+                $item['size_name']    ?? null,
+                $item['variant_name'] ?? null
+            );
+
+            if ($hasVariants) {
+                if (!$variant) {
+                    throw new \Exception("กรุณาเลือกสี/ไซส์ให้ครบถ้วนสำหรับสินค้า: {$productName}");
+                }
+
+                // จองสต๊อกผ่าน StockService
+                $this->stockService->reserveNewForOrderVariant(
+                    $variant->id,      // variantId
+                    $order->id,        // orderId
+                    $qty,              // quantity
+                    $orderNumber,      // reference
+                    'สร้างออเดอร์ใหม่'
+                );
             }
 
-            return redirect()->route('orders.index')->with('success', 'สร้างออเดอร์และจองสต๊อคเรียบร้อยแล้ว');
-        });
-    }
+            // สร้างชื่อ Variant
+            $colorName = $colorId ? (Color::find($colorId)->name ?? ($item['color_name'] ?? null)) : ($item['color_name'] ?? null);
+            $sizeName  = $sizeId  ? (Size::find($sizeId)->size_name ?? ($item['size_name'] ?? null)) : ($item['size_name'] ?? null);
+            $variantName = $this->createVariantName($colorName, $sizeName);
+
+            // บันทึกรายการสินค้า
+            OrderItem::create([
+                'order_id'               => $order->id,
+                'product_id'             => $productId,
+                'product_name'           => $productName,
+                'product_color_size_id'  => $variant ? $variant->id : null,
+                'color_id'               => $colorId,
+                'size_id'                => $sizeId,
+                'variant_name'           => $variantName,
+                'quantity'               => $qty,
+                'unit_price'             => $unitPrice,
+                'total_price'            => $qty * $unitPrice,
+            ]);
+        }
+
+        return redirect()
+            ->route('orders.index')
+            ->with('success', 'สร้างออเดอร์และจองสต๊อคเรียบร้อยแล้ว');
+    });
+}
+
   public function reserveStock(
         int $productColorSizeId,
         int $quantity,

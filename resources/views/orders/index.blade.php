@@ -3,6 +3,9 @@
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="{{ route('customers.index') }}" class="btn btn-outline-primary btn-sm">
+    <i class="fas fa-users"></i> จัดการลูกค้า
+</a>
         <h1>จัดการออเดอร์</h1>
         <a href="{{ route('orders.create') }}" class="btn btn-success">สร้างออเดอร์ใหม่</a>
     </div>
