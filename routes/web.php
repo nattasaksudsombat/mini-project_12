@@ -33,7 +33,7 @@ Route::prefix('orders')->name('orders.')->group(function () {
     Route::post('{order}/cancel', [OrderController::class, 'cancel'])->name('cancel');
     Route::post('{order}/ship',   [OrderController::class, 'ship'])->name('ship');
     Route::patch('{order}/pay',   [OrderController::class, 'pay'])->name('pay');
-    Route::patch('{order}/tracking', [OrderController::class, 'updateTracking'])->name('tracking');
+   Route::patch('{order}/tracking', [OrderController::class, 'updateTracking'])->name('updateTracking');
 });
 Route::resource('orders', OrderController::class);
 Route::resource('order-items', OrderItemController::class)->only(['destroy']);
@@ -45,6 +45,7 @@ Route::resource('customers', CustomerController::class)->except('show');
 Route::controller(ProductController::class)->group(function () {
     // Search & Export/Import
     Route::get('/products/search', 'search')->name('products.search');
+    Route::get('/products/{product}/variants', 'getVariantsApi')->name('products.variants.api');
     Route::get('/export-products', 'export')->name('export.products');
     Route::post('/import-products', 'import')->name('products.import');
     

@@ -556,7 +556,40 @@ $product->load([
 
         return back()->with('success', 'เพิ่มรูปภาพเรียบร้อยแล้ว');
     }
+/**
+     * API สำหรับดึงข้อมูล Variants (Color/Size) ของสินค้า
+     * ใช้ในหน้าสร้างออเดอร์ (orders.create)
+     */
+    public function getVariantsApi($id)
+    {
+        try {
+            $variants = \App\Models\ProductColorSize::where('product_id', $id)
+                ->with(['color', 'size'])
+                ->where('quantity', '>', 0) // ดึงเฉพาะที่มีของ (ถ้าต้องการ)
+                ->get()
+                ->map(function ($v) {
+                    // จัด Format ชื่อให้สวยงาม
+                    $colorName = $v->color->name ?? 'ไม่ระบุสี';
+                    $sizeName = $v->size->size_name ?? ($v->size->name ?? 'ไม่ระบุไซส์');
+                    
+                    return [
+                        'id' => $v->id,
+                        'product_id' => $v->product_id,
+                        'color_id' => $v->color_id,
+                        'size_id' => $v->size_id,
+                        'quantity' => $v->quantity,
+                        'color_name' => $colorName,
+                        'size_name' => $sizeName,
+                        'display_name' => "{$colorName} - {$sizeName}",
+                    ];
+                });
 
+            return response()->json($variants);
+
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
     // 3. ลบรูปภาพ
     public function deleteImage($id)
     {

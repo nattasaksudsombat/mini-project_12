@@ -236,8 +236,8 @@
 <div class="modal fade" id="trackingModal" tabindex="-1" aria-labelledby="trackingModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" action="{{ route('orders.updateTracking', $order->id) }}">
-            @csrf
-            @method('PATCH')
+    @csrf
+    @method('PATCH') {{-- บรรทัดนี้สำคัญมาก --}}
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="trackingModalLabel">เพิ่ม/แก้ไข Tracking Number</h5>

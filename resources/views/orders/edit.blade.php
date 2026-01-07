@@ -738,4 +738,3 @@ function escapeHtml(text) {
 }
 </script>
 @endpush
-@endsection

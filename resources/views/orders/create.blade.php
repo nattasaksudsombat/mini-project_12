@@ -4,7 +4,7 @@
 <div class="container">
     <h1>สร้างออเดอร์ใหม่</h1>
 
-    <form id="order-form" action="{{ route('orders.store') }}" method="POST"onsubmit="return prepareShippingAddressBeforeSubmit()">
+    <form id="order-form" action="{{ route('orders.store') }}" method="POST" onsubmit="return prepareShippingAddressBeforeSubmit()">
         @csrf
 
         {{-- ================= ข้อมูลลูกค้า ================= --}}
@@ -156,6 +156,7 @@
 
         <hr>
 
+        {{-- ================= ค้นหาสินค้า ================= --}}
         <h5>ค้นหาสินค้า</h5>
         <input type="text" id="product-search" class="form-control" placeholder="ค้นหาชื่อสินค้า...">
         <div id="search-results" class="mt-2"></div>
@@ -200,7 +201,6 @@
     </form>
 </div>
 
-<!-- Modal เลือกสี-ไซส์ -->
 <div class="modal fade" id="variantModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -209,7 +209,6 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-
                 <p><strong id="selected-product-name"></strong></p>
                 <div class="mb-3">
                     <label>เลือกสี-ไซส์</label>
@@ -229,194 +228,376 @@
         </div>
     </div>
 </div>
+
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const customerSearch = document.getElementById('customer-search');
-    const addressSelect = document.getElementById('shipping_address_id');
+    // ============================================
+    // ส่วนที่ 1: จัดการรายการสินค้า (สำคัญมากต้องอยู่บนสุด)
+    // ============================================
+    let selectedItems = [];
+    let currentProduct = null;
+
+    // แสดง modal เลือกสี-ไซส์ โดยโหลดข้อมูล variant จาก API
+    function showVariantModal(id, name, price) {
+        currentProduct = { id, name, price };
+        document.getElementById('selected-product-name').textContent = name;
+        document.getElementById('variant-quantity').value = 1; // Reset จำนวนเป็น 1
+
+        fetch(`/products/${id}/variants`)
+            .then(res => res.json())
+            .then(data => {
+                console.log('Variant data:', data); // 🔍 debug ข้อมูลที่โหลดมา
+
+                const select = document.getElementById('variant-select');
+                select.innerHTML = '<option value="">-- เลือก --</option>';
+
+                if(Array.isArray(data)) {
+                    data.forEach(v => {
+                        // ปรับการอ่านค่า color/size ให้รองรับหลายรูปแบบ
+                        const colorName = v.color_name || (v.color ? v.color.name : '') || '';
+                        const sizeName = v.size_name || (v.size ? v.size.name : '') || (v.size ? v.size.size_name : '') || '';
+                        const displayName = v.display_name || `${colorName} - ${sizeName}`;
+
+                        select.innerHTML += `<option 
+                            value="${v.id}" 
+                            data-stock="${v.quantity}" 
+                            data-color-id="${v.color_id}" 
+                            data-size-id="${v.size_id}"
+                            data-color-name="${colorName}"
+                            data-size-name="${sizeName}">
+                            ${displayName} (เหลือ: ${v.quantity})
+                        </option>`;
+                    });
+                }
+
+                new bootstrap.Modal(document.getElementById('variantModal')).show();
+            })
+            .catch(err => {
+                console.error(err);
+                alert('เกิดข้อผิดพลาดในการโหลดข้อมูลสินค้า');
+            });
+    }
+
+    // ยืนยันการเลือกสินค้าและเพิ่มเข้า order
+    function confirmAddProduct() {
+        const select = document.getElementById('variant-select');
+        const quantity = parseInt(document.getElementById('variant-quantity').value);
+        const selectedOption = select.options[select.selectedIndex];
+
+        if (!select.value || quantity < 1) {
+            alert('กรุณาเลือกสินค้าและจำนวนให้ถูกต้อง');
+            return;
+        }
+
+        const stock = parseInt(selectedOption.getAttribute('data-stock'));
+        if (quantity > stock) {
+            alert(`สินค้าคงเหลือไม่พอ (เหลือ ${stock})`);
+            return;
+        }
+
+        // เพิ่มลง array
+        selectedItems.push({
+            product_id: currentProduct.id,
+            variant_id: select.value,
+            name: currentProduct.name,
+            color_name: selectedOption.getAttribute('data-color-name'),
+            size_name: selectedOption.getAttribute('data-size-name'),
+            price: currentProduct.price,
+            quantity: quantity,
+            total: currentProduct.price * quantity
+        });
+
+        renderOrderItems();
+        bootstrap.Modal.getInstance(document.getElementById('variantModal')).hide();
+        document.getElementById('search-results').innerHTML = ''; // ปิดกล่องค้นหา
+        document.getElementById('product-search').value = ''; // ล้างช่องค้นหา
+    }
+
+    // วาดตารางรายการสินค้า
+    function renderOrderItems() {
+        const tbody = document.getElementById('order-items-body');
+        tbody.innerHTML = '';
+        selectedItems.forEach((item, index) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.color_name} - ${item.size_name}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.price}</td>
+                    <td>${item.total}</td>
+                    <td><button type="button" class="btn btn-sm btn-danger" onclick="removeItem(${index})">ลบ</button></td>
+                </tr>`;
+        });
+        document.getElementById('items-json').value = JSON.stringify(selectedItems);
+    }
+
+    // ลบสินค้าออก
+    function removeItem(index) {
+        selectedItems.splice(index, 1);
+        renderOrderItems();
+    }
+
+    // กดส่งออเดอร์
+    function submitOrder() {
+        renderOrderItems();
+        if (selectedItems.length === 0) {
+            alert('กรุณาเพิ่มสินค้าในออเดอร์ก่อน');
+            return;
+        }
+        
+        // เรียก function validate ที่อยู่ด้านล่าง
+        if(!prepareShippingAddressBeforeSubmit()) {
+            return;
+        }
+
+        document.getElementById('order-form').submit();
+    }
+
+    // ============================================
+    // ส่วนที่ 2: Event Listeners และการจัดการลูกค้า
+    // ============================================
     let customerSearchTimer = null;
 
-    // Customer Search
-    if (customerSearch) {
-        customerSearch.addEventListener('input', function(e) {
-            clearTimeout(customerSearchTimer);
-            const term = e.target.value.trim();
+    document.addEventListener('DOMContentLoaded', function () {
+        const customerSearchInput = document.getElementById('customer-search');
+        const productSearchInput = document.getElementById('product-search');
+        const addressSelect = document.getElementById('shipping_address_id');
 
-            if (term.length < 2) {
-                document.getElementById('customer-search-results').innerHTML = '';
-                return;
-            }
+        // ---- 🔍 ค้นหาลูกค้า ----
+        if (customerSearchInput) {
+            customerSearchInput.addEventListener('input', function () {
+                const term = this.value.trim();
+                clearTimeout(customerSearchTimer);
 
-            customerSearchTimer = setTimeout(() => searchCustomers(term), 300);
-        });
-    }
+                if (term.length < 2) {
+                    document.getElementById('customer-search-results').innerHTML = '';
+                    return;
+                }
 
-    // Address Select Change
-    if (addressSelect) {
-        addressSelect.addEventListener('change', onAddressSelectChange);
-    }
-
-    showNewAddressForm(false);
-});
-
-function searchCustomers(term) {
-    const url = "{{ route('orders.customers.search') }}?q=" + encodeURIComponent(term);
-
-    fetch(url)
-        .then(r => r.json())
-        .then(list => {
-            const box = document.getElementById('customer-search-results');
-            box.innerHTML = '';
-
-            if (!Array.isArray(list) || !list.length) {
-                box.innerHTML = '<div class="list-group-item small text-muted">ไม่พบลูกค้า</div>';
-                return;
-            }
-
-            list.forEach(c => {
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'list-group-item list-group-item-action';
-                btn.textContent = `${c.name} (${c.phone || '-'})`;
-                btn.addEventListener('click', () => selectCustomerFromSearch(c));
-                box.appendChild(btn);
+                customerSearchTimer = setTimeout(() => searchCustomers(term), 300);
             });
-        })
-        .catch(err => {
-            console.error('searchCustomers error:', err);
-            alert('เกิดข้อผิดพลาดในการค้นหาลูกค้า');
-        });
-}
+        }
 
-function selectCustomerFromSearch(customer) {
-    document.getElementById('customer-id').value = customer.id;
-    document.getElementById('customer-search').value = customer.name;
-    document.getElementById('customer-search-results').innerHTML = '';
+        // ---- 🔍 ค้นหาสินค้า (ใช้ keyup ตามที่เคยขอมา) ----
+        if (productSearchInput) {
+            productSearchInput.addEventListener('keyup', function() {
+                let q = this.value.trim();
+                if (q.length < 2) return document.getElementById('search-results').innerHTML = '';
 
-    const nameInput = document.getElementById('customer-name');
-    const phoneInput = document.getElementById('customer-phone');
-    const emailInput = document.getElementById('customer-email');
-    const channelInput = document.getElementById('customer-channel');
-    const payInput = document.getElementById('customer-payment');
+                // ใช้ route /products/search ที่มีอยู่แล้ว
+                fetch(`{{ route('products.search') }}?q=${encodeURIComponent(q)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        // รองรับทั้งแบบ array ตรงๆ และแบบ { products: [...] }
+                        let products = data.products || data; 
+                        let html = '';
+                        
+                        if(products.length === 0) {
+                            html = '<div class="alert alert-secondary mt-2">ไม่พบสินค้า</div>';
+                        } else {
+                            products.forEach(p => {
+                                html += `
+                                    <div class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>${p.name}</strong><br>
+                                            <small class="text-muted">รหัส: ${p.id_stock || '-'} | ราคา: ${p.price} บาท</small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-success" onclick="showVariantModal(${p.id}, '${p.name}', ${p.price})">เลือก</button>
+                                    </div>`;
+                            });
+                            html = `<div class="list-group mt-1">${html}</div>`;
+                        }
+                        document.getElementById('search-results').innerHTML = html;
+                    })
+                    .catch(err => console.error(err));
+            });
+        }
 
-    if (nameInput) nameInput.value = customer.name || '';
-    if (phoneInput) phoneInput.value = customer.phone || '';
-    if (emailInput) emailInput.value = customer.email || '';
-    if (channelInput && customer.purchase_channel) channelInput.value = customer.purchase_channel;
-    if (payInput && customer.payment_method) payInput.value = customer.payment_method;
+        // ---- 📍 เปลี่ยนที่อยู่จัดส่ง ----
+        if (addressSelect) {
+            addressSelect.addEventListener('change', onAddressSelectChange);
+        }
 
-    loadCustomerAddresses(customer.id);
-}
+        showNewAddressForm(false);
+    });
 
-function loadCustomerAddresses(customerId) {
-    const url = `/orders/customers/${customerId}/addresses`;
+    /**
+     * ค้นหาลูกค้า
+     */
+    function searchCustomers(term) {
+        const url = "{{ route('orders.customers.search') }}?q=" + encodeURIComponent(term);
 
-    fetch(url)
-        .then(r => r.json())
-        .then(data => {
-            const sel = document.getElementById('shipping_address_id');
-            const newBlock = document.getElementById('new-address-wrapper');
-            const existingId = document.getElementById('existing-address-id');
-            const addrDisplay = document.getElementById('customer-address-display');
-            const shippingHidden = document.getElementById('shipping-address');
+        fetch(url)
+            .then(r => r.json())
+            .then(list => {
+                const box = document.getElementById('customer-search-results');
+                box.innerHTML = '';
 
-            if (!sel) return;
+                if (!Array.isArray(list) || !list.length) {
+                    box.innerHTML = '<div class="list-group-item small text-muted">ไม่พบลูกค้า</div>';
+                    return;
+                }
 
-            sel.innerHTML = '';
-            sel.append(new Option('-- เลือกที่อยู่จัดส่ง --', ''));
-
-            const addresses = data.addresses || [];
-
-            if (addresses.length > 0) {
-                addresses.forEach(a => {
-                    const text = a.label || a.full_address || `ที่อยู่ #${a.id}`;
-                    const opt = new Option(text, a.id);
-                    opt.dataset.fullAddress = a.full_address || '';
-                    sel.append(opt);
+                list.forEach(c => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'list-group-item list-group-item-action';
+                    btn.textContent = `${c.name} (${c.phone || '-'})`;
+                    btn.addEventListener('click', () => selectCustomerFromSearch(c));
+                    box.appendChild(btn);
                 });
-
-                sel.append(new Option('+ เพิ่มที่อยู่ใหม่', '__new__'));
-
-                if (newBlock) newBlock.classList.add('d-none');
-                if (existingId) existingId.value = '';
-                if (addrDisplay) addrDisplay.value = '';
-                if (shippingHidden) shippingHidden.value = '';
-            } else {
-                sel.append(new Option('+ เพิ่มที่อยู่ใหม่', '__new__'));
-                sel.value = '__new__';
-
-                if (newBlock) newBlock.classList.remove('d-none');
-                if (existingId) existingId.value = '';
-                if (addrDisplay) addrDisplay.value = '';
-                if (shippingHidden) shippingHidden.value = '';
-            }
-        })
-        .catch(err => {
-            console.error('loadCustomerAddresses error:', err);
-            alert('เกิดข้อผิดพลาดในการโหลดที่อยู่');
-        });
-}
-
-function onAddressSelectChange(e) {
-    const value = e.target.value;
-    const existingId = document.getElementById('existing-address-id');
-    const addrDisplay = document.getElementById('customer-address-display');
-    const shippingHidden = document.getElementById('shipping-address');
-    const newBlock = document.getElementById('new-address-wrapper');
-
-    if (value && value !== '__new__') {
-        if (existingId) existingId.value = value;
-        const full = e.target.selectedOptions[0].dataset.fullAddress || '';
-        if (addrDisplay) addrDisplay.value = full;
-        if (shippingHidden) shippingHidden.value = full;
-        if (newBlock) newBlock.classList.add('d-none');
-    } else if (value === '__new__') {
-        if (existingId) existingId.value = '';
-        if (addrDisplay) addrDisplay.value = '';
-        if (shippingHidden) shippingHidden.value = '';
-        if (newBlock) newBlock.classList.remove('d-none');
-    } else {
-        if (existingId) existingId.value = '';
-        if (addrDisplay) addrDisplay.value = '';
-        if (shippingHidden) shippingHidden.value = '';
+            })
+            .catch(err => {
+                console.error('searchCustomers error:', err);
+            });
     }
-}
 
-function showNewAddressForm(show) {
-    const box = document.getElementById('new-address-wrapper');
-    if (!box) return;
-    if (show) box.classList.remove('d-none');
-    else box.classList.add('d-none');
-}
+    /**
+     * เลือกลูกค้า
+     */
+    function selectCustomerFromSearch(customer) {
+        document.getElementById('customer-id').value = customer.id;
+        document.getElementById('customer-search').value = customer.name;
+        document.getElementById('customer-search-results').innerHTML = '';
 
-function prepareShippingAddressBeforeSubmit() {
-    const existingId = document.getElementById('existing-address-id');
+        const nameInput    = document.getElementById('customer-name');
+        const phoneInput   = document.getElementById('customer-phone');
+        const channelInput = document.getElementById('customer-channel');
+        const payInput     = document.getElementById('customer-payment');
 
-    if (existingId && existingId.value) {
+        if (nameInput)  nameInput.value  = customer.name || '';
+        if (phoneInput) phoneInput.value = customer.phone || '';
+        if (channelInput && customer.purchase_channel) channelInput.value = customer.purchase_channel;
+        if (payInput && customer.payment_method)       payInput.value     = customer.payment_method;
+
+        loadCustomerAddresses(customer.id);
+    }
+
+    /**
+     * โหลดที่อยู่
+     */
+    function loadCustomerAddresses(customerId) {
+        const url = `/orders/customers/${customerId}/addresses`;
+
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                const sel = document.getElementById('shipping_address_id');
+                const newBlock = document.getElementById('new-address-wrapper');
+                const existingId = document.getElementById('existing-address-id');
+                const addrDisplay = document.getElementById('customer-address-display');
+                const shippingHidden = document.getElementById('shipping-address');
+
+                if (!sel) return;
+
+                sel.innerHTML = '';
+                sel.append(new Option('-- เลือกที่อยู่จัดส่ง --', ''));
+
+                const addresses = data.addresses || [];
+
+                if (addresses.length > 0) {
+                    addresses.forEach(a => {
+                        const text = a.label || a.full_address || `ที่อยู่ #${a.id}`;
+                        const opt = new Option(text, a.id);
+                        opt.dataset.fullAddress = a.full_address || '';
+                        sel.append(opt);
+                    });
+
+                    sel.append(new Option('+ เพิ่มที่อยู่ใหม่', '__new__'));
+
+                    if (newBlock)       newBlock.classList.add('d-none');
+                    if (existingId)     existingId.value = '';
+                    if (addrDisplay)    addrDisplay.value = '';
+                    if (shippingHidden) shippingHidden.value = '';
+                } else {
+                    sel.append(new Option('+ เพิ่มที่อยู่ใหม่', '__new__'));
+                    sel.value = '__new__';
+
+                    if (newBlock)       newBlock.classList.remove('d-none');
+                    if (existingId)     existingId.value = '';
+                    if (addrDisplay)    addrDisplay.value = '';
+                    if (shippingHidden) shippingHidden.value = '';
+                }
+            })
+            .catch(err => {
+                console.error('loadCustomerAddresses error:', err);
+            });
+    }
+
+    /**
+     * เปลี่ยน Dropdown ที่อยู่
+     */
+    function onAddressSelectChange(e) {
+        const value          = e.target.value;
+        const existingId     = document.getElementById('existing-address-id');
+        const addrDisplay    = document.getElementById('customer-address-display');
+        const shippingHidden = document.getElementById('shipping-address');
+        const newBlock       = document.getElementById('new-address-wrapper');
+
+        if (value && value !== '__new__') {
+            if (existingId) existingId.value = value;
+            const full = e.target.selectedOptions[0].dataset.fullAddress || '';
+            if (addrDisplay)    addrDisplay.value    = full;
+            if (shippingHidden) shippingHidden.value = full;
+            if (newBlock)       newBlock.classList.add('d-none');
+
+        } else if (value === '__new__') {
+            if (existingId)     existingId.value = '';
+            if (addrDisplay)    addrDisplay.value = '';
+            if (shippingHidden) shippingHidden.value = '';
+            if (newBlock)       newBlock.classList.remove('d-none');
+
+        } else {
+            if (existingId)     existingId.value = '';
+            if (addrDisplay)    addrDisplay.value = '';
+            if (shippingHidden) shippingHidden.value = '';
+        }
+    }
+
+    function showNewAddressForm(show) {
+        const box = document.getElementById('new-address-wrapper');
+        if (!box) return;
+        if (show) box.classList.remove('d-none');
+        else      box.classList.add('d-none');
+    }
+
+    /**
+     * ตรวจสอบที่อยู่ก่อนส่งฟอร์ม
+     */
+    function prepareShippingAddressBeforeSubmit() {
+        const existingId     = document.getElementById('existing-address-id');
+        const shippingHidden = document.getElementById('shipping-address');
+        const addrDisplay    = document.getElementById('customer-address-display');
+
+        if (existingId && existingId.value) {
+            return true;
+        }
+
+        const addr = document.getElementById('new-address-text')?.value || '';
+        const subdist = document.getElementById('new-address-subdistrict')?.value || '';
+        const dist = document.getElementById('new-address-district')?.value || '';
+        const prov = document.getElementById('new-address-province')?.value || '';
+        const zip  = document.getElementById('new-address-postal')?.value || '';
+
+        // เช็คว่ากรอกครบไหม (ตัวอย่างเช็คแค่ที่อยู่กับจังหวัด)
+        if(!addr || !prov) {
+            alert('กรุณากรอกที่อยู่ให้ครบถ้วน หรือเลือกที่อยู่จัดส่ง');
+            return false;
+        }
+
+        const parts = [];
+        if (addr) parts.push(addr);
+        if (subdist) parts.push('ต.' + subdist);
+        if (dist)    parts.push('อ.' + dist);
+        if (prov)    parts.push('จ.' + prov);
+        if (zip)     parts.push(zip);
+
+        const full = parts.join(' ');
+        if (shippingHidden) shippingHidden.value = full;
+        if (addrDisplay)    addrDisplay.value    = full;
+
         return true;
     }
-
-    const addr = document.getElementById('new-address-text')?.value || '';
-    const subdist = document.getElementById('new-address-subdistrict')?.value || '';
-    const dist = document.getElementById('new-address-district')?.value || '';
-    const prov = document.getElementById('new-address-province')?.value || '';
-
-    if (!addr || !subdist || !dist || !prov) {
-        alert('⚠️ กรุณาเลือกที่อยู่จัดส่ง หรือกรอกที่อยู่ใหม่ให้ครบถ้วน');
-        return false;
-    }
-
-    return true;
-}
-
-function submitOrder() {
-    const form = document.getElementById('order-form');
-    if (form) form.submit();
-}
 </script>
-
-
 @endpush
-
-@include('orders.partials.order-script')
 @endsection

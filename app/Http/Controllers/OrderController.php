@@ -55,7 +55,7 @@ class OrderController extends Controller
 
         $orders = $query->orderBy('created_at', 'desc')->paginate(20);
 
-        // ✅ แก้ไขปัญหา: ตรวจสอบให้แน่ใจว่า orderItems มีค่าก่อน sum()
+        // ✅ ตรวจสอบ relation orderItems
         foreach ($orders as $order) {
             if ($order->orderItems === null) {
                 $order->setRelation('orderItems', collect([]));
@@ -119,12 +119,10 @@ class OrderController extends Controller
 
             DB::beginTransaction();
 
-            // 1. จัดการลูกค้า - ไม่แก้ไขข้อมูลเดิม
+            // 1. จัดการลูกค้า
             if ($request->filled('customer_id')) {
-                // ใช้ลูกค้าเดิม
                 $customer = Customer::findOrFail($request->customer_id);
             } else {
-                // สร้างลูกค้าใหม่
                 $customer = Customer::create([
                     'name' => $validated['customer']['name'],
                     'phone' => $validated['customer']['phone'] ?? null,
@@ -139,7 +137,6 @@ class OrderController extends Controller
             $customerAddressId = null;
 
             if ($request->filled('existing_address_id')) {
-                // ใช้ที่อยู่เดิม
                 $customerAddressId = $request->existing_address_id;
                 $addressRecord = CustomerAddress::find($customerAddressId);
                 if ($addressRecord) {
@@ -150,7 +147,6 @@ class OrderController extends Controller
                                      $addressRecord->postal_code;
                 }
             } elseif ($request->filled('new_address.address')) {
-                // สร้างที่อยู่ใหม่
                 $newAddress = CustomerAddress::create([
                     'customer_id' => $customer->id,
                     'name' => $request->input('new_address.name'),
@@ -195,33 +191,63 @@ class OrderController extends Controller
             $subtotal = 0;
 
             foreach ($items as $item) {
-                // ตรวจสอบสต็อก
-                $colorSize = ProductColorSize::where('product_id', $item['product_id'])
-                    ->where('color_id', $item['color_id'])
-                    ->where('size_id', $item['size_id'])
-                    ->first();
+                // ✅ แก้ไข 1: ดึงข้อมูลให้ถูกต้องตามที่ JS ส่งมา
+                // JS ส่ง: product_id, variant_id, name, color_name, size_name, quantity, price
+                
+                $variantId = $item['variant_id'] ?? null;
+                $productId = $item['product_id'] ?? null;
+                $quantity  = $item['quantity'] ?? 0;
+                
+                // ชื่อสินค้า (JS ใช้ key 'name')
+                $productName = $item['name'] ?? ($item['product_name'] ?? 'ไม่ระบุชื่อสินค้า');
+                
+                // ชื่อตัวเลือก
+                $colorName = $item['color_name'] ?? '';
+                $sizeName  = $item['size_name'] ?? '';
+                $variantName = trim("$colorName $sizeName") ?: '-';
 
-                if (!$colorSize || $colorSize->quantity < $item['quantity']) {
-                    throw new \Exception("สต็อกไม่เพียงพอสำหรับ {$item['product_name']} ({$item['variant_name']})");
+                // ค้นหาสต็อกด้วย variant_id (แม่นยำที่สุด)
+                $colorSize = null;
+                if ($variantId) {
+                    $colorSize = ProductColorSize::find($variantId);
+                } else {
+                    // Fallback: ถ้าไม่มี variant_id ให้หาจาก product + color + size (กรณีข้อมูลเก่า)
+                    $query = ProductColorSize::where('product_id', $productId);
+                    if (!empty($item['color_id'])) $query->where('color_id', $item['color_id']);
+                    if (!empty($item['size_id']))  $query->where('size_id', $item['size_id']);
+                    $colorSize = $query->first();
+                }
+
+                // ตรวจสอบสต็อก
+                if (!$colorSize) {
+                    throw new \Exception("ไม่พบข้อมูลสินค้าในระบบสต็อก: {$productName} ({$variantName})");
+                }
+
+                if ($colorSize->quantity < $quantity) {
+                    throw new \Exception("สต็อกไม่เพียงพอสำหรับ {$productName} ({$variantName}) (คงเหลือ: {$colorSize->quantity})");
                 }
 
                 // สร้าง OrderItem
+                $unitPrice = $item['price'] ?? 0;
+                $totalPrice = $quantity * $unitPrice;
+
                 $orderItem = OrderItem::create([
                     'order_id' => $order->id,
-                    'product_id' => $item['product_id'],
-                    'product_name' => $item['product_name'],
-                    'color_id' => $item['color_id'],
-                    'size_id' => $item['size_id'],
-                    'variant_name' => $item['variant_name'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'total_price' => $item['quantity'] * $item['unit_price'],
+                    'product_id' => $productId,
+                    'product_name' => $productName,
+                    // ✅ ใช้ color_id / size_id จาก Database จริง
+                    'color_id' => $colorSize->color_id, 
+                    'size_id' => $colorSize->size_id,
+                    'variant_name' => $variantName,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'total_price' => $totalPrice,
                 ]);
 
-                $subtotal += $orderItem->total_price;
+                $subtotal += $totalPrice;
 
                 // ลดสต็อก
-                $colorSize->decrement('quantity', $item['quantity']);
+                $colorSize->decrement('quantity', $quantity);
             }
 
             // 5. อัปเดตยอดรวม
@@ -255,7 +281,6 @@ class OrderController extends Controller
     {
         $order->load(['customer', 'customerAddress', 'orderItems.product', 'orderItems.color', 'orderItems.size']);
         
-        // ✅ แก้ไขปัญหา: ตรวจสอบให้แน่ใจว่า orderItems ไม่เป็น null
         if ($order->orderItems === null) {
             $order->setRelation('orderItems', collect([]));
         }
@@ -270,7 +295,6 @@ class OrderController extends Controller
     {
         $order->load(['customer', 'customerAddress', 'orderItems.product']);
         
-        // ✅ แก้ไขปัญหา
         if ($order->orderItems === null) {
             $order->setRelation('orderItems', collect([]));
         }
@@ -308,19 +332,14 @@ class OrderController extends Controller
         try {
             // Validation
             $validated = $request->validate([
-                // ข้อมูลลูกค้า
                 'customer.name' => 'required|string|max:255',
                 'customer.phone' => 'nullable|string|max:20',
                 'customer.email' => 'nullable|email|max:255',
                 'customer.purchase_channel' => 'required|in:facebook,line,website,shopee,lazada,offline',
                 'customer.payment_method' => 'required|in:bank_transfer,cash_on_delivery,credit_card,e_wallet',
                 'customer.address' => 'required|string',
-                
-                // สถานะออเดอร์
                 'status' => 'required|in:pending,processing,shipped,delivered,cancelled',
                 'payment_status' => 'required|in:pending,paid,refunded',
-                
-                // ข้อมูลออเดอร์
                 'items_json' => 'required|json',
                 'shipping_fee' => 'required|numeric|min:0',
                 'discount' => 'nullable|numeric|min:0',
@@ -330,7 +349,7 @@ class OrderController extends Controller
 
             DB::beginTransaction();
 
-            // 1. อัปเดตข้อมูลลูกค้า (แค่ในออเดอร์นี้)
+            // 1. อัปเดตข้อมูลลูกค้า
             $order->customer->update([
                 'name' => $validated['customer']['name'],
                 'phone' => $validated['customer']['phone'] ?? null,
@@ -339,7 +358,7 @@ class OrderController extends Controller
                 'payment_method' => $validated['customer']['payment_method'],
             ]);
 
-            // 2. จัดการสินค้า - คืนสต็อกเดิมทั้งหมดก่อน
+            // 2. คืนสต็อกเดิมทั้งหมดก่อน
             foreach ($order->orderItems as $oldItem) {
                 ProductColorSize::where('product_id', $oldItem->product_id)
                     ->where('color_id', $oldItem->color_id)
@@ -355,33 +374,55 @@ class OrderController extends Controller
             $subtotal = 0;
 
             foreach ($items as $item) {
-                // ตรวจสอบสต็อก
-                $colorSize = ProductColorSize::where('product_id', $item['product_id'])
-                    ->where('color_id', $item['color_id'])
-                    ->where('size_id', $item['size_id'])
-                    ->first();
+                // ✅ แก้ไขส่วน update ให้เหมือน store
+                $variantId = $item['variant_id'] ?? null;
+                $productId = $item['product_id'] ?? null;
+                $quantity  = $item['quantity'] ?? 0;
+                
+                $productName = $item['name'] ?? ($item['product_name'] ?? 'ไม่ระบุชื่อสินค้า');
+                
+                $colorName = $item['color_name'] ?? '';
+                $sizeName  = $item['size_name'] ?? '';
+                $variantName = trim("$colorName $sizeName") ?: '-';
 
-                if (!$colorSize || $colorSize->quantity < $item['quantity']) {
-                    throw new \Exception("สต็อกไม่เพียงพอสำหรับ {$item['product_name']} ({$item['variant_name']})");
+                // ค้นหาสต็อก
+                $colorSize = null;
+                if ($variantId) {
+                    $colorSize = ProductColorSize::find($variantId);
+                } else {
+                    $query = ProductColorSize::where('product_id', $productId);
+                    if (!empty($item['color_id'])) $query->where('color_id', $item['color_id']);
+                    if (!empty($item['size_id']))  $query->where('size_id', $item['size_id']);
+                    $colorSize = $query->first();
                 }
 
-                // สร้าง OrderItem
+                if (!$colorSize) {
+                    throw new \Exception("ไม่พบข้อมูลสินค้าในระบบสต็อก: {$productName} ({$variantName})");
+                }
+
+                if ($colorSize->quantity < $quantity) {
+                    throw new \Exception("สต็อกไม่เพียงพอสำหรับ {$productName} ({$variantName}) (คงเหลือ: {$colorSize->quantity})");
+                }
+
+                $unitPrice = $item['price'] ?? ($item['unit_price'] ?? 0);
+                $totalPrice = $quantity * $unitPrice;
+
                 $orderItem = OrderItem::create([
                     'order_id' => $order->id,
-                    'product_id' => $item['product_id'],
-                    'product_name' => $item['product_name'],
-                    'color_id' => $item['color_id'],
-                    'size_id' => $item['size_id'],
-                    'variant_name' => $item['variant_name'],
-                    'quantity' => $item['quantity'],
-                    'unit_price' => $item['unit_price'],
-                    'total_price' => $item['quantity'] * $item['unit_price'],
+                    'product_id' => $productId,
+                    'product_name' => $productName,
+                    'color_id' => $colorSize->color_id,
+                    'size_id' => $colorSize->size_id,
+                    'variant_name' => $variantName,
+                    'quantity' => $quantity,
+                    'unit_price' => $unitPrice,
+                    'total_price' => $totalPrice,
                 ]);
 
-                $subtotal += $orderItem->total_price;
+                $subtotal += $totalPrice;
 
-                // ลดสต็อกใหม่
-                $colorSize->decrement('quantity', $item['quantity']);
+                // ลดสต็อก
+                $colorSize->decrement('quantity', $quantity);
             }
 
             // 4. อัปเดตออเดอร์
