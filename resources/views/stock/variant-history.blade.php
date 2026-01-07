@@ -22,13 +22,28 @@
             ->first();
     }
 
-    // 3) ถ้าไม่มี $summary ให้คำนวณจาก v_current_stock (Golden Rule)
+    // 3) ถ้าไม่มี $summary ให้คำนวณสดจาก DB (แก้ปัญหา View ไม่เจอ column id)
     if (!isset($summary)) {
-        $v = \DB::table('v_current_stock')->where('id',$variantId)->first();
+        // 3.1 หาจำนวนสต๊อกปัจจุบัน (Physical Stock) จากตารางจริง
+        $pcs = \DB::table('product_color_size')->where('id', $variantId)->first();
+        $current = $pcs ? $pcs->quantity : 0;
+
+        // 3.2 หาจำนวนที่ถูกจอง (Reserved Stock)
+        $reserved = 0;
+        if (\Schema::hasTable('stock_holds')) {
+             $reserved = \DB::table('stock_holds')
+                ->where('product_color_size_id', $variantId)
+                ->where('status', 'active')
+                ->sum('quantity');
+        }
+
+        // 3.3 คำนวณ Available Stock
+        $available = $current - $reserved;
+
         $summary = (object)[
-            'current'   => (int)($v->current_stock  ?? 0),
-            'reserved'  => (int)($v->reserved_stock ?? 0),
-            'available' => (int)($v->available_stock?? 0),
+            'current'   => (int)$current,
+            'reserved'  => (int)$reserved,
+            'available' => (int)$available,
         ];
     }
 

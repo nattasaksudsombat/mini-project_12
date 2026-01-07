@@ -153,13 +153,13 @@
                                     <td class="text-end">{{ number_format($available) }}</td>
                                     <td>
                                         <div class="d-flex flex-wrap gap-2">
-                                            {{-- ปรับสต็อค (ใช้ StockService) --}}
-                                            <a href="{{ route('stock.adjust.form', $variantId) }}" class="btn btn-sm btn-warning" title="ปรับสต็อค">
+                                            {{-- ปรับสต็อค (แก้ไข: ระบุชื่อ parameter 'variant' ให้ชัดเจน) --}}
+                                           <a href="{{ route('stock.adjust.form', ['variant' => $variantId]) }}" class="btn btn-sm btn-warning" title="ปรับสต็อค">
                                                 <i class="fas fa-edit"></i> ปรับสต็อค
                                             </a>
 
-                                            {{-- ดูประวัติ --}}
-                                            <a href="{{ route('stock.variant.history', $variantId) }}" class="btn btn-sm btn-info" title="ประวัติ">
+                                            {{-- ดูประวัติ (แก้ไข: ระบุชื่อ parameter 'variant' ให้ชัดเจน) --}}
+                                            <a href="{{ route('stock.variant.history',['variant'=>$variant->id, 'scope'=>'all']) }}" title="ประวัติ">
                                                 <i class="fas fa-history"></i> ประวัติ
                                             </a>
 

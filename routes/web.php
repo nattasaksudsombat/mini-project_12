@@ -70,6 +70,7 @@ Route::prefix('products/{product}/color-size')->name('product.colorSize.')->grou
 
 // --- Stock ---
 Route::get('/stock/adjust/{variant}', [ProductColorSizeController::class, 'adjustForm'])->name('stock.adjust.form');
+Route::post('/stock/adjust/{variant}', [ProductColorSizeController::class, 'saveAdjustment'])->name('stock.adjust.save');
 Route::get('/stock/history/{variant}', [ProductColorSizeController::class, 'history'])->name('stock.variant.history');
 Route::post('/products/print-barcode', [ProductController::class, 'printBarcode'])->name('products.printBarcode');
 
