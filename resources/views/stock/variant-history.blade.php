@@ -1,9 +1,9 @@
 @extends('layouts.app')
 
 @php
-    // ===== Fallback กันพังเมื่อ Controller ไม่ส่งตัวแปรมา =====
+    // ===== Fallback Logic: กัน Error เมื่อ Controller ส่งตัวแปรมาไม่ครบ =====
 
-    // 1) หา variantId จากตัวแปร/พารามิเตอร์ route
+    // 1) หา variantId จากทุกแหล่งที่เป็นไปได้
     $variantId = (int) (
         ($variant->id ?? 0)
         ?: (request()->route('variantId') ?? 0)
@@ -22,9 +22,9 @@
             ->first();
     }
 
-    // 3) ถ้าไม่มี $summary ให้คำนวณสดจาก DB (แก้ปัญหา View ไม่เจอ column id)
+    // 3) ถ้าไม่มี $summary ให้คำนวณสดจาก DB
     if (!isset($summary)) {
-        // 3.1 หาจำนวนสต๊อกปัจจุบัน (Physical Stock) จากตารางจริง
+        // 3.1 หาจำนวนสต๊อกปัจจุบัน (Physical Stock)
         $pcs = \DB::table('product_color_size')->where('id', $variantId)->first();
         $current = $pcs ? $pcs->quantity : 0;
 
@@ -50,7 +50,10 @@
     // 4) scope ของตารางประวัติ
     $scope = $scope ?? request()->query('scope','all');
 
-    // 5) ถ้าไม่มี $history ให้โหลดจาก stock_transactions + map label ไทย
+    // เตรียมตัวแปร Map ภาษาไทยให้พร้อมใช้งานเสมอ (กัน Error Undefined variable)
+    $typeMap = ['reserve'=>'จอง','release'=>'ปล่อย','in'=>'เข้า','out'=>'ออก'];
+
+    // 5) ถ้าไม่มี $history ให้โหลดจาก stock_transactions
     if (!isset($history)) {
         $q = \DB::table('stock_transactions')
             ->where('product_color_size_id',$variantId)
@@ -66,13 +69,11 @@
 
         $rows = $q->limit(100)->get();
 
-        $mapTH = ['reserve'=>'จอง','release'=>'ปล่อย','in'=>'เข้า','out'=>'ออก'];
-
-        $history = $rows->map(function($r) use ($mapTH){
+        $history = $rows->map(function($r) use ($typeMap){
             return (object)[
                 'created_at' => $r->created_at,
                 'type'       => $r->type,
-                'type_th'    => $mapTH[$r->type] ?? $r->type,
+                'type_th'    => $typeMap[$r->type] ?? $r->type,
                 'before'     => (int)$r->quantity_before,
                 'delta'      => (int)$r->quantity,
                 'delta_str'  => ($r->quantity >= 0 ? '+' : '').(int)$r->quantity,
@@ -85,7 +86,7 @@
         });
     }
 
-    // 6) ถ้าไม่มี $holds ให้โหลดออเดอร์ที่กำลังจับจาก stock_holds.status='active'
+    // 6) ถ้าไม่มี $holds ให้โหลดออเดอร์ที่กำลังจับจาก stock_holds
     if (!isset($holds)) {
         if (\Schema::hasTable('stock_holds')) {
             $openStatuses = ['pending','processing'];
@@ -133,10 +134,12 @@
       <div class="card p-2"><small>Available</small><div class="fs-5 text-end">{{ number_format($summary->available) }}</div></div>
     </div>
     <div class="col ms-auto text-end">
-      <a href="{{ route('stock.adjust.form',$variantId) }}" class="btn btn-warning">ปรับสต๊อค</a>
-      <a href="{{ route('stock.variant.history',['variantId'=>$variantId,'scope'=>'all']) }}" class="btn btn-outline-secondary {{ $scope==='all'?'active':'' }}">ทั้งหมด</a>
-      <a href="{{ route('stock.variant.history',['variantId'=>$variantId,'scope'=>'holds']) }}" class="btn btn-outline-secondary {{ $scope==='holds'?'active':'' }}">เฉพาะ จอง/ปล่อย</a>
-      <a href="{{ route('stock.variant.history',['variantId'=>$variantId,'scope'=>'physical']) }}" class="btn btn-outline-secondary {{ $scope==='physical'?'active':'' }}">เฉพาะ เข้า/ออก</a>
+      <a href="{{ route('stock.adjust.form', ['variant' => $variantId]) }}" class="btn btn-warning">ปรับสต๊อค</a>
+      
+      {{-- ✅ แก้ไขจุดที่ Error: เปลี่ยน variantId เป็น variant --}}
+      <a href="{{ route('stock.variant.history',['variant'=>$variantId,'scope'=>'all']) }}" class="btn btn-outline-secondary {{ $scope==='all'?'active':'' }}">ทั้งหมด</a>
+      <a href="{{ route('stock.variant.history',['variant'=>$variantId,'scope'=>'holds']) }}" class="btn btn-outline-secondary {{ $scope==='holds'?'active':'' }}">เฉพาะ จอง/ปล่อย</a>
+      <a href="{{ route('stock.variant.history',['variant'=>$variantId,'scope'=>'physical']) }}" class="btn btn-outline-secondary {{ $scope==='physical'?'active':'' }}">เฉพาะ เข้า/ออก</a>
     </div>
   </div>
 
@@ -184,50 +187,54 @@
             </tr>
           </thead>
           <tbody>
-  @forelse($history as $h)
-    @php
-      // ป้องกัน property หาย: map ทุกค่าที่ต้องใช้
-      $type    = $h->type ?? '';
-      $typeTH  = $h->type_th ?? ($typeMap[$type] ?? $type);
+          @forelse($history as $h)
+            @php
+              // ป้องกัน property หาย: map ทุกค่าที่ต้องใช้
+              $type    = $h->type ?? '';
+              // เรียกใช้ $typeMap ที่ประกาศไว้ด้านบน
+              $typeTH  = $h->type_th ?? ($typeMap[$type] ?? $type);
 
-      $before  = isset($h->before) ? (int)$h->before : (int)($h->quantity_before ?? 0);
-      $delta   = isset($h->delta)  ? (int)$h->delta  : (int)($h->quantity ?? 0);
-      $after   = isset($h->after)  ? (int)$h->after  : (int)($h->quantity_after ?? ($before + $delta));
-      $deltaStr= isset($h->delta_str) ? $h->delta_str : (($delta >= 0 ? '+' : '').$delta);
+              $before  = isset($h->before) ? (int)$h->before : (int)($h->quantity_before ?? 0);
+              $delta   = isset($h->delta)  ? (int)$h->delta  : (int)($h->quantity ?? 0);
+              $after   = isset($h->after)  ? (int)$h->after  : (int)($h->quantity_after ?? ($before + $delta));
+              $deltaStr= isset($h->delta_str) ? $h->delta_str : (($delta >= 0 ? '+' : '').$delta);
 
-      $reason  = $h->reason ?? '';
-      $user    = $h->user_name ?? '-';
-      $ref     = $h->ref ?? ($h->reference_number ?? '-');
-      $orderId = $h->order_id ?? null;
-    @endphp
-    <tr>
-      <td>{{ $h->created_at }}</td>
-      <td>
-        @switch($type)
-          @case('reserve') <span class="badge text-bg-warning">{{ $typeTH }}</span> @break
-          @case('release') <span class="badge text-bg-info">{{ $typeTH }}</span> @break
-          @case('in')      <span class="badge text-bg-success">{{ $typeTH }}</span> @break
-          @case('out')     <span class="badge text-bg-danger">{{ $typeTH }}</span> @break
-          @default         <span class="badge text-bg-secondary">{{ $typeTH }}</span>
-        @endswitch
-      </td>
-      <td class="text-end">{{ number_format($before) }}</td>
-      <td class="text-end">{{ $deltaStr }}</td>
-      <td class="text-end">{{ number_format($after) }}</td>
-      <td>{{ $reason }}</td>
-      <td>{{ $user }}</td>
-      <td>{{ $ref }}</td>
-      <td>
-        @if($orderId)
-          <a class="btn btn-sm btn-outline-primary" href="{{ url('/orders/'.$orderId) }}">ออเดอร์</a>
-        @endif
-      </td>
-    </tr>
-  @empty
-    <tr><td colspan="9" class="text-center text-muted">— ไม่มีข้อมูล —</td></tr>
-  @endforelse
-</tbody>
-
+              $reason  = $h->reason ?? '';
+              $user    = $h->user_name ?? '-';
+              $ref     = $h->ref ?? ($h->reference_number ?? '-');
+              $orderId = $h->order_id ?? null;
+            @endphp
+            <tr>
+              <td>{{ $h->created_at }}</td>
+              <td>
+                @switch($type)
+                  @case('reserve') <span class="badge text-bg-warning">{{ $typeTH }}</span> @break
+                  @case('release') <span class="badge text-bg-info">{{ $typeTH }}</span> @break
+                  @case('in')      <span class="badge text-bg-success">{{ $typeTH }}</span> @break
+                  @case('out')     <span class="badge text-bg-danger">{{ $typeTH }}</span> @break
+                  @default         <span class="badge text-bg-secondary">{{ $typeTH }}</span>
+                @endswitch
+              </td>
+              <td class="text-end">{{ number_format($before) }}</td>
+              <td class="text-end">
+                 <span class="{{ $delta > 0 ? 'text-success' : ($delta < 0 ? 'text-danger' : '') }}">
+                    {{ $deltaStr }}
+                 </span>
+              </td>
+              <td class="text-end">{{ number_format($after) }}</td>
+              <td>{{ $reason }}</td>
+              <td>{{ $user }}</td>
+              <td>{{ $ref }}</td>
+              <td>
+                @if($orderId)
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url('/orders/'.$orderId) }}">ออเดอร์</a>
+                @endif
+              </td>
+            </tr>
+          @empty
+            <tr><td colspan="9" class="text-center text-muted">— ไม่มีข้อมูล —</td></tr>
+          @endforelse
+          </tbody>
         </table>
       </div>
     </div>
