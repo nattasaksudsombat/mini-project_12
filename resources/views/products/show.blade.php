@@ -97,7 +97,7 @@
                 สถานะที่จะนับเป็น "กำลังจับสต๊อค": <strong>{{ implode(', ', $openStatuses) }}</strong>
             </div>
             <div class="d-flex gap-2">
-                <a href="{{ route('product.colorSize.create', ['product_id' => $product->id]) }}" class="btn btn-add">
+                <a href="{{ route('product.colorSize.create', ['product' => $product->id]) }}" class="btn btn-add">
                     <i class="fas fa-plus"></i> เพิ่มสี/ขนาดใหม่
                 </a>
                 <button type="button" class="btn btn-bar" data-bs-toggle="modal" data-bs-target="#barcodeModal">

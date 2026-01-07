@@ -2,40 +2,122 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
-    // ถ้าโปรเจกต์คุณไม่ได้ใช้ HasFactory อยู่แล้ว ก็ไม่ต้องใส่
-    // use HasFactory;
+    use HasFactory;
 
+    /**
+     * The table associated with the model.
+     */
     protected $table = 'customers';
 
-    // เปิดให้กรอกตามโครงสร้างจริงในฐานข้อมูลของคุณ (คงของเดิมไว้)
+    /**
+     * The attributes that are mass assignable.
+     */
     protected $fillable = [
         'name',
         'phone',
         'email',
-        'address',       // ยังเก็บไว้เพื่อ backward-compat
-        'district',
-        'province',
-        'postal_code',
-        'payment_method',
+        'address',
         'purchase_channel',
-        'notes',
+        'payment_method',
     ];
 
     /**
-     * ความสัมพันธ์: ลูกค้า 1 คน มีได้หลายที่อยู่จัดส่ง
+     * The attributes that should be cast.
      */
-    public function addresses(): HasMany
-    {
-        return $this->hasMany(CustomerAddress::class, 'customer_id', 'id');
-    }
-    // App\Models\Customer
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
+    /**
+     * Get the orders for the customer.
+     */
     public function orders()
     {
-        return $this->hasMany(\App\Models\Order::class, 'customer_id');
+        return $this->hasMany(Order::class, 'customer_id');
+    }
+
+    /**
+     * Get the addresses for the customer.
+     */
+    public function addresses()
+    {
+        return $this->hasMany(CustomerAddress::class, 'customer_id');
+    }
+
+    /**
+     * Get the primary address for the customer.
+     */
+    public function primaryAddress()
+    {
+        return $this->hasOne(CustomerAddress::class, 'customer_id')
+            ->where('is_default', true);
+    }
+
+    /**
+     * Get purchase channel label in Thai.
+     */
+    public function getPurchaseChannelLabelAttribute()
+    {
+        $labels = [
+            'facebook' => 'Facebook',
+            'line' => 'Line',
+            'website' => 'เว็บไซต์',
+            'shopee' => 'Shopee',
+            'lazada' => 'Lazada',
+            'offline' => 'ร้านค้า',
+        ];
+
+        return $labels[$this->purchase_channel] ?? $this->purchase_channel;
+    }
+
+    /**
+     * Get payment method label in Thai.
+     */
+    public function getPaymentMethodLabelAttribute()
+    {
+        $labels = [
+            'bank_transfer' => 'โอนเงิน',
+            'cash_on_delivery' => 'เก็บเงินปลายทาง',
+            'credit_card' => 'บัตรเครดิต',
+            'e_wallet' => 'กระเป๋าเงินอิเล็กทรอนิกส์',
+        ];
+
+        return $labels[$this->payment_method] ?? $this->payment_method;
+    }
+
+    /**
+     * Get the total orders count.
+     */
+    public function getTotalOrdersAttribute()
+    {
+        return $this->orders()->count();
+    }
+
+    /**
+     * Get the total amount spent.
+     */
+    public function getTotalSpentAttribute()
+    {
+        return $this->orders()
+            ->where('payment_status', 'paid')
+            ->sum('total_price');
+    }
+
+    /**
+     * Scope a query to search customers.
+     */
+    public function scopeSearch($query, $search)
+    {
+        return $query->where(function($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('phone', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%");
+        });
     }
 }

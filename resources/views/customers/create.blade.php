@@ -24,10 +24,10 @@
     <form id="customer-form" method="POST" action="{{ route('customers.store') }}">
         @csrf
 
-        {{-- ข้อมูลหลักของลูกค้า --}}
-        <div class="card mb-4">
-            <div class="card-header">
-                <strong>ข้อมูลลูกค้า</strong>
+        {{-- 1. ข้อมูลส่วนตัวลูกค้า --}}
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-user"></i> ข้อมูลส่วนตัว
             </div>
             <div class="card-body row g-3">
                 <div class="col-md-6">
@@ -43,132 +43,133 @@
                 </div>
 
                 <div class="col-md-6">
+                    <label class="form-label">อีเมล</label>
+                    <input type="email" name="email" class="form-control"
+                        value="{{ old('email') }}">
+                </div>
+
+                <div class="col-md-3">
                     <label class="form-label">ช่องทางซื้อหลัก</label>
-                    @php
-                        $channelOptions = [
-                            'facebook' => 'Facebook',
-                            'line'     => 'Line',
-                            'website'  => 'เว็บไซต์',
-                            'shopee'   => 'Shopee',
-                            'lazada'   => 'Lazada',
-                            'offline'  => 'หน้าร้าน',
-                        ];
-                        $ch = old('purchase_channel');
-                    @endphp
                     <select name="purchase_channel" class="form-select">
-                        <option value="">-- เลือกช่องทางซื้อ --</option>
-                        @foreach($channelOptions as $val => $label)
+                        <option value="">-- เลือกช่องทาง --</option>
+                        @php $ch = old('purchase_channel'); @endphp
+                        @foreach(['facebook'=>'Facebook','line'=>'Line','website'=>'เว็บไซต์','shopee'=>'Shopee','lazada'=>'Lazada','offline'=>'หน้าร้าน'] as $val => $label)
                             <option value="{{ $val }}" @selected($ch === $val)>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
 
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <label class="form-label">วิธีชำระเงินหลัก</label>
-                    @php
-                        $paymentOptions = [
-                            'bank_transfer'    => 'โอน/พร้อมเพย์',
-                            'cash_on_delivery' => 'ชำระปลายทาง (COD)',
-                            'credit_card'      => 'บัตรเครดิต/เดบิต',
-                            'e_wallet'         => 'วอลเล็ต',
-                        ];
-                        $pm = old('payment_method');
-                    @endphp
                     <select name="payment_method" class="form-select">
-                        <option value="">-- เลือกวิธีชำระเงิน --</option>
-                        @foreach($paymentOptions as $val => $label)
+                        <option value="">-- เลือกวิธีชำระ --</option>
+                        @php $pm = old('payment_method'); @endphp
+                        @foreach(['bank_transfer'=>'โอน/พร้อมเพย์','cash_on_delivery'=>'เก็บเงินปลายทาง (COD)','credit_card'=>'บัตรเครดิต'] as $val => $label)
                             <option value="{{ $val }}" @selected($pm === $val)>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
+                
+                <div class="col-12">
+                    <label class="form-label">หมายเหตุ</label>
+                    <textarea name="notes" class="form-control" rows="2">{{ old('notes') }}</textarea>
+                </div>
             </div>
         </div>
 
-        {{-- ที่อยู่หลายรายการ --}}
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <strong>ที่อยู่ของลูกค้า</strong>
-                <button type="button" class="btn btn-sm btn-success" id="btn-add-address">
-                    <i class="fas fa-plus"></i> เพิ่มที่อยู่ใหม่
+        {{-- 2. ที่อยู่ (จัดการแบบ List) --}}
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-map-marker-alt"></i> รายการที่อยู่จัดส่ง</span>
+                <button type="button" class="btn btn-sm btn-light text-success fw-bold" id="btn-add-address">
+                    <i class="fas fa-plus-circle"></i> เพิ่มที่อยู่ใหม่
                 </button>
             </div>
-            <div class="card-body" id="addresses-wrapper">
-                {{-- เริ่มต้น 1 แถวเปล่า --}}
+            <div class="card-body bg-light" id="addresses-wrapper">
+                {{-- JavaScript จะเพิ่ม address card ตรงนี้ --}}
             </div>
         </div>
 
-        <div class="d-flex justify-content-end gap-2">
-            <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> บันทึกลูกค้า
+        <div class="d-flex justify-content-end gap-2 mb-5">
+            <a href="{{ route('customers.index') }}" class="btn btn-secondary btn-lg">ยกเลิก</a>
+            <button type="submit" class="btn btn-success btn-lg px-5">
+                <i class="fas fa-save"></i> บันทึกการแก้ไข
             </button>
-            <a href="{{ route('customers.index') }}" class="btn btn-outline-secondary">
-                ยกเลิก
-            </a>
         </div>
     </form>
 </div>
-
 @endsection
 
 @push('scripts')
 <script>
 (function(){
-    // index สำหรับ addresses[x]
     let addressIndex = 0;
 
-    // ฟังก์ชันเพิ่ม card ที่อยู่ใหม่
+    function escapeHtml(str){
+        if (str === null || str === undefined) return '';
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+    }
+
     function addAddressRow(data = {}) {
         const wrapper = document.getElementById('addresses-wrapper');
+        const alertBox = wrapper.querySelector('.alert');
+        if(alertBox) alertBox.remove();
+
         const idx = addressIndex++;
 
         const name        = data.name        || '';
         const address     = data.address     || '';
+        const soi         = data.soi         || '';
+        const road        = data.road        || '';
+        const subdistrict = data.subdistrict || '';
         const district    = data.district    || '';
         const province    = data.province    || '';
         const postal_code = data.postal_code || '';
 
         const html = `
-            <div class="border rounded p-3 mb-3 address-card" data-index="${idx}">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <strong>ที่อยู่ #${idx + 1}</strong>
-                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-address">
-                        <i class="fas fa-trash-alt"></i> ลบที่อยู่นี้
-                    </button>
-                </div>
+            <div class="card mb-3 address-card shadow-sm border-0" data-index="${idx}">
+                <div class="card-body position-relative">
+                    <button type="button" class="btn-close position-absolute top-0 end-0 m-3 btn-remove-address" aria-label="Close"></button>
+                    
+                    <h6 class="card-title text-success fw-bold mb-3">
+                        <i class="fas fa-plus-circle"></i> ที่อยู่ใหม่ (รายการที่ ${idx + 1})
+                    </h6>
 
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label">ชื่อสถานที่ (เช่น บ้าน, ที่ทำงาน)</label>
-                        <input type="text" class="form-control"
-                            name="addresses[${idx}][name]"
-                            value="${escapeHtml(name)}">
-                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">ชื่อสถานที่</label>
+                            <input type="text" class="form-control bg-white" name="addresses[${idx}][name]" value="${escapeHtml(name)}" placeholder="เช่น บ้าน">
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label small text-muted">บ้านเลขที่ / อาคาร / หมู่บ้าน <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-white" name="addresses[${idx}][address]" value="${escapeHtml(address)}" required>
+                        </div>
 
-                    <div class="col-md-8">
-                        <label class="form-label">รายละเอียดที่อยู่</label>
-                        <textarea class="form-control" rows="2"
-                            name="addresses[${idx}][address]">${escapeHtml(address)}</textarea>
-                    </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">ซอย</label>
+                            <input type="text" class="form-control bg-white" name="addresses[${idx}][soi]" value="${escapeHtml(soi)}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-muted">ถนน</label>
+                            <input type="text" class="form-control bg-white" name="addresses[${idx}][road]" value="${escapeHtml(road)}">
+                        </div>
 
-                    <div class="col-md-4">
-                        <label class="form-label">ตำบล / แขวง</label>
-                        <input type="text" class="form-control"
-                            name="addresses[${idx}][district]"
-                            value="${escapeHtml(district)}">
-                    </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label">อำเภอ / เขต</label>
-                        <input type="text" class="form-control"
-                            name="addresses[${idx}][province]"
-                            value="${escapeHtml(province)}">
-                    </div>
-
-                    <div class="col-md-4">
-                        <label class="form-label">รหัสไปรษณีย์</label>
-                        <input type="text" class="form-control"
-                            name="addresses[${idx}][postal_code]"
-                            value="${escapeHtml(postal_code)}">
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">ตำบล/แขวง <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-white" name="addresses[${idx}][subdistrict]" value="${escapeHtml(subdistrict)}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">อำเภอ/เขต <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-white" name="addresses[${idx}][district]" value="${escapeHtml(district)}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">จังหวัด <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-white" name="addresses[${idx}][province]" value="${escapeHtml(province)}" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small text-muted">รหัสไปรษณีย์ <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control bg-white" name="addresses[${idx}][postal_code]" value="${escapeHtml(postal_code)}" required>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -179,31 +180,19 @@
         wrapper.appendChild(div.firstElementChild);
     }
 
-    // escape HTML ป้องกัน XSS เวลาใส่ค่าเก่า
-    function escapeHtml(str){
-        if (str === null || str === undefined) return '';
-        return String(str)
-            .replace(/&/g,'&amp;')
-            .replace(/</g,'&lt;')
-            .replace(/>/g,'&gt;')
-            .replace(/"/g,'&quot;')
-            .replace(/'/g,'&#039;');
-    }
-
-    // event: กดปุ่มเพิ่มที่อยู่
     document.getElementById('btn-add-address').addEventListener('click', function(){
         addAddressRow();
     });
 
-    // event delegation: กดปุ่มลบที่อยู่
     document.getElementById('addresses-wrapper').addEventListener('click', function(e){
-        if (e.target.closest('.btn-remove-address')) {
+        if (e.target.classList.contains('btn-remove-address')) {
             const card = e.target.closest('.address-card');
-            if (card) card.remove();
+            if (!card) return;
+            card.remove();
         }
     });
 
-    // ตอนเปิดหน้า create ให้มีอย่างน้อย 1 แถว
+    // เริ่มต้นให้มี 1 แถวเปล่า
     if (document.getElementById('addresses-wrapper').children.length === 0) {
         addAddressRow();
     }

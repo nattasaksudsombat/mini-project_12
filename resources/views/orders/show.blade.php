@@ -7,62 +7,127 @@
         <a href="{{ route('orders.index') }}" class="btn btn-secondary">← กลับ</a>
     </div>
 
-    {{-- ข้อมูลลูกค้า --}}
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    {{-- ================= ข้อมูลลูกค้า ================= --}}
     <div class="card mb-3">
         <div class="card-header"><strong>ข้อมูลลูกค้า</strong></div>
         <div class="card-body">
-            <p><strong>ชื่อ:</strong> {{ $order->customer->name }}</p>
-            <p><strong>ที่อยู่:</strong> {{ $order->customer->address }}</p>
-            <p><strong>ช่องทางการซื้อ:</strong> {{ ucfirst($order->customer->purchase_channel) }}</p>
-            <p><strong>วิธีชำระเงิน:</strong> {{ ucfirst($order->customer->payment_method) }}</p>
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>ชื่อลูกค้า:</strong> {{ $order->customer->name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>เบอร์โทร:</strong> {{ $order->customer->phone ?? '-' }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>อีเมล:</strong> {{ $order->customer->email ?? '-' }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>ช่องทางการซื้อ:</strong> 
+                        @php
+                            $channelLabels = [
+                                'facebook' => 'Facebook',
+                                'line' => 'Line',
+                                'website' => 'เว็บไซต์',
+                                'shopee' => 'Shopee',
+                                'lazada' => 'Lazada',
+                                'offline' => 'หน้าร้าน',
+                            ];
+                        @endphp
+                        {{ $channelLabels[$order->customer->purchase_channel] ?? ucfirst($order->customer->purchase_channel) }}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>วิธีชำระเงิน:</strong> 
+                        @php
+                            $paymentLabels = [
+                                'bank_transfer' => 'โอน/พร้อมเพย์',
+                                'cash_on_delivery' => 'ชำระปลายทาง (COD)',
+                                'credit_card' => 'บัตรเครดิต/เดบิต',
+                                'e_wallet' => 'วอลเล็ต',
+                            ];
+                        @endphp
+                        {{ $paymentLabels[$order->customer->payment_method] ?? ucfirst($order->customer->payment_method) }}
+                    </p>
+                </div>
+                <div class="col-md-12">
+                    <p><strong>ที่อยู่จัดส่ง:</strong><br>{{ $order->customer->address }}</p>
+                </div>
+            </div>
         </div>
     </div>
 
-    {{-- ข้อมูลคำสั่งซื้อ --}}
+    {{-- ================= ข้อมูลคำสั่งซื้อ ================= --}}
     <div class="card mb-3">
-        <div class="m-4 ">
+        <div class="m-4">
             <h5>Barcode Order ID</h5>
             <svg id="barcode"></svg>
         </div>
         <div class="card-header"><strong>ข้อมูลคำสั่งซื้อ</strong></div>
         <div class="card-body">
-            <p><strong>สถานะคำสั่งซื้อ:</strong>
-                <span class="badge bg-{{ $order->status === 'cancelled' ? 'danger' : ($order->status === 'delivered' ? 'success' : 'warning') }}">
-                    {{ strtoupper($order->status) }}
-                </span>
-            </p>
-            <p><strong>สถานะการชำระเงิน:</strong>
-                <span class="badge bg-{{ $order->payment_status === 'paid' ? 'success' : ($order->payment_status === 'refunded' ? 'secondary' : 'warning') }}">
-                    {{ strtoupper($order->payment_status) }}
-                </span>
-            </p>
-
-            {{-- ช่อง Tracking Number --}}
-            <p><strong>Tracking Number:</strong>
-                @if ($order->tracking_number)
-                <span class="text-primary">{{ $order->tracking_number }}</span>
-                @else
-                <span class="text-muted">ยังไม่มี</span>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>สถานะคำสั่งซื้อ:</strong>
+                        <span class="badge bg-{{ 
+                            $order->status === 'cancelled' ? 'danger' : 
+                            ($order->status === 'delivered' ? 'success' : 
+                            ($order->status === 'shipped' ? 'primary' : 
+                            ($order->status === 'processing' ? 'info' : 'warning'))) 
+                        }}">
+                            @switch($order->status)
+                                @case('pending') รอดำเนินการ @break
+                                @case('processing') กำลังจัดการ @break
+                                @case('shipped') จัดส่งแล้ว @break
+                                @case('delivered') ส่งสำเร็จ @break
+                                @case('cancelled') ยกเลิก @break
+                                @default {{ strtoupper($order->status) }}
+                            @endswitch
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>สถานะการชำระเงิน:</strong>
+                        <span class="badge bg-{{ $order->payment_status === 'paid' ? 'success' : ($order->payment_status === 'refunded' ? 'secondary' : 'warning') }}">
+                            {{ $order->payment_status === 'paid' ? 'ชำระแล้ว' : ($order->payment_status === 'refunded' ? 'คืนเงินแล้ว' : 'ยังไม่ชำระ') }}
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Tracking Number:</strong>
+                        @if ($order->tracking_number)
+                        <span class="text-primary">{{ $order->tracking_number }}</span>
+                        @else
+                        <span class="text-muted">ยังไม่มี</span>
+                        @endif
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>วันที่สั่งซื้อ:</strong> {{ $order->created_at->format('d/m/Y H:i') }}</p>
+                </div>
+                @if($order->notes)
+                <div class="col-md-12">
+                    <p><strong>หมายเหตุ:</strong> {{ $order->notes }}</p>
+                </div>
                 @endif
-            </p>
+            </div>
 
-            @if($order->notes)
-            <p><strong>หมายเหตุ:</strong> {{ $order->notes }}</p>
-            @endif
-
-            <p><strong>วันที่สั่งซื้อ:</strong> {{ $order->created_at->format('d/m/Y H:i') }}</p>
             @if($order->slip_image)
             <div class="mt-4">
                 <h5>สลิปชำระเงิน</h5>
                 <img src="{{ asset('storage/' . $order->slip_image) }}" class="img-fluid border rounded" style="max-width: 400px;">
             </div>
             @endif
-
         </div>
     </div>
 
-    {{-- รายการสินค้า --}}
-    <div class="card">
+    {{-- ================= รายการสินค้า ================= --}}
+    <div class="card mb-3">
         <div class="card-header"><strong>รายการสินค้า</strong></div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -78,14 +143,10 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @php $subtotal = 0; @endphp
                         @foreach($order->orderItems as $item)
-                        @php
-                        $subtotal += $item->quantity * $item->price;
-                        @endphp
                         <tr>
-                            <td>{{ $item->product->name }}</td>
-                            <td>{{ $item->product->id_stock }}</td>
+                            <td>{{ $item->product_name }}</td>
+                            <td>{{ $item->product->id_stock ?? '-' }}</td>
                             <td>
                                 <span class="badge bg-info text-dark">{{ $item->variant_name }}</span>
                             </td>
@@ -110,31 +171,16 @@
                         </tr>
                         <tr class="table-primary">
                             <th colspan="5" class="text-end h5">ยอดรวมทั้งหมด:</th>
-                            @php
-                            $totalAmount = $order->orderItems->sum(function ($item) {
-                            return $item->unit_price * $item->quantity;
-                            });
-                            @endphp
-                            <th class="h5 text-success">฿{{ number_format($order->	total_price, 2) }}</th>
+                            <th class="h5 text-success">฿{{ number_format($order->total_price, 2) }}</th>
                         </tr>
-                        
                     </tfoot>
                 </table>
             </div>
         </div>
     </div>
-    @if($order->notes)
-    <div class="card mt-4">
-        <div class="card-header">
-            <h5>หมายเหตุ</h5>
-        </div>
-        <div class="card-body">
-            <p>{{ $order->notes }}</p>
-        </div>
-    </div>
-    @endif
-    {{-- ปุ่ม --}}
-    <div class="mt-4">
+
+    {{-- ================= ปุ่มจัดการ ================= --}}
+    <div class="mt-4 d-flex gap-2 flex-wrap">
         <button class="btn btn-primary" onclick="window.print()">
             <i class="fas fa-print"></i> พิมพ์ใบสั่งซื้อ
         </button>
@@ -155,14 +201,12 @@
         @endif
 
         <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteOrderModal">
-            ลบออเดอร์
+            <i class="fas fa-trash"></i> ลบออเดอร์
         </button>
     </div>
-    
 </div>
 
-
-<!-- Modal ชำระเงิน -->
+{{-- ================= Modal ชำระเงิน ================= --}}
 <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" action="{{ route('orders.pay', $order->id) }}" enctype="multipart/form-data">
@@ -180,13 +224,15 @@
                     </div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
                     <button type="submit" class="btn btn-success">บันทึก</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
-<!-- Modal สำหรับแก้ไข Tracking Number -->
+
+{{-- ================= Modal Tracking Number ================= --}}
 <div class="modal fade" id="trackingModal" tabindex="-1" aria-labelledby="trackingModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" action="{{ route('orders.updateTracking', $order->id) }}">
@@ -198,42 +244,22 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <label for="tracking_number">Tracking Number</label>
-                    <input type="text" class="form-control" name="tracking_number" value="{{ $order->tracking_number }}">
+                    <div class="mb-3">
+                        <label for="tracking_number" class="form-label">Tracking Number</label>
+                        <input type="text" class="form-control" name="tracking_number" id="tracking_number" 
+                               value="{{ $order->tracking_number }}" placeholder="กรอกเลข Tracking">
+                    </div>
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
                     <button type="submit" class="btn btn-success">บันทึก</button>
                 </div>
             </div>
         </form>
     </div>
 </div>
- <!-- Modal ชำระเงิน -->
-<div class="modal fade" id="paymentModal-{{ $order->id }}" tabindex="-1">
-    <div class="modal-dialog">
-        <form method="POST" action="{{ route('orders.pay', $order->id) }}" enctype="multipart/form-data"> @csrf <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">แนบสลิปชำระเงิน - {{ $order->order_code }}</h5> <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body"> <input type="file" name="slip_image" class="form-control" required> </div>
-                <div class="modal-footer"> <button type="submit" class="btn btn-success">บันทึก</button> </div>
-            </div>
-        </form>
-    </div>
-</div> <!-- Modal Tracking -->
-<div class="modal fade" id="trackingModal-{{ $order->id }}" tabindex="-1">
-    <div class="modal-dialog">
-        <form method="POST" action="{{ route('orders.updateTracking', $order->id) }}"> @csrf <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">ใส่ Tracking - {{ $order->order_code }}</h5> <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body"> <input type="text" name="tracking_number" class="form-control" value="{{ $order->tracking_number }}"> </div>
-                <div class="modal-footer"> <button type="submit" class="btn btn-warning">อัปเดต</button> </div>
-            </div>
-        </form>
-    </div>
-</div>
-<!-- ✅ Modal ยืนยันการลบออเดอร์ -->
+
+{{-- ================= Modal ยืนยันการลบออเดอร์ ================= --}}
 <div class="modal fade" id="deleteOrderModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -269,21 +295,16 @@
         </div>
     </div>
 </div>
-{{-- CSS สำหรับพิมพ์ --}}
+
+{{-- ================= CSS สำหรับพิมพ์ ================= --}}
 <style>
     @media print {
-
-        .btn,
-        .card-header,
-        nav,
-        footer {
+        .btn, .card-header, nav, footer, .modal {
             display: none !important;
         }
-
         .container {
             max-width: 100% !important;
         }
-
         .card {
             border: none !important;
             box-shadow: none !important;
@@ -291,11 +312,12 @@
     }
 </style>
 @endsection
+
 @push('scripts')
 <!-- JsBarcode CDN -->
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 <script>
-    // Render barcode จาก order ID
+    // Render barcode จาก order number
     JsBarcode("#barcode", "{{ $order->order_number ?? $order->id }}", {
         format: "CODE128",
         width: 2,

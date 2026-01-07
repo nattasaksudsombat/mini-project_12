@@ -2,58 +2,105 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\ProductColorSize;
 
 class OrderItem extends Model
 {
-       protected $fillable = [
+    use HasFactory;
+
+    /**
+     * The table associated with the model.
+     */
+    protected $table = 'order_items';
+
+    /**
+     * The attributes that are mass assignable.
+     */
+    protected $fillable = [
         'order_id',
         'product_id',
         'product_name',
+        'color_id',
+        'size_id',
         'variant_name',
         'quantity',
         'unit_price',
         'total_price',
-        'color_id',
-        'size_id',
     ];
+
+    /**
+     * The attributes that should be cast.
+     */
+    protected $casts = [
+        'quantity' => 'integer',
+        'unit_price' => 'decimal:2',
+        'total_price' => 'decimal:2',
+    ];
+
+    /**
+     * Indicates if the model should be timestamped.
+     */
+    public $timestamps = true;
+
+    /**
+     * Get the order that owns the order item.
+     */
     public function order()
     {
-        return $this->belongsTo(Order::class);
+        return $this->belongsTo(Order::class, 'order_id');
     }
+
+    /**
+     * Get the product that owns the order item.
+     */
+    public function product()
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    /**
+     * Get the color for the order item.
+     */
     public function color()
     {
         return $this->belongsTo(Color::class, 'color_id');
     }
 
+    /**
+     * Get the size for the order item.
+     */
     public function size()
     {
         return $this->belongsTo(Size::class, 'size_id');
     }
-    public function product()
+
+    /**
+     * Get the variant (color + size) for the order item.
+     */
+    public function variant()
     {
-        return $this->belongsTo(Product::class);
+        return $this->belongsTo(ProductColorSize::class, 'product_id', 'product_id')
+            ->where('color_id', $this->color_id)
+            ->where('size_id', $this->size_id);
     }
 
-    public function productColorSize()
+    /**
+     * Get the full variant name with color and size.
+     */
+    public function getFullVariantNameAttribute()
     {
-        return $this->belongsTo(ProductColorSize::class, 'color_size_id');
-    }
-
-    // สำหรับแสดงข้อมูลสี-ไซส์
-    public function getVariantDisplayAttribute()
-    {
-        if ($this->productColorSize) {
-            return $this->productColorSize->color->name . ' - ' . $this->productColorSize->size->name;
+        if ($this->color && $this->size) {
+            return $this->color->name . ' - ' . $this->size->name;
         }
-        return 'ไม่ระบุ';
+        return $this->variant_name;
     }
 
-
-    // ความสัมพันธ์กับ OrderItem
-    public function items()
+    /**
+     * Calculate subtotal (alias for total_price).
+     */
+    public function getSubtotalAttribute()
     {
-        return $this->hasMany(OrderItem::class);
+        return $this->total_price;
     }
 }

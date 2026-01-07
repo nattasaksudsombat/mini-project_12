@@ -103,7 +103,12 @@ class ProductController extends Controller
     if (!$variantTable) {
         abort(500, "ไม่พบตาราง product_color_size / product_color_sizes");
     }
-
+$product->load([
+        'colors',
+        'tags',
+        'options',
+        'colorSizes'
+    ]);
     // ====== ตรวจชื่อคอลัมน์ใน view v_current_stock แบบยืดหยุ่น ======
     // คอลัมน์ id ของ variant
     $vIdCol = Schema::hasColumn('v_current_stock', 'variant_id') ? 'variant_id'
@@ -372,7 +377,7 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'id_stock' => 'required|unique:products,id_stock',
+            'id_stock' => 'required|unique:products,id_stock|max:5',
             'name' => 'required|string|max:255',
             'price' => 'required|numeric|min:0',
             'cost' => 'required|numeric|min:0',
@@ -521,4 +526,74 @@ class ProductController extends Controller
             'variant_id' => $variant->id
         ]);
     }
+    public function editImages($id)
+    {
+        $product = Product::with('productImages')->findOrFail($id);
+        // ต้องมั่นใจว่ามีไฟล์ resources/views/products/images.blade.php
+        return view('products.images', compact('product'));
+    }
+
+    // 2. เพิ่มรูปภาพใหม่
+    public function addImage(Request $request, $id)
+    {
+        $request->validate([
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        $product = Product::findOrFail($id);
+
+        if ($request->hasFile('image')) {
+            // บันทึกไฟล์ลง Storage
+            $path = $request->file('image')->store('product_images', 'public');
+            
+            // สร้างข้อมูลในฐานข้อมูล
+            $product->productImages()->create([
+                'image_url' => $path,
+                'is_main' => false
+            ]);
+        }
+
+        return back()->with('success', 'เพิ่มรูปภาพเรียบร้อยแล้ว');
+    }
+
+    // 3. ลบรูปภาพ
+    public function deleteImage($id)
+    {
+        $image = \App\Models\ProductImage::findOrFail($id);
+        
+        // ลบไฟล์จาก Storage (ถ้าต้องการ)
+        // if (\Storage::disk('public')->exists($image->image_url)) {
+        //    \Storage::disk('public')->delete($image->image_url);
+        // }
+
+        $image->delete();
+
+        return back()->with('success', 'ลบรูปภาพเรียบร้อยแล้ว');
+    }
+
+    // 4. ตั้งรูปหลัก
+    public function setMainImage($productId, $imageId)
+    {
+        $product = Product::findOrFail($productId);
+        
+        // รีเซ็ตรูปอื่นไม่ให้เป็นรูปหลัก
+        $product->productImages()->update(['is_main' => false]);
+        
+        // ตั้งรูปที่เลือกเป็นรูปหลัก
+        $product->productImages()->where('id', $imageId)->update(['is_main' => true]);
+
+        return back()->with('success', 'ตั้งรูปภาพหลักเรียบร้อยแล้ว');
+    }
+
+    // 5. เปิด/ปิด การแสดงผลสินค้า
+    public function toggleStatus($id)
+    {
+        $product = Product::findOrFail($id);
+        $product->is_active = !$product->is_active; // สลับสถานะ True/False
+        $product->save();
+
+        return back()->with('success', 'เปลี่ยนสถานะเรียบร้อยแล้ว');
+    }
+
+    
 }

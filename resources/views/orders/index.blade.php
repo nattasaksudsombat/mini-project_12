@@ -3,24 +3,42 @@
 @section('content')
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <a href="{{ route('customers.index') }}" class="btn btn-outline-primary btn-sm">
-    <i class="fas fa-users"></i> จัดการลูกค้า
-</a>
-        <h1>จัดการออเดอร์</h1>
-        <a href="{{ route('orders.create') }}" class="btn btn-success">สร้างออเดอร์ใหม่</a>
+        <div>
+            <h1>จัดการออเดอร์</h1>
+            <p class="text-muted mb-0">ระบบจัดการคำสั่งซื้อทั้งหมด</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ route('customers.index') }}" class="btn btn-outline-primary">
+                <i class="fas fa-users"></i> จัดการลูกค้า
+            </a>
+            <a href="{{ route('orders.create') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> สร้างออเดอร์ใหม่
+            </a>
+        </div>
     </div>
 
-    <!-- ฟอร์มค้นหา -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    {{-- ฟอร์มค้นหา --}}
     <div class="card mb-4">
         <div class="card-body">
             <form method="GET" action="{{ route('orders.index') }}">
-                <div class="row">
+                <div class="row g-3">
                     <div class="col-md-3">
-                        <input type="text" name="search" class="form-control" placeholder="ค้นหาชื่อลูกค้า หรือ เลขออเดอร์" value="{{ request('search') }}">
+                        <label class="form-label">ค้นหา</label>
+                        <input type="text" name="search" class="form-control" 
+                               placeholder="ชื่อลูกค้า หรือ เลขออเดอร์" 
+                               value="{{ request('search') }}">
                     </div>
                     <div class="col-md-2">
-                        <select name="status" class="form-control">
-                            <option value="">-- สถานะทั้งหมด --</option>
+                        <label class="form-label">สถานะ</label>
+                        <select name="status" class="form-select">
+                            <option value="">-- ทั้งหมด --</option>
                             <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>รอดำเนินการ</option>
                             <option value="processing" {{ request('status') == 'processing' ? 'selected' : '' }}>กำลังดำเนินการ</option>
                             <option value="shipped" {{ request('status') == 'shipped' ? 'selected' : '' }}>จัดส่งแล้ว</option>
@@ -29,31 +47,36 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <select name="payment_status" class="form-control">
-                            <option value="">-- การชำระเงินทั้งหมด --</option>
+                        <label class="form-label">การชำระเงิน</label>
+                        <select name="payment_status" class="form-select">
+                            <option value="">-- ทั้งหมด --</option>
                             <option value="pending" {{ request('payment_status') == 'pending' ? 'selected' : '' }}>รอชำระ</option>
                             <option value="paid" {{ request('payment_status') == 'paid' ? 'selected' : '' }}>ชำระแล้ว</option>
                         </select>
                     </div>
                     <div class="col-md-2">
+                        <label class="form-label">วันที่เริ่มต้น</label>
                         <input type="date" name="start_date" class="form-control" value="{{ request('start_date') }}">
                     </div>
                     <div class="col-md-2">
+                        <label class="form-label">วันที่สิ้นสุด</label>
                         <input type="date" name="end_date" class="form-control" value="{{ request('end_date') }}">
                     </div>
-                    <div class="col-md-1">
-                        <button type="submit" class="btn btn-primary">ค้นหา</button>
+                    <div class="col-md-1 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i> ค้นหา
+                        </button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- ตารางแสดงออเดอร์ -->
+    {{-- ตารางแสดงออเดอร์ --}}
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped">
+                <table class="table table-striped table-hover">
                     <thead>
                         <tr>
                             <th>เลขออเดอร์</th>
@@ -62,48 +85,77 @@
                             <th>สถานะ</th>
                             <th>การชำระเงิน</th>
                             <th>วันที่สั่งซื้อ</th>
-                            <th>จัดการ</th>
+                            <th width="300">จัดการ</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($orders as $order)
                         <tr>
-                            <td>{{ $order->order_number }}</td>
-                            <td>{{ $order->customer->name }}</td>
-                            <td>{{ number_format($order->total_price, 2) }} บาท</td>
                             <td>
-                                <span class="badge bg-{{ $order->status == 'pending' ? 'warning' : ($order->status == 'completed' ? 'success' : 'info') }}">
-                                    {{ $order->status }}
+                                <strong>{{ $order->order_number }}</strong>
+                            </td>
+                            <td>
+                                {{ $order->customer->name }}
+                                @if($order->customer->phone)
+                                <br><small class="text-muted">{{ $order->customer->phone }}</small>
+                                @endif
+                            </td>
+                            <td>
+                                <strong class="text-success">฿{{ number_format($order->total_price, 2) }}</strong>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 
+                                    $order->status == 'pending' ? 'warning' : 
+                                    ($order->status == 'processing' ? 'info' : 
+                                    ($order->status == 'shipped' ? 'primary' : 
+                                    ($order->status == 'delivered' ? 'success' : 
+                                    ($order->status == 'cancelled' ? 'danger' : 'secondary')))) 
+                                }}">
+                                    @switch($order->status)
+                                        @case('pending') รอดำเนินการ @break
+                                        @case('processing') กำลังจัดการ @break
+                                        @case('shipped') จัดส่งแล้ว @break
+                                        @case('delivered') ส่งสำเร็จ @break
+                                        @case('cancelled') ยกเลิก @break
+                                        @default {{ $order->status }}
+                                    @endswitch
                                 </span>
                             </td>
                             <td>
                                 <span class="badge bg-{{ $order->payment_status == 'paid' ? 'success' : 'warning' }}">
-                                    {{ $order->payment_status }}
+                                    {{ $order->payment_status == 'paid' ? 'ชำระแล้ว' : 'รอชำระ' }}
                                 </span>
                             </td>
                             <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
                             <td>
-                                <a href="{{ route('orders.show', $order->id) }}" class="btn btn-info btn-sm">ดู</a>
-                                <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-warning btn-sm">แก้ไข</a>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ route('orders.show', $order->id) }}" class="btn btn-info" title="ดูรายละเอียด">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-warning" title="แก้ไข">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
                                 
-                                {{-- Quick actions --}}
                                 @if($order->payment_status === 'pending')
                                 <button class="btn btn-success btn-sm btn-open-payment-modal" 
                                         data-bs-toggle="modal" 
                                         data-bs-target="#paymentModal" 
                                         data-id="{{ $order->id }}"
-                                        data-order-number="{{ $order->order_number }}">
+                                        data-order-number="{{ $order->order_number }}"
+                                        title="ชำระเงิน">
                                     <i class="fas fa-money-bill-wave"></i> ชำระเงิน
                                 </button>
                                 @endif
                                 
                                 @if($order->payment_status === 'paid')
-                                <button class="btn btn-warning btn-sm btn-open-tracking-modal" 
+                                <button class="btn btn-primary btn-sm btn-open-tracking-modal" 
                                         data-bs-toggle="modal" 
                                         data-bs-target="#trackingModal" 
                                         data-id="{{ $order->id }}"
                                         data-order-number="{{ $order->order_number }}"
-                                        data-tracking="{{ $order->tracking_number ?? '' }}">
+                                        data-tracking="{{ $order->tracking_number ?? '' }}"
+                                        title="จัดการ Tracking">
                                     <i class="fas fa-truck"></i> Tracking
                                 </button>
                                 @endif
@@ -111,20 +163,26 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center">ไม่พบข้อมูลออเดอร์</td>
+                            <td colspan="7" class="text-center text-muted py-5">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <p>ไม่พบข้อมูลออเดอร์</p>
+                            </td>
                         </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
             
-            <!-- Pagination -->
-            <div class="d-flex justify-content-center">
+            {{-- Pagination --}}
+            @if($orders->hasPages())
+            <div class="d-flex justify-content-center mt-4">
                 {{ $orders->appends(request()->query())->links() }}
             </div>
+            @endif
         </div>
     </div>
-    <!-- สถิติสรุป -->
+
+    {{-- สถิติสรุป --}}
     @if($orders->count() > 0)
     <div class="row mt-4">
         <div class="col-md-3">
@@ -132,7 +190,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4>{{ $orders->count() }}</h4>
+                            <h4>{{ $orders->total() }}</h4>
                             <p class="mb-0">ออเดอร์ทั้งหมด</p>
                         </div>
                         <div>
@@ -162,7 +220,12 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4>{{ $orders->sum(function($order) { return $order->orderItems->sum('quantity'); }) }}</h4>
+                            @php
+                                $totalItems = $orders->sum(function($order) {
+                                    return $order->orderItems->sum('quantity');
+                                });
+                            @endphp
+                            <h4>{{ $totalItems }}</h4>
                             <p class="mb-0">สินค้าที่ขาย</p>
                         </div>
                         <div>
@@ -191,7 +254,7 @@
     @endif
 </div>
 
-<!-- ✅ Modal ชำระเงิน - แก้ไขแล้ว -->
+{{-- ================= Modal ชำระเงิน ================= --}}
 <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" id="payment-form" enctype="multipart/form-data">
@@ -199,8 +262,10 @@
             @method('PATCH')
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="paymentModalLabel">แนบสลิปชำระเงิน</h5>
-                    <span class="text-muted ms-2" id="payment-order-display"></span>
+                    <h5 class="modal-title" id="paymentModalLabel">
+                        แนบสลิปชำระเงิน
+                        <span class="text-muted ms-2" id="payment-order-display"></span>
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -218,7 +283,7 @@
     </div>
 </div>
 
-<!-- ✅ Modal สำหรับแก้ไข Tracking Number - แก้ไขแล้ว -->
+{{-- ================= Modal Tracking Number ================= --}}
 <div class="modal fade" id="trackingModal" tabindex="-1" aria-labelledby="trackingModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" id="tracking-form">
@@ -226,14 +291,17 @@
             @method('PATCH')
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="trackingModalLabel">เพิ่ม/แก้ไข Tracking Number</h5>
-                    <span class="text-muted ms-2" id="tracking-order-display"></span>
+                    <h5 class="modal-title" id="trackingModalLabel">
+                        เพิ่ม/แก้ไข Tracking Number
+                        <span class="text-muted ms-2" id="tracking-order-display"></span>
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="tracking_number" class="form-label">Tracking Number</label>
-                        <input type="text" class="form-control" name="tracking_number" id="tracking_number" placeholder="กรอกเลข Tracking">
+                        <input type="text" class="form-control" name="tracking_number" id="tracking_number" 
+                               placeholder="กรอกเลข Tracking">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -248,7 +316,6 @@
 
 @push('scripts')
 <script>
-// ✅ จัดการ Modal ชำระเงิน
 document.addEventListener('DOMContentLoaded', function() {
     // Payment Modal
     const paymentButtons = document.querySelectorAll('.btn-open-payment-modal');
@@ -260,13 +327,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const orderId = this.getAttribute('data-id');
             const orderNumber = this.getAttribute('data-order-number');
             
-            // อัปเดต action ของฟอร์ม
             paymentForm.action = `/orders/${orderId}/pay`;
-            
-            // แสดงเลขออเดอร์ใน Modal
             paymentOrderDisplay.textContent = `(${orderNumber})`;
-            
-            console.log('Payment Modal - Order ID:', orderId, 'Order Number:', orderNumber);
         });
     });
     
@@ -282,16 +344,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const orderNumber = this.getAttribute('data-order-number');
             const currentTracking = this.getAttribute('data-tracking');
             
-            // อัปเดต action ของฟอร์ม
             trackingForm.action = `/orders/${orderId}/tracking`;
-            
-            // แสดงเลขออเดอร์ใน Modal
             trackingOrderDisplay.textContent = `(${orderNumber})`;
-            
-            // ใส่ tracking number เดิม (ถ้ามี)
             trackingNumberInput.value = currentTracking || '';
-            
-            console.log('Tracking Modal - Order ID:', orderId, 'Order Number:', orderNumber);
         });
     });
 });
