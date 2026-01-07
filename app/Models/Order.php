@@ -161,7 +161,15 @@ class Order extends Model
 
         return $colors[$this->payment_status] ?? 'secondary';
     }
+public function show(Order $order)
+    {
+        // ✅ เพิ่ม 'customer.addresses' เข้าไปใน load
+        $order->load(['customer.addresses', 'customerAddress', 'orderItems.product']);
+        
+        // ... (โค้ดเดิม) ...
 
+        return view('orders.show', compact('order'));
+    }
     /**
      * Check if order can be cancelled.
      */

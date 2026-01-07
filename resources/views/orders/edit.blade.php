@@ -3,15 +3,8 @@
 @section('content')
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>แก้ไขออเดอร์ #{{ $order->order_number ?? $order->id }}</h1>
-        <div>
-            <a href="{{ route('orders.show', $order->id) }}" class="btn btn-info me-2">
-                <i class="fas fa-eye"></i> ดูรายละเอียด
-            </a>
-            <a href="{{ route('orders.index') }}" class="btn btn-secondary">
-                <i class="fas fa-arrow-left"></i> กลับ
-            </a>
-        </div>
+        <h1>คำสั่งซื้อ #{{ $order->order_number ?? $order->id }}</h1>
+        <a href="{{ route('orders.index') }}" class="btn btn-secondary">← กลับ</a>
     </div>
 
     @if(session('success'))
@@ -21,298 +14,299 @@
         </div>
     @endif
 
-    @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show">
-            {{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-    @endif
+    {{-- ================= ข้อมูลลูกค้า ================= --}}
+    <div class="card mb-3">
+        <div class="card-header"><strong>ข้อมูลลูกค้า</strong></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>ชื่อลูกค้า:</strong> {{ $order->customer->name }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>เบอร์โทร:</strong> {{ $order->customer->phone ?? '-' }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>อีเมล:</strong> {{ $order->customer->email ?? '-' }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>ช่องทางการซื้อ:</strong> 
+                        @php
+                            $channelLabels = [
+                                'facebook' => 'Facebook',
+                                'line' => 'Line',
+                                'website' => 'เว็บไซต์',
+                                'shopee' => 'Shopee',
+                                'lazada' => 'Lazada',
+                                'offline' => 'หน้าร้าน',
+                            ];
+                        @endphp
+                        {{ $channelLabels[$order->customer->purchase_channel] ?? ucfirst($order->customer->purchase_channel) }}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>วิธีชำระเงิน:</strong> 
+                        @php
+                            $paymentLabels = [
+                                'bank_transfer' => 'โอน/พร้อมเพย์',
+                                'cash_on_delivery' => 'ชำระปลายทาง (COD)',
+                                'credit_card' => 'บัตรเครดิต/เดบิต',
+                                'e_wallet' => 'วอลเล็ต',
+                            ];
+                        @endphp
+                        {{ $paymentLabels[$order->customer->payment_method] ?? ucfirst($order->customer->payment_method) }}
+                    </p>
+                </div>
+                
+                {{-- ✅ แก้ไขส่วนแสดงที่อยู่จัดส่ง ให้ดึงจาก customer_addresses ถ้ามี --}}
+                <div class="col-md-12">
+                    <p><strong>ที่อยู่จัดส่ง:</strong><br>
+                        @if($order->customerAddress)
+                            {{-- กรณีมีที่อยู่ในตาราง customer_addresses --}}
+                            <strong>{{ $order->customerAddress->name }}</strong><br>
+                            {{ $order->customerAddress->address }} 
+                            {{ $order->customerAddress->subdistrict }} 
+                            {{ $order->customerAddress->district }} 
+                            {{ $order->customerAddress->province }} 
+                            {{ $order->customerAddress->postal_code }}
+                        @else
+                            {{-- กรณีไม่มี (ใช้ที่อยู่ลูกค้าหลัก) --}}
+                            {{ $order->customer->address }}
+                        @endif
+                    </p>
+                </div>
 
-    @if ($errors->any())
-    <div class="alert alert-danger">
-        <ul class="mb-0">
-            @foreach ($errors->all() as $error)
-            <li>{{ $error }}</li>
-            @endforeach
-        </ul>
+            </div>
+        </div>
     </div>
-    @endif
 
-    <form method="POST" action="{{ route('orders.update', $order->id) }}" id="orderForm">
-        @csrf
-        @method('PUT')
-
-        {{-- ================= ข้อมูลลูกค้า ================= --}}
-        <div class="card mb-3">
-            <div class="card-header d-flex align-items-center justify-content-between">
-                <span class="fw-bold">ข้อมูลลูกค้า</span>
-                <div class="d-flex gap-2">
-                    <span class="badge rounded-pill text-bg-secondary">
-                        เลขที่ออเดอร์: {{ $order->order_number }}
-                    </span>
-                    <span id="statusBadge" class="badge rounded-pill
-                        @switch(old('status', $order->status))
-                          @case('pending') text-bg-warning @break
-                          @case('processing') text-bg-info @break
-                          @case('shipped') text-bg-primary @break
-                          @case('delivered') text-bg-success @break
-                          @case('cancelled') text-bg-danger @break
-                          @default text-bg-secondary
-                        @endswitch
-                    ">
-                        {{ ucfirst(old('status', $order->status)) }}
-                    </span>
-                    <span id="paymentBadge" class="badge rounded-pill
-                        {{ old('payment_status', $order->payment_status)==='paid' ? 'text-bg-success' : 'text-bg-secondary' }}">
-                        {{ old('payment_status', $order->payment_status)==='paid' ? 'ชำระแล้ว' : 'ยังไม่ชำระ' }}
-                    </span>
+    {{-- ================= ข้อมูลคำสั่งซื้อ ================= --}}
+    <div class="card mb-3">
+        <div class="m-4">
+            <h5>Barcode Order ID</h5>
+            <svg id="barcode"></svg>
+        </div>
+        <div class="card-header"><strong>ข้อมูลคำสั่งซื้อ</strong></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>สถานะคำสั่งซื้อ:</strong>
+                        <span class="badge bg-{{ 
+                            $order->status === 'cancelled' ? 'danger' : 
+                            ($order->status === 'delivered' ? 'success' : 
+                            ($order->status === 'shipped' ? 'primary' : 
+                            ($order->status === 'processing' ? 'info' : 'warning'))) 
+                        }}">
+                            @switch($order->status)
+                                @case('pending') รอดำเนินการ @break
+                                @case('processing') กำลังจัดการ @break
+                                @case('shipped') จัดส่งแล้ว @break
+                                @case('delivered') ส่งสำเร็จ @break
+                                @case('cancelled') ยกเลิก @break
+                                @default {{ strtoupper($order->status) }}
+                            @endswitch
+                        </span>
+                    </p>
                 </div>
+                <div class="col-md-6">
+                    <p><strong>สถานะการชำระเงิน:</strong>
+                        <span class="badge bg-{{ $order->payment_status === 'paid' ? 'success' : ($order->payment_status === 'refunded' ? 'secondary' : 'warning') }}">
+                            {{ $order->payment_status === 'paid' ? 'ชำระแล้ว' : ($order->payment_status === 'refunded' ? 'คืนเงินแล้ว' : 'ยังไม่ชำระ') }}
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Tracking Number:</strong>
+                        @if ($order->tracking_number)
+                        <span class="text-primary">{{ $order->tracking_number }}</span>
+                        @else
+                        <span class="text-muted">ยังไม่มี</span>
+                        @endif
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>วันที่สั่งซื้อ:</strong> {{ $order->created_at->format('d/m/Y H:i') }}</p>
+                </div>
+                @if($order->notes)
+                <div class="col-md-12">
+                    <p><strong>หมายเหตุ:</strong> {{ $order->notes }}</p>
+                </div>
+                @endif
             </div>
 
-            <div class="card-body">
-                <div class="row g-3">
-                    {{-- ชื่อลูกค้า --}}
-                    <div class="col-md-4">
-                        <label class="form-label">ชื่อลูกค้า <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control @error('customer.name') is-invalid @enderror" 
-                            name="customer[name]" value="{{ old('customer.name', $order->customer->name ?? '') }}" required>
-                        @error('customer.name')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
+            @if($order->slip_image)
+            <div class="mt-4">
+                <h5>สลิปชำระเงิน</h5>
+                <img src="{{ asset('storage/' . $order->slip_image) }}" class="img-fluid border rounded" style="max-width: 400px;">
+            </div>
+            @endif
+        </div>
+    </div>
 
-                    {{-- เบอร์โทร --}}
-                    <div class="col-md-4">
-                        <label class="form-label">เบอร์โทร</label>
-                        <input type="text" class="form-control @error('customer.phone') is-invalid @enderror" 
-                            name="customer[phone]" value="{{ old('customer.phone', $order->customer->phone ?? '') }}">
-                        @error('customer.phone')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    {{-- อีเมล --}}
-                    <div class="col-md-4">
-                        <label class="form-label">อีเมล</label>
-                        <input type="email" class="form-control @error('customer.email') is-invalid @enderror" 
-                            name="customer[email]" value="{{ old('customer.email', $order->customer->email ?? '') }}">
-                        @error('customer.email')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    {{-- ช่องทางซื้อ --}}
-                    <div class="col-md-6">
-                        <label class="form-label">ช่องทางซื้อ <span class="text-danger">*</span></label>
-                        @php
-                        $channelOptions = [
-                            'facebook' => 'Facebook',
-                            'line' => 'Line',
-                            'website' => 'เว็บไซต์',
-                            'shopee' => 'Shopee',
-                            'lazada' => 'Lazada',
-                            'offline' => 'หน้าร้าน',
-                        ];
-                        $chRaw = old('customer.purchase_channel', $order->customer->purchase_channel ?? '');
-                        @endphp
-                        <select class="form-select @error('customer.purchase_channel') is-invalid @enderror" 
-                            name="customer[purchase_channel]" required>
-                            <option value="">-- เลือกช่องทางซื้อ --</option>
-                            @foreach($channelOptions as $val => $label)
-                            <option value="{{ $val }}" {{ $chRaw == $val ? 'selected' : '' }}>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        @error('customer.purchase_channel')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    {{-- วิธีชำระเงิน --}}
-                    <div class="col-md-6">
-                        <label class="form-label">วิธีชำระเงิน <span class="text-danger">*</span></label>
-                        @php
-                        $paymentOptions = [
-                            'bank_transfer'    => 'โอน/พร้อมเพย์',
-                            'cash_on_delivery' => 'ชำระปลายทาง (COD)',
-                            'credit_card'      => 'บัตรเครดิต/เดบิต',
-                            'e_wallet'         => 'วอลเล็ต',
-                        ];
-                        $pmRaw = old('customer.payment_method', $order->customer->payment_method ?? '');
-                        @endphp
-                        <select class="form-select @error('customer.payment_method') is-invalid @enderror" 
-                            name="customer[payment_method]" required>
-                            <option value="">-- เลือกวิธีชำระเงิน --</option>
-                            @foreach($paymentOptions as $val => $label)
-                            <option value="{{ $val }}" {{ $pmRaw == $val ? 'selected' : '' }}>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        @error('customer.payment_method')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    {{-- ที่อยู่จัดส่ง --}}
-                    <div class="col-md-12">
-                        <label class="form-label">ที่อยู่จัดส่ง <span class="text-danger">*</span></label>
-                        <textarea class="form-control @error('customer.address') is-invalid @enderror" 
-                            name="customer[address]" rows="3" required>{{ old('customer.address', $order->customer->address ?? '') }}</textarea>
-                        @error('customer.address')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                        <div class="form-text">ที่อยู่นี้จะถูกอัปเดตเป็นที่อยู่จัดส่งของออเดอร์</div>
-                    </div>
-
-                    <div class="col-12"><hr></div>
-
-                    {{-- สถานะคำสั่งซื้อ --}}
-                    <div class="col-md-4">
-                        <label class="form-label">สถานะคำสั่งซื้อ <span class="text-danger">*</span></label>
-                        <select class="form-select @error('status') is-invalid @enderror" 
-                            name="status" id="statusSelect" required>
-                            @php $status = old('status', $order->status); @endphp
-                            <option value="pending" {{ $status === 'pending' ? 'selected' : '' }}>รอดำเนินการ</option>
-                            <option value="processing" {{ $status === 'processing' ? 'selected' : '' }}>กำลังจัดการ</option>
-                            <option value="shipped" {{ $status === 'shipped' ? 'selected' : '' }}>จัดส่งแล้ว</option>
-                            <option value="delivered" {{ $status === 'delivered' ? 'selected' : '' }}>ส่งสำเร็จ</option>
-                            <option value="cancelled" {{ $status === 'cancelled' ? 'selected' : '' }}>ยกเลิก</option>
-                        </select>
-                        @error('status')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    {{-- สถานะการชำระเงิน --}}
-                    <div class="col-md-4">
-                        <label class="form-label">สถานะการชำระเงิน <span class="text-danger">*</span></label>
-                        <select class="form-select @error('payment_status') is-invalid @enderror" 
-                            name="payment_status" id="paymentSelect" required>
-                            @php $pay = old('payment_status', $order->payment_status); @endphp
-                            <option value="pending" {{ $pay === 'pending' ? 'selected' : '' }}>ยังไม่ชำระ</option>
-                            <option value="paid" {{ $pay === 'paid' ? 'selected' : '' }}>ชำระแล้ว</option>
-                        </select>
-                        @error('payment_status')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    {{-- Tracking Number --}}
-                    <div class="col-md-4">
-                        <label class="form-label">เลขติดตามพัสดุ (Tracking Number)</label>
-                        <input type="text" class="form-control" name="tracking_number"
-                            value="{{ old('tracking_number', $order->tracking_number) }}"
-                            placeholder="ระบุเลขพัสดุ (ถ้ามี)">
-                    </div>
-
-                    {{-- ค่าจัดส่ง --}}
-                    <div class="col-md-4">
-                        <label class="form-label">ค่าจัดส่ง</label>
-                        <input type="number" name="shipping_fee" id="shipping-fee" class="form-control" 
-                            value="{{ old('shipping_fee', $order->shipping_fee) }}" step="0.01" required 
-                            onchange="calculateTotals()">
-                    </div>
-
-                    {{-- ส่วนลด --}}
-                    <div class="col-md-4">
-                        <label class="form-label">ส่วนลด</label>
-                        <input type="number" name="discount" id="discount" class="form-control" 
-                            value="{{ old('discount', $order->discount) }}" step="0.01" 
-                            onchange="calculateTotals()">
-                    </div>
-
-                    {{-- ยอดรวมทั้งหมด (แสดงอย่างเดียว) --}}
-                    <div class="col-md-4">
-                        <label class="form-label">ยอดรวมทั้งหมด</label>
-                        <input type="text" id="total-amount" class="form-control" readonly>
-                    </div>
-
-                    {{-- หมายเหตุ --}}
-                    <div class="col-md-12">
-                        <label class="form-label">หมายเหตุ</label>
-                        <textarea class="form-control" name="notes" rows="2">{{ old('notes', $order->notes) }}</textarea>
-                    </div>
-                </div>
+    {{-- ================= รายการสินค้า ================= --}}
+    <div class="card mb-3">
+        <div class="card-header"><strong>รายการสินค้า</strong></div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>สินค้า</th>
+                            <th>รหัสสินค้า</th>
+                            <th>สี-ไซส์</th>
+                            <th>จำนวน</th>
+                            <th>ราคาต่อหน่วย</th>
+                            <th>รวม</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($order->orderItems as $item)
+                        <tr>
+                            <td>{{ $item->product_name }}</td>
+                            <td>{{ $item->product->id_stock ?? '-' }}</td>
+                            <td>
+                                <span class="badge bg-info text-dark">{{ $item->variant_name }}</span>
+                            </td>
+                            <td>{{ $item->quantity }}</td>
+                            <td>฿{{ number_format($item->unit_price, 2) }}</td>
+                            <td>฿{{ number_format($item->total_price, 2) }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="5" class="text-end">ยอดรวมสินค้า:</th>
+                            <th>฿{{ number_format($order->subtotal, 2) }}</th>
+                        </tr>
+                        <tr>
+                            <th colspan="5" class="text-end">ค่าจัดส่ง:</th>
+                            <th>฿{{ number_format($order->shipping_fee, 2) }}</th>
+                        </tr>
+                        <tr>
+                            <th colspan="5" class="text-end">ส่วนลด:</th>
+                            <th>฿{{ number_format($order->discount, 2) }}</th>
+                        </tr>
+                        <tr class="table-primary">
+                            <th colspan="5" class="text-end h5">ยอดรวมทั้งหมด:</th>
+                            <th class="h5 text-success">฿{{ number_format($order->total_price, 2) }}</th>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
         </div>
+    </div>
 
-        {{-- ================= จัดการสินค้า ================= --}}
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-box"></i> จัดการสินค้า</h5>
-            </div>
-            <div class="card-body">
-                {{-- ค้นหาสินค้า --}}
-                <div class="mb-3">
-                    <label class="form-label">ค้นหาสินค้าเพื่อเพิ่ม</label>
-                    <input type="text" id="product-search" class="form-control" placeholder="ค้นหาชื่อสินค้า...">
-                    <div id="search-results" class="mt-2"></div>
-                </div>
+    {{-- ================= ปุ่มจัดการ ================= --}}
+    <div class="mt-4 d-flex gap-2 flex-wrap">
+        <button class="btn btn-primary" onclick="window.print()">
+            <i class="fas fa-print"></i> พิมพ์ใบสั่งซื้อ
+        </button>
+        <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-info">
+            <i class="fas fa-edit"></i> แก้ไขคำสั่งซื้อ
+        </a>
 
-                {{-- ตารางสินค้าในออเดอร์ --}}
-                <div class="table-responsive">
-                    <table class="table table-bordered" id="order-items-table">
-                        <thead class="table-light">
-                            <tr>
-                                <th>สินค้า</th>
-                                <th>สี-ไซส์</th>
-                                <th>จำนวน</th>
-                                <th>ราคาต่อหน่วย</th>
-                                <th>รวม</th>
-                                <th width="100">จัดการ</th>
-                            </tr>
-                        </thead>
-                        <tbody id="order-items-body"></tbody>
-                        <tfoot class="table-light">
-                            <tr>
-                                <td colspan="4" class="text-end"><strong>ยอดรวมสินค้า:</strong></td>
-                                <td colspan="2" id="subtotal-display">฿0.00</td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
+        @if($order->payment_status === 'pending')
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paymentModal">
+            <i class="fas fa-money-bill-wave"></i> ชำระเงิน / แนบสลิป
+        </button>
+        @endif
 
-                <input type="hidden" name="items_json" id="items-json">
-            </div>
-        </div>
+        @if($order->payment_status === 'paid' && $order->slip_image)
+        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#trackingModal">
+            <i class="fas fa-truck"></i> เพิ่ม/แก้ไข Tracking Number
+        </button>
+        @endif
 
-        {{-- ปุ่มจัดการ --}}
-        <div class="d-flex gap-2 mb-4">
-            <button type="button" class="btn btn-success" onclick="submitOrder()">
-                <i class="fas fa-save"></i> บันทึกการแก้ไข
-            </button>
-            <button type="button" class="btn btn-warning" onclick="resetForm()">
-                <i class="fas fa-undo"></i> รีเซ็ต
-            </button>
-            <a href="{{ route('orders.show', $order->id) }}" class="btn btn-secondary">
-                <i class="fas fa-times"></i> ยกเลิก
-            </a>
-        </div>
-    </form>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteOrderModal">
+            <i class="fas fa-trash"></i> ลบออเดอร์
+        </button>
+    </div>
 </div>
 
-{{-- Modal เลือกสี-ไซส์ --}}
-<div class="modal fade" id="variantModal" tabindex="-1">
+{{-- ================= Modal ชำระเงิน ================= --}}
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ route('orders.pay', $order->id) }}" enctype="multipart/form-data">
+            @csrf
+            @method('PATCH')
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="paymentModalLabel">แนบสลิปชำระเงิน</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="slip_image" class="form-label">อัปโหลดสลิป (JPG, PNG)</label>
+                        <input type="file" class="form-control" name="slip_image" accept="image/*" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-success">บันทึก</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- ================= Modal Tracking Number ================= --}}
+<div class="modal fade" id="trackingModal" tabindex="-1" aria-labelledby="trackingModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ route('orders.updateTracking', $order->id) }}">
+    @csrf
+    @method('PATCH') {{-- บรรทัดนี้สำคัญมาก --}}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="trackingModalLabel">เพิ่ม/แก้ไข Tracking Number</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="tracking_number" class="form-label">Tracking Number</label>
+                        <input type="text" class="form-control" name="tracking_number" id="tracking_number" 
+                               value="{{ $order->tracking_number }}" placeholder="กรอกเลข Tracking">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-success">บันทึก</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- ================= Modal ยืนยันการลบออเดอร์ ================= --}}
+<div class="modal fade" id="deleteOrderModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">เลือกสี-ไซส์</h5>
+                <h5 class="modal-title">ยืนยันการลบออเดอร์</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p><strong id="selected-product-name"></strong></p>
-                <div class="mb-3">
-                    <label>เลือกสี-ไซส์</label>
-                    <select id="variant-select" class="form-control">
-                        <option value="">-- เลือก --</option>
-                    </select>
+                <div class="alert alert-warning">
+                    <strong>คำเตือน!</strong> การลบออเดอร์จะไม่สามารถย้อนกลับได้
                 </div>
-                <div class="mb-3">
-                    <label>จำนวน</label>
-                    <input type="number" id="variant-quantity" class="form-control" value="1" min="1">
-                </div>
+                <p>คุณแน่ใจหรือไม่ที่จะลบออเดอร์ <strong>#{{ $order->order_number }}</strong>?</p>
+                <p class="text-muted">เมื่อลบแล้ว สินค้าทั้งหมดในออเดอร์จะถูกคืนสต็อกให้อัตโนมัติ</p>
+
+                <h6>รายการสินค้าที่จะคืนสต็อก:</h6>
+                <ul class="list-group list-group-flush">
+                    @foreach($order->orderItems as $item)
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>{{ $item->product_name }} ({{ $item->variant_name }})</span>
+                        <span class="badge bg-info">+{{ $item->quantity }} ชิ้น</span>
+                    </li>
+                    @endforeach
+                </ul>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                <button type="button" class="btn btn-primary" onclick="addItemToOrder()">เพิ่มสินค้า</button>
+                <form action="{{ route('orders.destroy', $order->id) }}" method="POST" style="display: inline;">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger">ยืนยันการลบ</button>
+                </form>
             </div>
         </div>
     </div>
@@ -328,18 +322,48 @@
 <script type="application/json" id="items-data">
     @json($items ?? [])
 </script>
+<style>
+    @media print {
+        .btn, .card-header, nav, footer, .modal {
+            display: none !important;
+        }
+        .container {
+            max-width: 100% !important;
+        }
+        .card {
+            border: none !important;
+            box-shadow: none !important;
+        }
+    }
+</style>
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<script>
+    // Render barcode จาก order number
+    JsBarcode("#barcode", "{{ $order->order_number ?? $order->id }}", {
+        format: "CODE128",
+        width: 2,
+        height: 60,
+        displayValue: true
+    });
+</script>
 <script>
 // ============= Global Variables =============
 let selectedItems = [];
 let allProducts = [];
 let currentProductForVariant = null;
-const variantModal = new bootstrap.Modal(document.getElementById('variantModal'));
+let variantModal = null; // ย้ายมาประกาศและ init ใน DOMContentLoaded
 
 // ============= Initialization =============
 document.addEventListener('DOMContentLoaded', function() {
+    // Init Modal
+    const modalEl = document.getElementById('variantModal');
+    if(modalEl) {
+        variantModal = new bootstrap.Modal(modalEl);
+    }
+
     try {
         const orderData = JSON.parse(document.getElementById('order-data')?.textContent || '{}');
         const productsData = JSON.parse(document.getElementById('products-data')?.textContent || '[]');
@@ -361,7 +385,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 quantity: parseInt(it.quantity) || 1,
                 unit_price: parseFloat(it.unit_price || it.price || 0),
                 total_price: parseFloat(it.total_price || (it.quantity * it.unit_price)) || 0,
-                color_size_id: it.color_size_id || it.product_color_size_id,
+                // ✅ แก้ไข: เพิ่ม variant_id สำหรับ map กลับไปให้ Controller
+                color_size_id: it.color_size_id || it.product_color_size_id, 
                 max_total_for_order: it.max_total_for_order || 9999,
                 is_existing_item: true
             }));
@@ -399,8 +424,8 @@ function searchProducts(term) {
     }
     
     const filtered = allProducts.filter(p => 
-        p.name?.toLowerCase().includes(term.toLowerCase()) ||
-        p.id_stock?.toLowerCase().includes(term.toLowerCase())
+        (p.name && p.name.toLowerCase().includes(term.toLowerCase())) ||
+        (p.id_stock && p.id_stock.toLowerCase().includes(term.toLowerCase()))
     );
     
     if (filtered.length === 0) {
@@ -433,22 +458,34 @@ function selectProductForOrder(productId) {
     const variantSelect = document.getElementById('variant-select');
     variantSelect.innerHTML = '<option value="">-- เลือก --</option>';
     
-    if (Array.isArray(product.color_sizes) && product.color_sizes.length > 0) {
-        product.color_sizes.forEach(cs => {
+    // ✅ แก้ไข: ดึงข้อมูล Color/Size จาก nested object (แก้ปัญหา undefined)
+    // ใน Product::with(['colorSizes.color', 'colorSizes.size']) ตัวแปร colorSizes จะเป็น array
+    const variants = product.color_sizes || product.colorSizes || []; // รองรับทั้ง snake_case และ camelCase
+
+    if (Array.isArray(variants) && variants.length > 0) {
+        variants.forEach(cs => {
+            // ดึงชื่อสีและไซส์จาก relation
+            const colorName = cs.color_name || (cs.color ? cs.color.name : '') || 'ไม่ระบุสี';
+            const sizeName = cs.size_name || (cs.size ? (cs.size.size_name || cs.size.name) : '') || 'ไม่ระบุไซส์';
+            const stock = cs.quantity || cs.stock || 0; // รองรับทั้ง quantity และ stock
+
             const opt = document.createElement('option');
-            opt.value = cs.id;
-            opt.textContent = `${cs.color_name} - ${cs.size_name} (สต็อก: ${cs.stock})`;
+            opt.value = cs.id; // นี่คือ variant_id (ProductColorSize ID)
+            opt.textContent = `${colorName} - ${sizeName} (สต็อก: ${stock})`;
+            
+            // เก็บข้อมูลใส่ dataset
             opt.dataset.colorId = cs.color_id;
             opt.dataset.sizeId = cs.size_id;
-            opt.dataset.stock = cs.stock;
-            opt.dataset.colorName = cs.color_name;
-            opt.dataset.sizeName = cs.size_name;
+            opt.dataset.stock = stock;
+            opt.dataset.colorName = colorName;
+            opt.dataset.sizeName = sizeName;
+            
             variantSelect.appendChild(opt);
         });
     }
     
     document.getElementById('variant-quantity').value = 1;
-    variantModal.show();
+    if(variantModal) variantModal.show();
     document.getElementById('search-results').innerHTML = '';
 }
 
@@ -462,20 +499,24 @@ function addItemToOrder() {
     }
     
     const selected = variantSelect.selectedOptions[0];
+    const variantId = parseInt(variantSelect.value); // ProductColorSize ID
     const colorId = parseInt(selected.dataset.colorId);
     const sizeId = parseInt(selected.dataset.sizeId);
     const stock = parseInt(selected.dataset.stock || 0);
     const qty = parseInt(qtyInput.value || 1);
     
+    const colorName = selected.dataset.colorName || '-';
+    const sizeName = selected.dataset.sizeName || '-';
+
     if (qty > stock) {
         alert(`สต็อกไม่พอ มีเพียง ${stock} ชิ้น`);
         return;
     }
     
+    // เช็คว่ามีในรายการแล้วหรือยัง
     const existingIndex = selectedItems.findIndex(it => 
         it.product_id == currentProductForVariant.id && 
-        it.color_id == colorId && 
-        it.size_id == sizeId
+        it.color_size_id == variantId // เช็คจาก variant ID โดยตรงแม่นยำกว่า
     );
     
     if (existingIndex >= 0) {
@@ -488,13 +529,13 @@ function addItemToOrder() {
             product_name: currentProductForVariant.name,
             color_id: colorId,
             size_id: sizeId,
-            color_name: selected.dataset.colorName,
-            size_name: selected.dataset.sizeName,
-            variant_name: `${selected.dataset.colorName} - ${selected.dataset.sizeName}`,
+            color_name: colorName,
+            size_name: sizeName,
+            variant_name: `${colorName} - ${sizeName}`,
             quantity: qty,
             unit_price: parseFloat(currentProductForVariant.price || 0),
             total_price: qty * parseFloat(currentProductForVariant.price || 0),
-            color_size_id: parseInt(variantSelect.value),
+            color_size_id: variantId, // เก็บ ID นี้ไว้ส่งเป็น variant_id
             max_total_for_order: stock,
             is_existing_item: false
         });
@@ -502,7 +543,7 @@ function addItemToOrder() {
     
     renderOrderItems();
     calculateTotals();
-    variantModal.hide();
+    if(variantModal) variantModal.hide();
     showAlert('เพิ่มสินค้าสำเร็จ', 'success');
 }
 
@@ -523,18 +564,17 @@ function renderOrderItems() {
                 <td>${escapeHtml(it.product_name)}</td>
                 <td><span class="badge bg-info">${escapeHtml(it.variant_name)}</span></td>
                 <td>
-                    <div class="input-group input-group-sm" style="width: 150px;">
+                    <div class="input-group input-group-sm" style="width: 120px;">
                         <button class="btn btn-outline-secondary" type="button" 
                                 onclick="changeItemQuantity(${idx}, -1)">-</button>
                         <input type="number" class="form-control text-center" 
-                               value="${it.quantity}" min="1"
-                               onchange="updateQuantity(${idx}, this.value)">
+                               value="${it.quantity}" min="1" readonly>
                         <button class="btn btn-outline-secondary" type="button" 
                                 onclick="changeItemQuantity(${idx}, 1)">+</button>
                     </div>
                 </td>
-                <td>฿${Number(it.unit_price).toFixed(2)}</td>
-                <td class="line-total">฿${Number(it.total_price).toFixed(2)}</td>
+                <td>฿${Number(it.unit_price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                <td class="line-total">฿${Number(it.total_price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                 <td>
                     <button type="button" class="btn btn-sm btn-danger" 
                             onclick="removeItem(${idx})">
@@ -560,37 +600,15 @@ function changeItemQuantity(index, delta) {
         return;
     }
     
-    if (newQty > maxTotal) {
+    // ถ้าเพิ่มสินค้า และเกินสต็อก (เฉพาะรายการใหม่ หรือ ถ้าระบบเช็คสต็อกแบบละเอียด)
+    // ตรงนี้อาจต้องปรับ logic ถ้าเป็นสินค้าเก่าแล้วคืนสต็อก แต่เบื้องต้นเช็คคร่าวๆ
+    if (!it.is_existing_item && newQty > maxTotal) {
         showAlert(`สต็อกไม่พอ มีเพียง ${maxTotal} ชิ้น`, 'warning');
         return;
     }
     
     it.quantity = newQty;
     it.total_price = it.unit_price * newQty;
-    
-    renderOrderItems();
-    calculateTotals();
-}
-
-function updateQuantity(index, value) {
-    if (index < 0 || index >= selectedItems.length) return;
-    const it = selectedItems[index];
-    
-    let qty = parseInt(value || 0);
-    const maxTotal = it.max_total_for_order || 9999;
-    
-    if (qty < 1) {
-        showAlert('จำนวนต้องไม่ต่ำกว่า 1', 'warning');
-        qty = 1;
-    }
-    
-    if (qty > maxTotal) {
-        showAlert(`สต็อกไม่พอ มีเพียง ${maxTotal} ชิ้น`, 'warning');
-        qty = maxTotal;
-    }
-    
-    it.quantity = qty;
-    it.total_price = it.unit_price * qty;
     
     renderOrderItems();
     calculateTotals();
@@ -619,8 +637,8 @@ function calculateTotals() {
     const subEl = document.getElementById('subtotal-display');
     const totalEl = document.getElementById('total-amount');
     
-    if (subEl) subEl.textContent = `฿${subtotal.toFixed(2)}`;
-    if (totalEl) totalEl.value = `฿${total.toFixed(2)}`;
+    if (subEl) subEl.textContent = `฿${subtotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    if (totalEl) totalEl.value = `฿${total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 }
 
 // ============= Form Actions =============
@@ -631,31 +649,30 @@ function resetForm() {
 }
 
 function submitOrder() {
-    // Validate
-    for (let i = 0; i < selectedItems.length; i++) {
-        const it = selectedItems[i];
-        if (!it.is_existing_item && (!it.color_id || !it.size_id || !it.color_size_id)) {
-            alert(`สินค้าใหม่แถวที่ ${i + 1} ขาดข้อมูลสี-ไซส์`);
-            return;
-        }
+    // Validate Items
+    if (selectedItems.length === 0) {
+        alert('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ');
+        return;
     }
-    
-    // Update JSON
+
+    // Prepare JSON for Controller
     const payload = selectedItems.map(it => ({
         id: it.id,
+        // ✅ ส่ง variant_id ไปให้ Controller ใช้หา ProductColorSize
+        variant_id: it.color_size_id, 
+        
         product_id: it.product_id,
-        name: it.product_name,
+        name: it.product_name, // Controller อาจจะเรียก name หรือ product_name
         product_name: it.product_name,
+        
         quantity: it.quantity,
+        price: it.unit_price,  // Controller อาจจะเรียก price หรือ unit_price
         unit_price: it.unit_price,
-        price: it.unit_price,
-        product_color_size_id: it.color_size_id,
-        color_size_id: it.color_size_id,
+        
         color_id: it.color_id,
         size_id: it.size_id,
         color_name: it.color_name,
         size_name: it.size_name,
-        variant_name: it.variant_name,
         is_existing_item: !!it.is_existing_item
     }));
     
@@ -732,6 +749,7 @@ function showAlert(message, type = 'info') {
 }
 
 function escapeHtml(text) {
+    if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
