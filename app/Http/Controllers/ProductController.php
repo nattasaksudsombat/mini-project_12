@@ -18,6 +18,7 @@ use App\Models\ProductColorSize;
 use Picqer\Barcode\BarcodeGeneratorPNG; // ต้องใช้ library barcode
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 
 
@@ -529,24 +530,24 @@ $product->load([
     public function editImages($id)
     {
         $product = Product::with('productImages')->findOrFail($id);
-        // ต้องมั่นใจว่ามีไฟล์ resources/views/products/images.blade.php
-        return view('products.images', compact('product'));
+        // ✅ แก้ชื่อ View ให้ตรงกับไฟล์ที่มี (edit_images.blade.php)
+        return view('products.edit_images', compact('product'));
     }
 
-    // 2. เพิ่มรูปภาพใหม่
+    // 2. เพิ่มรูปภาพใหม่ (รองรับ multiple upload)
     public function addImage(Request $request, $id)
     {
+        // 1. แก้ชื่อใน validate ให้ตรงกับ name="image" ในฟอร์ม
         $request->validate([
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $product = Product::findOrFail($id);
 
-        if ($request->hasFile('image')) {
-            // บันทึกไฟล์ลง Storage
+        if ($request->hasFile('image')) { // 2. เช็ค hasFile('image')
+            // 3. เรียก file('image')
             $path = $request->file('image')->store('product_images', 'public');
             
-            // สร้างข้อมูลในฐานข้อมูล
             $product->productImages()->create([
                 'image_url' => $path,
                 'is_main' => false
@@ -559,12 +560,12 @@ $product->load([
     // 3. ลบรูปภาพ
     public function deleteImage($id)
     {
-        $image = \App\Models\ProductImage::findOrFail($id);
+        $image = ProductImage::findOrFail($id);
         
-        // ลบไฟล์จาก Storage (ถ้าต้องการ)
-        // if (\Storage::disk('public')->exists($image->image_url)) {
-        //    \Storage::disk('public')->delete($image->image_url);
-        // }
+        // ลบไฟล์จาก Storage
+        if ($image->image_url && Storage::disk('public')->exists($image->image_url)) {
+           Storage::disk('public')->delete($image->image_url);
+        }
 
         $image->delete();
 
@@ -589,11 +590,9 @@ $product->load([
     public function toggleStatus($id)
     {
         $product = Product::findOrFail($id);
-        $product->is_active = !$product->is_active; // สลับสถานะ True/False
+        $product->is_active = !$product->is_active;
         $product->save();
 
         return back()->with('success', 'เปลี่ยนสถานะเรียบร้อยแล้ว');
     }
-
-    
 }
