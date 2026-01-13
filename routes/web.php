@@ -7,6 +7,9 @@ use App\Http\Controllers\{
     OrderItemController,
     ProductController,
     ProductColorSizeController,
+    ProductColorController,
+    ProductTagController,
+    ProductOptionController,
     CustomerController,
     StockController,
     ReportController,
@@ -20,70 +23,148 @@ use App\Http\Controllers\{
     OptionController,
     TypeProductController,
     ProductImageController,
-    ProductExcelController
+    ProductExcelController,
+    AuthController,
+    UserController
 };
 
-Route::get('/', fn () => redirect('/dashboard'));
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
-// --- Orders ---
-Route::prefix('orders')->name('orders.')->group(function () {
-    Route::get('customers/search', [OrderController::class, 'searchCustomers'])->name('customers.search');
-    Route::get('customers/{customer}/addresses', [OrderController::class, 'getCustomerAddresses'])->name('customers.addresses');
-    Route::post('{order}/cancel', [OrderController::class, 'cancel'])->name('cancel');
-    Route::post('{order}/ship',   [OrderController::class, 'ship'])->name('ship');
-    Route::patch('{order}/pay',   [OrderController::class, 'pay'])->name('pay');
-   Route::patch('{order}/tracking', [OrderController::class, 'updateTracking'])->name('updateTracking');
+/*
+|--------------------------------------------------------------------------
+| Authentication Routes
+|--------------------------------------------------------------------------
+*/
+Route::get('/', function () {
+    return redirect()->route('login');
 });
-Route::resource('orders', OrderController::class);
-Route::resource('order-items', OrderItemController::class)->only(['destroy']);
 
-// --- Customers ---
-Route::resource('customers', CustomerController::class)->except('show');
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// --- Products & Images ---
-Route::controller(ProductController::class)->group(function () {
-    // Search & Export/Import
-    Route::get('/products/search', 'search')->name('products.search');
-    Route::get('/products/{product}/variants', 'getVariantsApi')->name('products.variants.api');
-    Route::get('/export-products', 'export')->name('export.products');
-    Route::post('/import-products', 'import')->name('products.import');
+/*
+|--------------------------------------------------------------------------
+| Protected Routes (ต้อง Login ก่อน)
+|--------------------------------------------------------------------------
+*/
+Route::middleware(['auth'])->group(function () {
+
+    // ✅ Dashboard (ทุกคน)
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // =========================================================
+    // 🌍 Public Read-Only (ดูได้ทุกคน)
+    // =========================================================
     
-    // Toggle Status
-    Route::post('/products/{product}/toggle', 'toggleStatus')->name('products.toggle');
+    // Products - Read Only
+    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+    Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+    
+    // Orders - Read Only  
+    Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
 
-    // ✅ Image Management Routes (แก้ไขให้สมบูรณ์)
-    Route::get('/products/{product}/images', 'editImages')->name('products.images.edit'); // หน้าแก้ไข
-    Route::post('/products/{product}/images', 'addImage')->name('products.images.store'); // เพิ่มรูป (ใช้ POST)
-    Route::delete('/products/images/{image}', 'deleteImage')->name('products.images.destroy'); // ลบรูป
-    Route::post('/products/{product}/images/{image}/main', 'setMainImage')->name('products.images.setMain'); // ตั้งรูปหลัก (แก้ชื่อให้สอดคล้อง)
-    Route::post('/products/{product}/images/{image}/main', 'setMainImage')->name('products.setMain');
+
+    // =========================================================
+    // 👑 Admin ONLY
+    // =========================================================
+    Route::middleware(['role:admin'])->group(function () {
+        // รายงาน & การเงิน
+        Route::resource('incomes', IncomeController::class);
+        Route::resource('expenses', ExpenseController::class);
+        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        
+        // จัดการ Users
+        Route::resource('users', UserController::class);
+    });
+
+
+    // =========================================================
+    // 📦 Stock Management (Admin + Stock)
+    // =========================================================
+    Route::middleware(['role:admin,stock'])->group(function () {
+        
+        // ⚠️ สำคัญ: Routes เฉพาะเจาะจงต้องอยู่ก่อน {product}
+        
+        // Export/Import
+        Route::get('/export-products', [ProductController::class, 'export'])->name('export.products');
+        Route::post('/import-products', [ProductController::class, 'import'])->name('products.import');
+        Route::post('/products/import-excel', [ProductExcelController::class, 'import'])->name('products.excel.import');
+        Route::post('/products/print-barcode', [ProductController::class, 'printBarcode'])->name('products.printBarcode');
+        
+        // Products - CRUD (เรียงตามลำดับความเฉพาะเจาะจง)
+        Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
+        Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+        Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
+        Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
+        Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+        Route::post('/products/{product}/toggle', [ProductController::class, 'toggleStatus'])->name('products.toggle');
+        
+        // Product Variants
+        Route::get('/products/{product}/variants', [ProductController::class, 'getVariants'])->name('products.variants');
+        
+        // Product Images
+        Route::get('/products/{product}/images', [ProductImageController::class, 'edit'])->name('products.images.edit');
+        Route::post('/products/{product}/images', [ProductImageController::class, 'store'])->name('products.images.store');
+        Route::post('/products/{product}/images/{image}/main', [ProductImageController::class, 'setMain'])->name('products.images.setMain');
+        Route::delete('/products/images/{image}', [ProductImageController::class, 'destroy'])->name('products.images.destroy');
+        
+        // Product Color-Size Variants
+        Route::get('/products/{product}/color-size/create', [ProductColorSizeController::class, 'create'])->name('product.colorSize.create');
+        Route::post('/products/{product}/color-size', [ProductColorSizeController::class, 'store'])->name('product.colorSize.store');
+        Route::get('/products/{product}/color-size/{colorSize}/edit', [ProductColorSizeController::class, 'edit'])->name('product.colorSize.edit');
+        Route::put('/products/{product}/color-size/{colorSize}', [ProductColorSizeController::class, 'update'])->name('product.colorSize.update');
+        Route::delete('/products/{product}/color-size/{colorSize}', [ProductColorSizeController::class, 'destroy'])->name('product.colorSize.destroy');
+        
+        // Stock Management
+                Route::get('/stock/adjust/{variant}', [StockController::class, 'adjustForm'])->name('stock.adjust.form');
+        
+        // บันทึกปรับสต๊อก (ใน StockController ชื่อฟังก์ชันคือ adjustSave ไม่ใช่ saveAdjustment)
+        Route::post('/stock/adjust/{variant}', [StockController::class, 'adjustSave'])->name('stock.adjust.save');
+        
+        // ประวัติสต๊อกของ Variant (ใน StockController ชื่อฟังก์ชันคือ variantHistory ไม่ใช่ history)
+        Route::get('/stock/history/{variant}', [StockController::class, 'variantHistory'])->name('stock.variant.history');
+        
+        // Master Data
+        Route::resource('categories', CategoryController::class);
+        Route::resource('colors', ColorController::class);
+        Route::resource('sizes', SizeController::class);
+        Route::resource('tags', TagController::class);
+        Route::resource('options', OptionController::class);
+        Route::resource('types', TypeProductController::class);
+    });
+
+
+    // =========================================================
+    // 🛒 Sales Management (Admin + Sales)
+    // =========================================================
+    Route::middleware(['role:admin,sales'])->group(function () {
+        
+        // ⚠️ สำคัญ: Routes เฉพาะเจาะจงต้องอยู่ก่อน {order}
+        
+        // Orders - Helpers (ต้องอยู่ก่อน CRUD)
+        Route::get('/orders/customers/search', [OrderController::class, 'searchCustomers'])->name('orders.customers.search');
+        Route::get('/orders/customers/{customer}/addresses', [OrderController::class, 'getCustomerAddresses'])->name('orders.customers.addresses');
+        
+        // Orders - CRUD
+        Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
+        Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+        Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+        Route::get('/orders/{order}/edit', [OrderController::class, 'edit'])->name('orders.edit');
+        Route::put('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');
+        Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
+        
+        // Orders - Actions
+        Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
+        Route::post('/orders/{order}/ship', [OrderController::class, 'ship'])->name('orders.ship');
+        Route::patch('/orders/{order}/pay', [OrderController::class, 'pay'])->name('orders.pay');
+        Route::patch('/orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.updateTracking');
+        
+        // Order Items
+        Route::delete('/order-items/{orderItem}', [OrderItemController::class, 'destroy'])->name('order-items.destroy');
+        
+        // Customers
+        Route::resource('customers', CustomerController::class)->except(['show']);
+    });
+
 });
-
-Route::resource('products', ProductController::class);
-// Route::resource('product-images', ProductImageController::class); // ❌ ไม่จำเป็นต้องใช้แล้ว เพราะรวม logic ไว้ใน ProductController แล้ว
-
-// --- Product Color Size ---
-Route::prefix('products/{product}/color-size')->name('product.colorSize.')->group(function () {
-    Route::get('/create', [ProductColorSizeController::class, 'create'])->name('create');
-    Route::post('/', [ProductColorSizeController::class, 'store'])->name('store');
-});
-
-// --- Stock ---
-Route::get('/stock/adjust/{variant}', [ProductColorSizeController::class, 'adjustForm'])->name('stock.adjust.form');
-Route::post('/stock/adjust/{variant}', [ProductColorSizeController::class, 'saveAdjustment'])->name('stock.adjust.save');
-Route::get('/stock/history/{variant}', [ProductColorSizeController::class, 'history'])->name('stock.variant.history');
-Route::post('/products/print-barcode', [ProductController::class, 'printBarcode'])->name('products.printBarcode');
-
-// --- Others ---
-Route::resource('incomes', IncomeController::class);
-Route::resource('expenses', ExpenseController::class);
-Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
-Route::resource('categories', CategoryController::class);
-Route::resource('colors', ColorController::class);
-Route::resource('sizes', SizeController::class);
-Route::resource('tags', TagController::class);
-Route::resource('options', OptionController::class);
-Route::resource('types', TypeProductController::class);
-Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-Route::post('products/import', [ProductExcelController::class, 'import'])->name('products.import');

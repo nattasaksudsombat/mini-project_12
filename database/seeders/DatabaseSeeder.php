@@ -19,5 +19,11 @@ class DatabaseSeeder extends Seeder
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+        User::create([
+    'username' => 'admin',
+    'email' => 'admin@example.com',
+    'password' => Hash::make('12345678'), // ✅ ต้องใช้ Hash::make() เท่านั้น
+    'role' => 'admin',
+]);
     }
 }

@@ -6,12 +6,9 @@ use App\Models\Product;
 use App\Models\Color;
 use App\Models\Size;
 use App\Models\ProductColorSize;
-use App\Models\StockTransaction; // ✅ เพิ่ม Model นี้
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
- // ✅ เพิ่ม Schema
 
 class ProductColorSizeController extends Controller
 {
@@ -22,9 +19,11 @@ class ProductColorSizeController extends Controller
     {
         $product = Product::findOrFail($product_id);
         $colors = Color::orderBy('name')->get();
-        // ถ้า column ใน DB ชื่อ size_name ให้ใช้ size_name ถ้าชื่อ name ให้ใช้ name
-        $sizes = Size::orderBy('size_name')->get(); 
         
+        // ✅ แก้ไขบรรทัดนี้: เปลี่ยน 'name' เป็น 'size_name'
+        $sizes = Size::orderBy('size_name')->get();
+        
+        // ดึง variants ที่มีอยู่แล้ว
         $existingVariants = ProductColorSize::where('product_id', $product_id)
             ->with(['color', 'size'])
             ->get();
@@ -42,16 +41,19 @@ class ProductColorSizeController extends Controller
                 'product_id' => 'required|exists:products,id',
                 'color_id' => 'required|exists:colors,id',
                 'size_id' => 'required|exists:sizes,id',
-                'quantity' => 'required|integer|min:0',
+                'quantity' => 'required|integer|min:0|max:2147483647',
             ], [
                 'product_id.required' => 'กรุณาเลือกสินค้า',
                 'color_id.required' => 'กรุณาเลือกสี',
                 'size_id.required' => 'กรุณาเลือกไซส์',
                 'quantity.required' => 'กรุณากรอกจำนวน',
+                'quantity.integer' => 'จำนวนต้องเป็นตัวเลข',
+                'quantity.min' => 'จำนวนต้องไม่ต่ำกว่า 0',
             ]);
 
             DB::beginTransaction();
 
+            // ตรวจสอบว่า combination นี้มีอยู่แล้วหรือยัง
             $exists = ProductColorSize::where('product_id', $validated['product_id'])
                 ->where('color_id', $validated['color_id'])
                 ->where('size_id', $validated['size_id'])
@@ -63,7 +65,13 @@ class ProductColorSizeController extends Controller
                     ->withInput();
             }
 
-            ProductColorSize::create($validated);
+            // สร้าง variant ใหม่
+            ProductColorSize::create([
+                'product_id' => $validated['product_id'],
+                'color_id' => $validated['color_id'],
+                'size_id' => $validated['size_id'],
+                'quantity' => $validated['quantity'],
+            ]);
 
             DB::commit();
 
@@ -72,34 +80,47 @@ class ProductColorSizeController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Store Error: ' . $e->getMessage());
+            Log::error('ProductColorSize Store Error: ' . $e->getMessage());
             return back()->withErrors(['error' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()])->withInput();
         }
     }
 
+    /**
+     * แสดงฟอร์มแก้ไข
+     */
     public function edit($id)
     {
         $colorSize = ProductColorSize::with(['product', 'color', 'size'])->findOrFail($id);
         $colors = Color::orderBy('name')->get();
+        
+        // ✅ แก้ไขบรรทัดนี้ด้วยเช่นกัน
         $sizes = Size::orderBy('size_name')->get();
         
         return view('product_color_size.edit', compact('colorSize', 'colors', 'sizes'));
     }
-
+    /**
+     * อัปเดตข้อมูล
+     */
     public function update(Request $request, $id)
     {
         try {
             $validated = $request->validate([
                 'color_id' => 'required|exists:colors,id',
                 'size_id' => 'required|exists:sizes,id',
-                'quantity' => 'required|integer|min:0',
+                'quantity' => 'required|integer|min:0|max:2147483647',
+            ], [
+                'color_id.required' => 'กรุณาเลือกสี',
+                'size_id.required' => 'กรุณาเลือกไซส์',
+                'quantity.required' => 'กรุณากรอกจำนวน',
+                'quantity.integer' => 'จำนวนต้องเป็นตัวเลข',
+                'quantity.min' => 'จำนวนต้องไม่ต่ำกว่า 0',
             ]);
 
             DB::beginTransaction();
 
             $colorSize = ProductColorSize::findOrFail($id);
 
-            // เช็คซ้ำ
+            // ตรวจสอบซ้ำ (ยกเว้นตัวเอง)
             $exists = ProductColorSize::where('product_id', $colorSize->product_id)
                 ->where('color_id', $validated['color_id'])
                 ->where('size_id', $validated['size_id'])
@@ -107,157 +128,140 @@ class ProductColorSizeController extends Controller
                 ->exists();
 
             if ($exists) {
-                return back()->withErrors(['duplicate' => 'ข้อมูลซ้ำ'])->withInput();
+                return redirect()->back()
+                    ->withErrors(['duplicate' => 'ข้อมูลสีและขนาดนี้มีอยู่แล้วในระบบ'])
+                    ->withInput();
             }
 
-            $colorSize->update($validated);
+            // อัปเดตข้อมูล
+            $colorSize->update([
+                'color_id' => $validated['color_id'],
+                'size_id' => $validated['size_id'],
+                'quantity' => $validated['quantity'],
+            ]);
 
             DB::commit();
-            return redirect()->route('products.show', $colorSize->product_id)->with('success', 'อัปเดตเรียบร้อย');
+
+            return redirect()->route('products.show', $colorSize->product_id)
+                ->with('success', 'อัปเดตข้อมูลสีและขนาดเรียบร้อย');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => $e->getMessage()])->withInput();
+            Log::error('ProductColorSize Update Error: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()])->withInput();
         }
     }
 
+    /**
+     * ลบ variant
+     */
     public function destroy($id)
     {
         try {
             DB::beginTransaction();
-            $colorSize = ProductColorSize::findOrFail($id);
-            $pid = $colorSize->product_id;
 
-            // เช็คว่าถูกใช้ใน Order หรือไม่
-            if (DB::table('order_items')->where('product_color_size_id', $id)->exists()) {
-                 return back()->with('error', 'ลบไม่ได้ สินค้านี้มีประวัติการสั่งซื้อ');
+            $colorSize = ProductColorSize::findOrFail($id);
+            $productId = $colorSize->product_id;
+
+            // ตรวจสอบว่ามีการใช้งานในออเดอร์หรือไม่
+            $usedInOrders = DB::table('order_items')
+                ->where('product_id', $colorSize->product_id)
+                ->where('color_id', $colorSize->color_id)
+                ->where('size_id', $colorSize->size_id)
+                ->count();
+
+            if ($usedInOrders > 0) {
+                return back()->with('error', "ไม่สามารถลบได้ เนื่องจากมีการใช้งานใน {$usedInOrders} ออเดอร์");
             }
 
             $colorSize->delete();
+
             DB::commit();
-            return redirect()->route('products.show', $pid)->with('success', 'ลบเรียบร้อย');
+
+            return redirect()->route('products.show', $productId)
+                ->with('success', 'ลบข้อมูลสีและขนาดเรียบร้อยแล้ว');
+
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', $e->getMessage());
+            Log::error('ProductColorSize Delete Error: ' . $e->getMessage());
+            return back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         }
     }
 
-    // ========================================================
-    // ✅ ส่วนที่เพิ่ม/แก้ไข เพื่อให้ระบบ Stock ทำงานได้จริง
-    // ========================================================
-
     /**
-     * หน้าประวัติสต๊อก
+     * ดึงข้อมูล variants สำหรับ AJAX (ใช้ในออเดอร์)
      */
-    public function history($id)
+    public function getVariants($productId)
     {
-        $variant = ProductColorSize::with(['product', 'color', 'size'])->findOrFail($id);
-        
-        $history = [];
-        if (Schema::hasTable('stock_transactions')) {
-            $history = StockTransaction::where('product_color_size_id', $id)
-                ->orderBy('created_at', 'desc')
-                ->paginate(20);
-        }
-
-        return view('stock.variant-history', compact('variant', 'history'));
-    }
-    /**
-     * หน้าปรับสต๊อก (แสดงฟอร์ม)
-     */
-    public function adjustForm($id)
-    {
-        $variant = ProductColorSize::with(['product', 'color', 'size'])->findOrFail($id);
-
-        $current = $variant->quantity;
-        $reserved = 0;
-        
-        if (Schema::hasTable('stock_holds')) {
-             $reserved = DB::table('stock_holds')
-                ->where('product_color_size_id', $id)
-                ->where('status', 'active') 
-                ->sum('quantity');
-        }
-
-        $summary = (object)[
-            'current'   => (int)$current,
-            'reserved'  => (int)$reserved,
-            'available' => (int)($current - $reserved),
-        ];
-
-        // ✅ แก้ไข: ดึง 10 รายการล่าสุดเพื่อส่งไปแก้ Error Undefined variable $last10
-        $last10 = [];
-        if (Schema::hasTable('stock_transactions')) {
-            $last10 = StockTransaction::where('product_color_size_id', $id)
-                ->latest() // เรียงจากใหม่ไปเก่า
-                ->limit(10)
-                ->get();
-        }
-
-        // ส่ง $last10 ไปด้วย
-        return view('stock.adjust', compact('variant', 'summary', 'last10'));
-    }
-    /**
-     * ✅ บันทึกการปรับสต๊อก (ฟังก์ชันนี้แหละที่คุณขาดไป!)
-     */
-    public function saveAdjustment(Request $request, $id)
-    {
-        // 1. ตรวจสอบค่าที่ส่งมา
-        $request->validate([
-            'action'   => 'required|in:in,out', // รับค่า in (เพิ่ม) หรือ out (ลด)
-            'quantity' => 'required|integer|min:1',
-            'reason'   => 'nullable|string|max:255',
-            'ref'      => 'nullable|string|max:50', // รับเลขอ้างอิง
-        ]);
-
-        DB::beginTransaction();
         try {
-            // 2. ดึงข้อมูลสินค้า (Lock เพื่อกันแย่งกันอัปเดต)
-            $variant = ProductColorSize::lockForUpdate()->findOrFail($id);
+            $product = Product::findOrFail($productId);
             
-            $qty = (int) $request->quantity;
-            $type = $request->action;
-            $qtyBefore = $variant->quantity;
-            $change = 0;
+            $variants = ProductColorSize::where('product_id', $productId)
+                ->with(['color', 'size'])
+                ->where('quantity', '>', 0) // เฉพาะที่มีสต็อก
+                ->get()
+                ->map(function($variant) use ($product) {
+                    return [
+                        'id' => $variant->id,
+                        'color_id' => $variant->color_id,
+                        'size_id' => $variant->size_id,
+                        'color_name' => $variant->color->name ?? 'N/A',
+                        'size_name' => $variant->size->name ?? 'N/A',
+                        'variant_name' => ($variant->color->name ?? 'N/A') . ' - ' . ($variant->size->name ?? 'N/A'),
+                        'quantity' => $variant->quantity,
+                        'stock' => $variant->quantity,
+                        'price' => $product->price,
+                        'display_name' => ($variant->color->name ?? 'N/A') . ' - ' . ($variant->size->name ?? 'N/A') . ' (คงเหลือ: ' . $variant->quantity . ')',
+                    ];
+                });
 
-            // 3. คำนวณการตัด/เพิ่มสต๊อก
-            if ($type === 'out') {
-                // กรณีตัดของออก เช็คว่าของพอไหม
-                if ($variant->quantity < $qty) {
-                    throw new \Exception("สินค้าคงเหลือไม่พอให้ตัดออก (มี: {$variant->quantity}, จะตัด: {$qty})");
+            return response()->json([
+                'success' => true,
+                'variants' => $variants
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Get Variants Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * อัปเดตสต็อกหลายรายการพร้อมกัน
+     */
+    public function bulkUpdateStock(Request $request, $productId)
+    {
+        try {
+            $validated = $request->validate([
+                'variants' => 'required|array',
+                'variants.*.id' => 'required|exists:product_color_sizes,id',
+                'variants.*.quantity' => 'required|integer|min:0',
+            ]);
+
+            DB::beginTransaction();
+
+            foreach ($validated['variants'] as $variantData) {
+                $variant = ProductColorSize::where('id', $variantData['id'])
+                    ->where('product_id', $productId)
+                    ->first();
+
+                if ($variant) {
+                    $variant->quantity = $variantData['quantity'];
+                    $variant->save();
                 }
-                $variant->decrement('quantity', $qty);
-                $change = -$qty;
-            } else {
-                // กรณีเพิ่มของเข้า
-                $variant->increment('quantity', $qty);
-                $change = $qty;
-            }
-
-            $variant->refresh(); // ดึงค่าล่าสุด
-
-            // 4. บันทึกประวัติลง stock_transactions (ถ้ามีตารางนี้)
-            if (\Illuminate\Support\Facades\Schema::hasTable('stock_transactions')) {
-                \App\Models\StockTransaction::create([
-                    'product_color_size_id' => $variant->id,
-                    'user_id'          => auth()->id() ?? null, // ใส่ ID คนทำรายการ
-                    'user_name'        => auth()->user()->name ?? 'System', // ใส่ชื่อคนทำรายการ
-                    'type'             => $type,      // in หรือ out
-                    'quantity'         => $change,    // เช่น +10 หรือ -5
-                    'quantity_before'  => $qtyBefore,
-                    'quantity_after'   => $variant->quantity,
-                    'reason'           => $request->reason,
-                    'reference_number' => $request->ref, // บันทึกเลขอ้างอิง
-                    'created_at'       => now(),
-                ]);
             }
 
             DB::commit();
-            return back()->with('success', 'บันทึกการปรับสต๊อกเรียบร้อยแล้ว');
+
+            return back()->with('success', 'อัปเดตสต็อกสำเร็จ');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()])->withInput();
+            Log::error('Bulk Update Stock Error: ' . $e->getMessage());
+            return back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         }
     }
 }

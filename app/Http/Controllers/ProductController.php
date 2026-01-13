@@ -18,7 +18,6 @@ use App\Models\ProductColorSize;
 use Picqer\Barcode\BarcodeGeneratorPNG; // ต้องใช้ library barcode
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 
 
 
@@ -530,24 +529,24 @@ $product->load([
     public function editImages($id)
     {
         $product = Product::with('productImages')->findOrFail($id);
-        // ✅ แก้ชื่อ View ให้ตรงกับไฟล์ที่มี (edit_images.blade.php)
-        return view('products.edit_images', compact('product'));
+        // ต้องมั่นใจว่ามีไฟล์ resources/views/products/images.blade.php
+        return view('products.images', compact('product'));
     }
 
-    // 2. เพิ่มรูปภาพใหม่ (รองรับ multiple upload)
+    // 2. เพิ่มรูปภาพใหม่
     public function addImage(Request $request, $id)
     {
-        // 1. แก้ชื่อใน validate ให้ตรงกับ name="image" ในฟอร์ม
         $request->validate([
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         $product = Product::findOrFail($id);
 
-        if ($request->hasFile('image')) { // 2. เช็ค hasFile('image')
-            // 3. เรียก file('image')
+        if ($request->hasFile('image')) {
+            // บันทึกไฟล์ลง Storage
             $path = $request->file('image')->store('product_images', 'public');
             
+            // สร้างข้อมูลในฐานข้อมูล
             $product->productImages()->create([
                 'image_url' => $path,
                 'is_main' => false
@@ -556,49 +555,16 @@ $product->load([
 
         return back()->with('success', 'เพิ่มรูปภาพเรียบร้อยแล้ว');
     }
-/**
-     * API สำหรับดึงข้อมูล Variants (Color/Size) ของสินค้า
-     * ใช้ในหน้าสร้างออเดอร์ (orders.create)
-     */
-    public function getVariantsApi($id)
-    {
-        try {
-            $variants = \App\Models\ProductColorSize::where('product_id', $id)
-                ->with(['color', 'size'])
-                ->where('quantity', '>', 0) // ดึงเฉพาะที่มีของ (ถ้าต้องการ)
-                ->get()
-                ->map(function ($v) {
-                    // จัด Format ชื่อให้สวยงาม
-                    $colorName = $v->color->name ?? 'ไม่ระบุสี';
-                    $sizeName = $v->size->size_name ?? ($v->size->name ?? 'ไม่ระบุไซส์');
-                    
-                    return [
-                        'id' => $v->id,
-                        'product_id' => $v->product_id,
-                        'color_id' => $v->color_id,
-                        'size_id' => $v->size_id,
-                        'quantity' => $v->quantity,
-                        'color_name' => $colorName,
-                        'size_name' => $sizeName,
-                        'display_name' => "{$colorName} - {$sizeName}",
-                    ];
-                });
 
-            return response()->json($variants);
-
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
     // 3. ลบรูปภาพ
     public function deleteImage($id)
     {
-        $image = ProductImage::findOrFail($id);
+        $image = \App\Models\ProductImage::findOrFail($id);
         
-        // ลบไฟล์จาก Storage
-        if ($image->image_url && Storage::disk('public')->exists($image->image_url)) {
-           Storage::disk('public')->delete($image->image_url);
-        }
+        // ลบไฟล์จาก Storage (ถ้าต้องการ)
+        // if (\Storage::disk('public')->exists($image->image_url)) {
+        //    \Storage::disk('public')->delete($image->image_url);
+        // }
 
         $image->delete();
 
@@ -623,9 +589,11 @@ $product->load([
     public function toggleStatus($id)
     {
         $product = Product::findOrFail($id);
-        $product->is_active = !$product->is_active;
+        $product->is_active = !$product->is_active; // สลับสถานะ True/False
         $product->save();
 
         return back()->with('success', 'เปลี่ยนสถานะเรียบร้อยแล้ว');
     }
+
+    
 }

@@ -15,8 +15,8 @@
         </div>
     @endif
 
-   <form action="{{ route('product.colorSize.store', $product->id) }}" method="POST">
-        @csrf
+<form action="{{ route('product.colorSize.store', $product->id) }}" method="POST">
+            @csrf
         <input type="hidden" name="product_id" value="{{ $product->id }}">
 
         <div class="form-group">

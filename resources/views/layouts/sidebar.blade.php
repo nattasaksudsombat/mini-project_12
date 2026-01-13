@@ -28,9 +28,12 @@
                 </a>
             </li>
             <li class="nav-item">
-                    <a class="nav-link text-danger" href="">
-                        <i class="fas fa-sign-out-alt me-1"></i> ออกจากระบบ
-                    </a>
+                   <form action="{{ route('logout') }}" method="POST" class="d-inline">
+    @csrf
+    <button type="submit" class="btn btn-danger btn-sm">
+        <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
+    </button>
+</form>
                 </li>
         </ul>
     </div>

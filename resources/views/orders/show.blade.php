@@ -56,37 +56,8 @@
                         {{ $paymentLabels[$order->customer->payment_method] ?? ucfirst($order->customer->payment_method) }}
                     </p>
                 </div>
-              <div class="col-md-12">
-                    <p><strong>ที่อยู่จัดส่ง:</strong><br>
-                        @php
-                            // Logic: 
-                            // 1. ลองดึงจาก Order โดยตรง (customerAddress)
-                            // 2. ถ้าไม่มี ให้ไปดึงที่อยู่ล่าสุดของลูกค้าคนนี้ (customer->addresses->last())
-                            $addr = $order->customerAddress ?? $order->customer->addresses->last();
-                        @endphp
-
-                        @if($addr)
-                            <strong>{{ $addr->name }}</strong><br>
-                            
-                            {{-- แสดงที่อยู่ --}}
-                            {{ $addr->address }}
-                            
-                            {{-- แสดงซอย/ถนน ถ้ามี --}}
-                            @if($addr->soi) ซอย {{ $addr->soi }} @endif
-                            @if($addr->road) ถนน {{ $addr->road }} @endif
-                            <br>
-
-                            {{-- แสดงตำบล อำเภอ จังหวัด รหัสไปรษณีย์ --}}
-                            {{ $addr->subdistrict }} 
-                            {{ $addr->district }} 
-                            {{ $addr->province }} 
-                            {{ $addr->postal_code }}
-                        @else
-                            {{-- กรณีไม่เจอข้อมูลเลย --}}
-                            <span class="text-danger">ไม่พบข้อมูลที่อยู่จัดส่ง</span>
-                            <small class="text-muted">(กรุณาตรวจสอบข้อมูลลูกค้า)</small>
-                        @endif
-                    </p>
+                <div class="col-md-12">
+                    <p><strong>ที่อยู่จัดส่ง:</strong><br>{{ $order->customer->address }}</p>
                 </div>
             </div>
         </div>
@@ -265,8 +236,8 @@
 <div class="modal fade" id="trackingModal" tabindex="-1" aria-labelledby="trackingModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" action="{{ route('orders.updateTracking', $order->id) }}">
-    @csrf
-    @method('PATCH') {{-- บรรทัดนี้สำคัญมาก --}}
+            @csrf
+            @method('PATCH')
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="trackingModalLabel">เพิ่ม/แก้ไข Tracking Number</h5>
