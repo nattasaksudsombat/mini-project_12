@@ -429,50 +429,56 @@ public function store(Request $request)
      * ดูประวัติ/ไทม์ไลน์ของ Variant + Holds ปัจจุบัน
      * - อ่าน summary จาก v_current_stock ด้วยคีย์ที่ถูกต้อง (ไม่ lock)
      */
-    public function variantHistory(int $variantId, Request $request)
+    public function variantHistory(Request $request, $variant)
     {
+        // รับค่า scope
         $scope = $request->input('scope', 'all');
-        // รายละเอียด variant
-        $variant = DB::table('product_color_size as pcs')
-            ->join('products as p','p.id','=','pcs.product_id')
-            ->leftJoin('colors as c','c.id','=','pcs.color_id')
-            ->leftJoin('sizes  as s','s.id','=','pcs.size_id')
+        $variantId = (int) $variant;
+
+        // 1. ดึงข้อมูล Variant (สินค้า/สี/ไซส์)
+        $variantObj = DB::table('product_color_size as pcs')
+            ->join('products as p', 'p.id', '=', 'pcs.product_id')
+            ->leftJoin('colors as c', 'c.id', '=', 'pcs.color_id')
+            ->leftJoin('sizes  as s', 's.id', '=', 'pcs.size_id')
             ->selectRaw('pcs.id, pcs.product_id, p.name as product_name, c.name as color_name, s.size_name')
-            ->where('pcs.id',$variantId)
+            ->where('pcs.id', $variantId)
             ->first();
-        if (!$variant) { abort(404); }
 
-        // summary จาก v_current_stock (ใช้ pk ที่ยืดหยุ่น)
-        $pk = $this->vStockPk();
-        $v  = DB::table('v_current_stock')->where($pk, $variantId)->first();
-        if (!$v) { abort(500,"ไม่พบ variant id={$variantId} ใน v_current_stock"); }
-
-        $summary = (object)[
-            'current'   => (int)$v->current_stock,
-            'reserved'  => (int)$v->reserved_stock,
-            'available' => (int)$v->available_stock,
-        ];
-
-        // scope กรองประเภทในไทม์ไลน์
-        $scope = $request->query('scope','all');
-
-        // ประวัติจาก stock_transactions
-        $q = DB::table('stock_transactions')
-            ->where('product_color_size_id',$variantId)
-            ->orderByDesc('created_at');
-
-        if ($scope === 'holds') {
-            $q->whereIn('type',['reserve','release']);
-        } elseif ($scope === 'physical') {
-            $q->whereIn('type',['in','out']);
-        } else {
-            $q->whereIn('type',['reserve','release','in','out']);
+        if (!$variantObj) {
+            abort(404, 'ไม่พบสินค้านี้');
         }
 
-        $rows = $q->limit(100)->get();
+        // 2. ดึง Summary (จาก v_current_stock)
+        // ✅✅✅ แก้ไขจุดที่ Error: เปลี่ยนจาก 'id' เป็น 'variant_id' ✅✅✅
+        $v = DB::table('v_current_stock')->where('variant_id', $variantId)->first();
+        
+        // กรณีหาไม่เจอใน View (เช่นเพิ่งสร้างสินค้า) ให้ default เป็น 0
+        $summary = (object)[
+            'current'   => (int)($v->current_stock ?? 0),
+            'reserved'  => (int)($v->reserved_stock ?? 0),
+            'available' => (int)($v->available_stock ?? 0),
+        ];
 
-        $mapTH = ['reserve'=>'จอง','release'=>'ปล่อย','in'=>'เข้า','out'=>'ออก'];
-        $history = $rows->map(function($r) use ($mapTH){
+        // 3. ดึงประวัติ (Stock Transactions)
+        $query = DB::table('stock_transactions')
+            ->where('product_color_size_id', $variantId)
+            ->orderByDesc('created_at');
+
+        // Filter ตาม Scope
+        if ($scope === 'holds') {
+            $query->whereIn('type', ['reserve', 'release']);
+        } elseif ($scope === 'physical') {
+            $query->whereIn('type', ['in', 'out']);
+        } else {
+            // all
+            $query->whereIn('type', ['reserve', 'release', 'in', 'out']);
+        }
+
+        $rows = $query->limit(100)->get();
+
+        // แปลงข้อมูลเพื่อแสดงผล
+        $mapTH = ['reserve'=>'จอง', 'release'=>'ปล่อย', 'in'=>'เข้า', 'out'=>'ออก'];
+        $history = $rows->map(function($r) use ($mapTH) {
             $delta = (int)$r->quantity;
             return (object)[
                 'created_at' => $r->created_at,
@@ -480,7 +486,7 @@ public function store(Request $request)
                 'type_th'    => $mapTH[$r->type] ?? $r->type,
                 'before'     => (int)$r->quantity_before,
                 'delta'      => $delta,
-                'delta_str'  => ($delta >= 0 ? '+' : '').$delta,
+                'delta_str'  => ($delta >= 0 ? '+' : '') . $delta,
                 'after'      => (int)$r->quantity_after,
                 'reason'     => $r->reason,
                 'user_name'  => $r->user_name ?? '-',
@@ -489,34 +495,26 @@ public function store(Request $request)
             ];
         });
 
-        // Holds ปัจจุบัน
+        // 4. ดึงรายการ Holds (ถ้ามีตาราง)
         $holds = collect();
         if (Schema::hasTable('stock_holds')) {
-            $openStatuses = ['pending','processing'];
-            $orderNoExpr = Schema::hasColumn('orders','order_number') ? 'o.order_number'
-                        : (Schema::hasColumn('orders','code')         ? 'o.code'
-                        : (Schema::hasColumn('orders','order_no')     ? 'o.order_no' : 'o.id'));
-
             $holds = DB::table('stock_holds as sh')
-                ->leftJoin('orders as o','o.id','=','sh.order_id')
-                ->where('sh.product_color_size_id',$variantId)
-                ->where('sh.status','active')
-                ->when(Schema::hasTable('orders'), function($qq) use ($openStatuses){
-                    $qq->whereIn('o.status',$openStatuses);
-                })
+                ->leftJoin('orders as o', 'o.id', '=', 'sh.order_id')
+                ->where('sh.product_color_size_id', $variantId)
+                ->where('sh.status', 'active')
+                ->select('sh.*', 'o.status as order_status', 'o.order_number')
                 ->orderByDesc('sh.updated_at')
-                ->get([
-                    'sh.order_id','sh.quantity','o.status',
-                    DB::raw("$orderNoExpr as order_number"),
-                ]);
+                ->get();
         }
 
+        // ส่งตัวแปรไป View
         return view('stock.variant-history', [
-            'variant' => $variant,
-            'summary' => $summary,
-            'scope'   => $scope,
-            'history' => $history,
-            'holds'   => $holds,
+            'variant'   => $variantObj,
+            'summary'   => $summary,
+            'scope'     => $scope,
+            'history'   => $history,
+            'holds'     => $holds,
+            'variantId' => $variantId
         ]);
     }
 

@@ -3,37 +3,13 @@
 
 @section('content')
 <style>
-    .btn {
-        padding: 6px 12px;
-        font-size: 14px;
-        text-decoration: none;
-        border-radius: 4px;
-        color: white;
-    }
-
-    .btn-edit {
-        background-color: #007bff;
-    }
-
-    .btn-delete {
-        background-color: #dc3545;
-    }
-
-    .btn-toggle {
-        background-color: #6c757d;
-    }
-
-    .btn-image {
-        background-color: #17a2b8;
-    }
-
-    .btn-add {
-        background-color: #28a745;
-    }
-
-    .btn-bar {
-        background-color: #0d6efd;
-    }
+    .btn { padding: 6px 12px; font-size: 14px; text-decoration: none; border-radius: 4px; color: white; }
+    .btn-edit { background-color: #007bff; }
+    .btn-delete { background-color: #dc3545; }
+    .btn-toggle { background-color: #6c757d; }
+    .btn-image { background-color: #17a2b8; }
+    .btn-add { background-color: #28a745; }
+    .btn-bar { background-color: #0d6efd; }
 </style>
 
 <main class="container">
@@ -64,12 +40,12 @@
                 <th>รูป</th>
                 <td colspan="5">
                     @php
-                    $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
+                        $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
                     @endphp
                     @if ($mainImage)
-                    <img src="{{ asset('storage/' . $mainImage->image_url) }}" alt="{{ $product->name }}" width="300" height="250">
+                        <img src="{{ asset('storage/' . $mainImage->image_url) }}" alt="{{ $product->name }}" width="300" height="250">
                     @else
-                    <p>ไม่มีรูปภาพสินค้า</p>
+                        <p>ไม่มีรูปภาพสินค้า</p>
                     @endif
                     <a href="{{ route('products.images.edit', $product->id) }}" class="btn btn-image">แก้ไขรูปภาพ</a>
                 </td>
@@ -93,7 +69,7 @@
                 <th>แท็กสินค้า</th>
                 <td>
                     @foreach ($product->tags as $tag)
-                    <span class="badge">{{ $tag->tag_name }}</span>
+                        <span class="badge">{{ $tag->tag_name }}</span>
                     @endforeach
                 </td>
             </tr>
@@ -148,50 +124,61 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @forelse($rows as $v)
-                            @php
-                            // กำหนดตัวแปร variantId จาก $v (เพราะลูปนี้ใช้ $v)
-                            $variantId = (int)($v->variant_id ?? $v->id);
-                            $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
+                            @foreach($rows as $v)
+                                @php
+                                    // รองรับได้ทั้ง 2 แหล่งข้อมูล:
+                                    // - มาจาก v_current_stock: มี current_stock, reserved_stock, available_stock, variant_id
+                                    // - มาจาก product_color_size เดิม: มี quantity และต้องอิง $reservedByVariantId
+                                    $variantId    = (int)($v->variant_id ?? $v->id);
+                                    $sizeLabel    = $v->size_name ?: 'ไม่ระบุไซส์';
 
-                            $currentStock = isset($v->current_stock) ? (int)$v->current_stock : (int)($v->quantity ?? 0);
-                            $reserved = isset($v->reserved_stock) ? (int)$v->reserved_stock : (int)($reservedByVariantId[$variantId] ?? 0);
-                            $available = isset($v->available_stock) ? (int)$v->available_stock : max(0, $currentStock - $reserved);
-                            @endphp
-                            <tr>
-                                <td>{{ $sizeLabel }}</td>
-                                <td class="text-end">{{ number_format($currentStock) }}</td>
-                                <td class="text-end">
-                                    <span class="{{ $reserved > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">
-                                        {{ number_format($reserved) }}
-                                    </span>
-                                </td>
-                                <td class="text-end">{{ number_format($available) }}</td>
-                                <td>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        {{-- ปรับสต็อค --}}
-                                        <a href="{{ route('stock.adjust.form', $variantId) }}" class="btn btn-warning">
-                                            <i class="fas fa-edit"></i> ปรับสต็อค
-                                        </a>
+                                    $currentStock = isset($v->current_stock) ? (int)$v->current_stock
+                                                   : (int)($v->quantity ?? 0);
 
-                                        {{-- ดูประวัติ (แก้ไขตรงนี้) --}}
-                                        {{-- แก้: เปลี่ยน 'variantId' เป็น 'variant' --}}
-                                        <a href="{{ route('stock.variant.history', ['variant' => $variantId, 'scope' => 'all']) }}"
-                                            class="btn btn-outline-secondary {{ $scope==='all'?'active':'' }}">ทั้งหมด</a>
+                                    $reserved     = isset($v->reserved_stock) ? (int)$v->reserved_stock
+                                                   : (int)($reservedByVariantId[$variantId] ?? 0);
 
-                                        {{-- ดูออเดอร์ที่กำลังจับ --}}
-                                        <button type="button" class="btn btn-sm btn-toggle"
-                                            onclick="openHoldModal({{ $variantId }}, '{{ e($colorName ?: '-') }}', '{{ e($sizeLabel) }}')">
-                                            กำลังจับ?
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="5" class="text-center text-muted py-4">ไม่พบข้อมูลสินค้าในสต็อก</td>
-                            </tr>
-                            @endforelse
+                                    // Golden Rule: available = current - reserved (fallback ป้องกันติดลบ)
+                                    $available    = isset($v->available_stock) ? (int)$v->available_stock
+                                                   : max(0, $currentStock - $reserved);
+                                @endphp
+                                <tr>
+                                    <td>{{ $sizeLabel }}</td>
+                                    <td class="text-end">{{ number_format($currentStock) }}</td>
+                                    <td class="text-end">
+                                        <span class="{{ $reserved > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">
+                                            {{ number_format($reserved) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">{{ number_format($available) }}</td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            {{-- ปรับสต็อค (ใช้ StockService) --}}
+                                            <a href="{{ route('stock.adjust.form', $variantId) }}" class="btn btn-sm btn-warning" title="ปรับสต็อค">
+                                                <i class="fas fa-edit"></i> ปรับสต็อค
+                                            </a>
+
+                                            {{-- ดูประวัติ --}}
+                                            <a href="{{ route('stock.variant.history', $variantId) }}" class="btn btn-sm btn-info" title="ประวัติ">
+                                                <i class="fas fa-history"></i> ประวัติ
+                                            </a>
+
+                                            {{-- ดูออเดอร์ที่กำลังจับ (Modal) --}}
+                                            <button type="button"
+                                                    class="btn btn-sm btn-toggle"
+                                                    onclick="openHoldModal({{ $variantId }}, '{{ e($colorName ?: '-') }}', '{{ e($sizeLabel) }}')">
+                                                กำลังจับ?
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+
+                            @if($rows->isEmpty())
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">ไม่มีข้อมูลสี/ไซส์</td>
+                                </tr>
+                            @endif
                         </tbody>
                     </table>
                 </div>
@@ -259,15 +246,15 @@
                                 <select name="variant_id" class="form-select" required>
                                     <option value="">-- เลือกสี-ไซส์ --</option>
                                     @foreach($variantsByColor as $cName => $rows)
-                                    @foreach($rows as $v)
-                                    @php
-                                    $variantId = (int)($v->variant_id ?? $v->id);
-                                    $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
-                                    @endphp
-                                    <option value="{{ $variantId }}">
-                                        {{ ($cName ?: 'ไม่ระบุสี') }} - {{ $sizeLabel }}
-                                    </option>
-                                    @endforeach
+                                        @foreach($rows as $v)
+                                            @php
+                                                $variantId = (int)($v->variant_id ?? $v->id);
+                                                $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
+                                            @endphp
+                                            <option value="{{ $variantId }}">
+                                                {{ ($cName ?: 'ไม่ระบุสี') }} - {{ $sizeLabel }}
+                                            </option>
+                                        @endforeach
                                     @endforeach
                                 </select>
                             </div>
@@ -352,4 +339,4 @@
             }
         })();
     </script>
-    @endsection
+@endsection
