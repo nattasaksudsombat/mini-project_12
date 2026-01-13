@@ -104,11 +104,15 @@ class ProductController extends Controller
         abort(500, "ไม่พบตาราง product_color_size / product_color_sizes");
     }
 $product->load([
-        'colors',
-        'tags',
-        'options',
-        'colorSizes'
-    ]);
+            'category',
+            'type',
+            'colorSizes.color',
+            'colorSizes.size',
+            'productImages',
+            'tags',
+            'options'
+        ]);
+         $scope = 'all'; // ค่าเริ่มต้น
     // ====== ตรวจชื่อคอลัมน์ใน view v_current_stock แบบยืดหยุ่น ======
     // คอลัมน์ id ของ variant
     $vIdCol = Schema::hasColumn('v_current_stock', 'variant_id') ? 'variant_id'
@@ -193,6 +197,7 @@ $product->load([
         'onhandByVariantId'     => $onhandByVariantId,
         'holdsRows'             => $holdsRows,
         'openStatuses'          => $openStatuses,
+        'products.show', compact('product', 'scope')
     ]);
 }
     public function updateVariantStock(Request $request, $productId, $variantId)
@@ -570,7 +575,43 @@ $product->load([
 
         return back()->with('success', 'ลบรูปภาพเรียบร้อยแล้ว');
     }
+// =========================================================
+    // 🛒 ส่วนสำหรับ Sales (ดูอย่างเดียว)
+    // =========================================================
 
+    public function salesIndex(Request $request)
+    {
+        $search = $request->input('search');
+
+        $products = Product::query()
+            ->when($search, function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('id_stock', 'like', "%{$search}%");
+            })
+            ->where('is_active', 1) // แสดงเฉพาะสินค้าที่ขายอยู่
+            ->with(['category', 'productImages'])
+            ->latest()
+            ->paginate(20);
+
+        return view('sales.products.index', compact('products'));
+    }
+
+    public function salesShow($id)
+    {
+        $product = Product::with(['category', 'productImages', 'colorSizes.color', 'colorSizes.size'])
+            ->findOrFail($id);
+
+        // ดึงรายการออเดอร์ที่มีสินค้านี้อยู่
+        // จอยกับตาราง Orders เพื่อดูสถานะและลูกค้า
+        $relatedOrders = \App\Models\OrderItem::where('product_id', $id)
+            ->with(['order.customer', 'color', 'size'])
+            ->whereHas('order') // ต้องมีออเดอร์อยู่จริง
+            ->latest()
+            ->limit(50) // ดึงมาแค่ 50 รายการล่าสุดเพื่อไม่ให้หนักเครื่อง
+            ->get();
+
+        return view('sales.products.show', compact('product', 'relatedOrders'));
+    }
     // 4. ตั้งรูปหลัก
     public function setMainImage($productId, $imageId)
     {

@@ -117,7 +117,7 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/products/{product}/color-size/{colorSize}', [ProductColorSizeController::class, 'destroy'])->name('product.colorSize.destroy');
         
         // Stock Management
-                Route::get('/stock/adjust/{variant}', [StockController::class, 'adjustForm'])->name('stock.adjust.form');
+        Route::get('/stock/adjust/{variant}', [StockController::class, 'adjustForm'])->name('stock.adjust.form');
         
         // บันทึกปรับสต๊อก (ใน StockController ชื่อฟังก์ชันคือ adjustSave ไม่ใช่ saveAdjustment)
         Route::post('/stock/adjust/{variant}', [StockController::class, 'adjustSave'])->name('stock.adjust.save');
@@ -165,6 +165,11 @@ Route::middleware(['auth'])->group(function () {
         
         // Customers
         Route::resource('customers', CustomerController::class)->except(['show']);
+        // ✅ [ใหม่] หน้าดูสินค้าสำหรับ Sales (ห้ามแก้ไข)
+        Route::get('/sales/products', [ProductController::class, 'salesIndex'])->name('sales.products.index');
+        Route::get('/sales/products/{product}', [ProductController::class, 'salesShow'])->name('sales.products.show');
+                // ประวัติสต๊อกของ Variant (ใน StockController ชื่อฟังก์ชันคือ variantHistory ไม่ใช่ history)
+        Route::get('/stock/history/{variant}', [StockController::class, 'variantHistory'])->name('stock.variant.history');
     });
 
 });

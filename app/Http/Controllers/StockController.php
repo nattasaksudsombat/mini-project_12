@@ -431,6 +431,7 @@ public function store(Request $request)
      */
     public function variantHistory(int $variantId, Request $request)
     {
+        $scope = $request->input('scope', 'all');
         // รายละเอียด variant
         $variant = DB::table('product_color_size as pcs')
             ->join('products as p','p.id','=','pcs.product_id')
