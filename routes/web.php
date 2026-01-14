@@ -25,7 +25,8 @@ use App\Http\Controllers\{
     ProductImageController,
     ProductExcelController,
     AuthController,
-    UserController
+    UserController,
+    
 };
 
 /*
@@ -54,7 +55,21 @@ Route::middleware(['auth'])->group(function () {
     // =========================================================
     // 🌍 Public Read-Only (ดูได้ทุกคน)
     // =========================================================
-    
+    // ... (Route Products เดิม) ...
+     Route::get('/products/search', [ProductController::class, 'ajaxSearch'])->name('products.search');
+        Route::resource('products', ProductController::class);
+        Route::post('/products/{product}/toggle', [ProductController::class, 'toggleStatus'])->name('products.toggle');
+        Route::get('/products/{product}/barcode', [ProductController::class, 'barcodePreview'])->name('products.barcode_preview');
+
+        // ✅ [เพิ่มใหม่] จัดการรูปภาพสินค้า (Product Images)
+        Route::prefix('products/{product}/images')->name('product_images.')->group(function () {
+            Route::get('/', [ProductImageController::class, 'index'])->name('index');   // product_images.index
+            Route::post('/', [ProductImageController::class, 'store'])->name('store');  // product_images.store
+        });
+
+        // Route สำหรับลบและตั้งรูปหลัก (แยกออกมาเพราะไม่ได้ใช้ {product} ใน URL)
+        Route::delete('/product-images/{productImage}', [ProductImageController::class, 'destroy'])->name('product_images.destroy');
+        Route::post('/product-images/{productImage}/main', [ProductController::class, 'setMainImage'])->name('product_images.set_main');
     // Products - Read Only
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
@@ -75,8 +90,21 @@ Route::middleware(['auth'])->group(function () {
         
         // จัดการ Users
         Route::resource('users', UserController::class);
+        // ✅ Global Search API (สำหรับ Navbar)
+    // Route สำหรับค้นหา (Global Search)
+       
     });
+// =========================================================
+    // 🕒 Shared Routes (Admin + Stock + Sales)
+    // =========================================================
+    Route::middleware(['role:admin,stock,sales'])->group(function () {
+        // ประวัติสต๊อกของ Variant (ให้เข้าได้ทั้ง 3 ตำแหน่ง)
+        Route::get('/stock/history/{variant}', [StockController::class, 'variantHistory'])
+            ->name('stock.variant.history');
 
+            Route::get('/stock/api/holds/{variant}', [StockController::class, 'getVariantHolds'])
+        ->name('stock.api.holds');
+    });
 
     // =========================================================
     // 📦 Stock Management (Admin + Stock)
@@ -142,6 +170,7 @@ Route::middleware(['auth'])->group(function () {
         
         // ⚠️ สำคัญ: Routes เฉพาะเจาะจงต้องอยู่ก่อน {order}
         
+    Route::get('/api/global-search', [ProductController::class, 'globalSearch'])->name('api.global.search');
         // Orders - Helpers (ต้องอยู่ก่อน CRUD)
         Route::get('/orders/customers/search', [OrderController::class, 'searchCustomers'])->name('orders.customers.search');
         Route::get('/orders/customers/{customer}/addresses', [OrderController::class, 'getCustomerAddresses'])->name('orders.customers.addresses');

@@ -91,19 +91,19 @@ class ProductController extends Controller
     // ==================================================================
 
     public function show(Product $product)
-{
-    // ออเดอร์ที่ถือว่าเปิด
-    $openStatuses = ['pending', 'processing'];
+    {
+        // ออเดอร์ที่ถือว่าเปิด
+        $openStatuses = ['pending', 'processing'];
 
-    // ชื่อตาราง variant (รองรับเอก/พหูพจน์)
-    $variantTable = Schema::hasTable('product_color_size')
-        ? 'product_color_size'
-        : (Schema::hasTable('product_color_sizes') ? 'product_color_sizes' : null);
+        // ชื่อตาราง variant (รองรับเอก/พหูพจน์)
+        $variantTable = Schema::hasTable('product_color_size')
+            ? 'product_color_size'
+            : (Schema::hasTable('product_color_sizes') ? 'product_color_sizes' : null);
 
-    if (!$variantTable) {
-        abort(500, "ไม่พบตาราง product_color_size / product_color_sizes");
-    }
-$product->load([
+        if (!$variantTable) {
+            abort(500, "ไม่พบตาราง product_color_size / product_color_sizes");
+        }
+        $product->load([
             'category',
             'type',
             'colorSizes.color',
@@ -112,94 +112,186 @@ $product->load([
             'tags',
             'options'
         ]);
-         $scope = 'all'; // ค่าเริ่มต้น
-    // ====== ตรวจชื่อคอลัมน์ใน view v_current_stock แบบยืดหยุ่น ======
-    // คอลัมน์ id ของ variant
-    $vIdCol = Schema::hasColumn('v_current_stock', 'variant_id') ? 'variant_id'
+        $scope = 'all'; // ค่าเริ่มต้น
+        // ====== ตรวจชื่อคอลัมน์ใน view v_current_stock แบบยืดหยุ่น ======
+        // คอลัมน์ id ของ variant
+        $vIdCol = Schema::hasColumn('v_current_stock', 'variant_id') ? 'variant_id'
             : (Schema::hasColumn('v_current_stock', 'product_color_size_id') ? 'product_color_size_id'
-            : 'id'); // fallback
+                : 'id'); // fallback
 
-    // คอลัมน์ stock metrics (เผื่อโปรเจ็กต์เก่าใช้ชื่ออื่น)
-    $currentCol  = Schema::hasColumn('v_current_stock', 'current_stock')   ? 'current_stock'
-                 : (Schema::hasColumn('v_current_stock', 'onhand')         ? 'onhand' : 'current_stock');
-    $reservedCol = Schema::hasColumn('v_current_stock', 'reserved_stock')  ? 'reserved_stock'
-                 : (Schema::hasColumn('v_current_stock', 'reserved')       ? 'reserved' : 'reserved_stock');
-    $availCol    = Schema::hasColumn('v_current_stock', 'available_stock') ? 'available_stock'
-                 : (Schema::hasColumn('v_current_stock', 'available')      ? 'available' : 'available_stock');
+        // คอลัมน์ stock metrics (เผื่อโปรเจ็กต์เก่าใช้ชื่ออื่น)
+        $currentCol  = Schema::hasColumn('v_current_stock', 'current_stock')   ? 'current_stock'
+            : (Schema::hasColumn('v_current_stock', 'onhand')         ? 'onhand' : 'current_stock');
+        $reservedCol = Schema::hasColumn('v_current_stock', 'reserved_stock')  ? 'reserved_stock'
+            : (Schema::hasColumn('v_current_stock', 'reserved')       ? 'reserved' : 'reserved_stock');
+        $availCol    = Schema::hasColumn('v_current_stock', 'available_stock') ? 'available_stock'
+            : (Schema::hasColumn('v_current_stock', 'available')      ? 'available' : 'available_stock');
 
-    // ====== ดึงสต๊อกจากวิว (Golden Rule) ======
-    $stockRows = DB::table('v_current_stock as v')
-        // JOIN ด้วยคอลัมน์ id ของ view ที่ตรวจพบ
-        ->join("$variantTable as pcs", 'pcs.id', '=', DB::raw("v.`$vIdCol`"))
-        ->leftJoin('colors as c', 'c.id', '=', 'pcs.color_id')
-        ->leftJoin('sizes  as s', 's.id', '=', 'pcs.size_id')
-        ->where('v.product_id', $product->id)
-        ->orderByRaw('COALESCE(c.name, "") ASC')
-        ->orderByRaw('COALESCE(s.size_name, "") ASC')
-        ->get([
-            DB::raw("v.`$vIdCol` as variant_id"),                 // ✅ ไม่อ้าง v.id ตายตัวอีก
-            'pcs.product_id',
-            'pcs.color_id',
-            'pcs.size_id',
-            DB::raw("COALESCE(c.name, '')      as color_name"),
-            DB::raw("COALESCE(s.size_name, '') as size_name"),
-            DB::raw("v.`$currentCol`  as current_stock"),
-            DB::raw("v.`$reservedCol` as reserved_stock"),
-            DB::raw("v.`$availCol`    as available_stock"),
-        ]);
-
-    // group ใน PHP (ไม่แตะ GROUP BY ของ MySQL)
-    $variantsByColor       = $stockRows->groupBy('color_name');
-    $reservedByVariantId   = $stockRows->pluck('reserved_stock',  'variant_id')->map(fn($n)=>(int)$n)->toArray();
-    $availableByVariantId  = $stockRows->pluck('available_stock', 'variant_id')->map(fn($n)=>(int)$n)->toArray();
-    $onhandByVariantId     = $stockRows->pluck('current_stock',   'variant_id')->map(fn($n)=>(int)$n)->toArray();
-
-    // ====== รายการ hold แบบยกเว้นออเดอร์ปิด (ถ้ามีตารางอยู่) ======
-    $holdsRows = [];
-    if (Schema::hasTable('stock_holds')) {
-        // คอลัมน์เลขที่ออเดอร์ (เลือกที่มีจริง)
-        $orderNumberExpr = Schema::hasColumn('orders', 'order_number') ? 'o.order_number'
-            : (Schema::hasColumn('orders', 'code')     ? 'o.code'
-            : (Schema::hasColumn('orders', 'order_no') ? 'o.order_no' : 'o.id'));
-
-        $h = DB::table('stock_holds as sh')
-            ->join("$variantTable as pcs", 'pcs.id', '=', 'sh.product_color_size_id')
-            ->leftJoin('orders as o', 'o.id', '=', 'sh.order_id')
-            ->where('pcs.product_id', $product->id)
-            ->where('sh.status', 'active')
-            ->when(Schema::hasTable('orders'), function ($q) use ($openStatuses) {
-                $q->whereIn('o.status', $openStatuses);
-            })
-            ->orderByDesc('sh.updated_at')
+        // ====== ดึงสต๊อกจากวิว (Golden Rule) ======
+        $stockRows = DB::table('v_current_stock as v')
+            // JOIN ด้วยคอลัมน์ id ของ view ที่ตรวจพบ
+            ->join("$variantTable as pcs", 'pcs.id', '=', DB::raw("v.`$vIdCol`"))
+            ->leftJoin('colors as c', 'c.id', '=', 'pcs.color_id')
+            ->leftJoin('sizes  as s', 's.id', '=', 'pcs.size_id')
+            ->where('v.product_id', $product->id)
+            ->orderByRaw('COALESCE(c.name, "") ASC')
+            ->orderByRaw('COALESCE(s.size_name, "") ASC')
             ->get([
-                DB::raw('sh.product_color_size_id as variant_id'),
-                'sh.order_id',
-                DB::raw("$orderNumberExpr as order_number"),
-                'o.status',
-                'sh.quantity',
+                DB::raw("v.`$vIdCol` as variant_id"),                 // ✅ ไม่อ้าง v.id ตายตัวอีก
+                'pcs.product_id',
+                'pcs.color_id',
+                'pcs.size_id',
+                DB::raw("COALESCE(c.name, '')      as color_name"),
+                DB::raw("COALESCE(s.size_name, '') as size_name"),
+                DB::raw("v.`$currentCol`  as current_stock"),
+                DB::raw("v.`$reservedCol` as reserved_stock"),
+                DB::raw("v.`$availCol`    as available_stock"),
             ]);
 
-        foreach ($h as $r) {
-            $holdsRows[(int)$r->variant_id][] = [
-                'order_id'     => (int)($r->order_id ?? 0),
-                'order_number' => (string)($r->order_number ?? ''),
-                'status'       => (string)($r->status ?? ''),
-                'quantity'     => (int)$r->quantity,
-            ];
-        }
-    }
+        // group ใน PHP (ไม่แตะ GROUP BY ของ MySQL)
+        $variantsByColor       = $stockRows->groupBy('color_name');
+        $reservedByVariantId   = $stockRows->pluck('reserved_stock',  'variant_id')->map(fn($n) => (int)$n)->toArray();
+        $availableByVariantId  = $stockRows->pluck('available_stock', 'variant_id')->map(fn($n) => (int)$n)->toArray();
+        $onhandByVariantId     = $stockRows->pluck('current_stock',   'variant_id')->map(fn($n) => (int)$n)->toArray();
 
-    return view('products.show', [
-        'product'               => $product,
-        'variantsByColor'       => $variantsByColor,
-        'reservedByVariantId'   => $reservedByVariantId,
-        'availableByVariantId'  => $availableByVariantId,
-        'onhandByVariantId'     => $onhandByVariantId,
-        'holdsRows'             => $holdsRows,
-        'openStatuses'          => $openStatuses,
-        'products.show', compact('product', 'scope')
-    ]);
-}
+        // ====== รายการ hold แบบยกเว้นออเดอร์ปิด (ถ้ามีตารางอยู่) ======
+        $holdsRows = [];
+        if (Schema::hasTable('stock_holds')) {
+            // คอลัมน์เลขที่ออเดอร์ (เลือกที่มีจริง)
+            $orderNumberExpr = Schema::hasColumn('orders', 'order_number') ? 'o.order_number'
+                : (Schema::hasColumn('orders', 'code')     ? 'o.code'
+                    : (Schema::hasColumn('orders', 'order_no') ? 'o.order_no' : 'o.id'));
+
+            $h = DB::table('stock_holds as sh')
+                ->join("$variantTable as pcs", 'pcs.id', '=', 'sh.product_color_size_id')
+                ->leftJoin('orders as o', 'o.id', '=', 'sh.order_id')
+                ->where('pcs.product_id', $product->id)
+                ->where('sh.status', 'active')
+                ->when(Schema::hasTable('orders'), function ($q) use ($openStatuses) {
+                    $q->whereIn('o.status', $openStatuses);
+                })
+                ->orderByDesc('sh.updated_at')
+                ->get([
+                    DB::raw('sh.product_color_size_id as variant_id'),
+                    'sh.order_id',
+                    DB::raw("$orderNumberExpr as order_number"),
+                    'o.status',
+                    'sh.quantity',
+                ]);
+
+            foreach ($h as $r) {
+                $holdsRows[(int)$r->variant_id][] = [
+                    'order_id'     => (int)($r->order_id ?? 0),
+                    'order_number' => (string)($r->order_number ?? ''),
+                    'status'       => (string)($r->status ?? ''),
+                    'quantity'     => (int)$r->quantity,
+                ];
+            }
+        }
+
+        return view('products.show', [
+            'product'               => $product,
+            'variantsByColor'       => $variantsByColor,
+            'reservedByVariantId'   => $reservedByVariantId,
+            'availableByVariantId'  => $availableByVariantId,
+            'onhandByVariantId'     => $onhandByVariantId,
+            'holdsRows'             => $holdsRows,
+            'openStatuses'          => $openStatuses,
+            'products.show',
+            compact('product', 'scope')
+        ]);
+    }
+    public function globalSearch(Request $request)
+    {
+        $query = $request->input('query');
+
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        // 1. ค้นหาสินค้า (ชื่อ หรือ รหัส)
+        $products = \App\Models\Product::where('is_active', 1)
+            ->where(function ($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                    ->orWhere('id_stock', 'like', "%{$query}%");
+            })
+            ->take(5) // เอามา 5 อัน
+            ->get(['id', 'name', 'id_stock', 'price'])
+            ->map(function ($item) {
+                return [
+                    'type' => 'product',
+                    'id' => $item->id,
+                    'text' => "📦 {$item->id_stock} : {$item->name}",
+                    'subtext' => number_format($item->price) . ' บาท',
+                    // ลิงก์ไปหน้า Sales Product Show
+                    'url' => route('sales.products.show', $item->id)
+                ];
+            });
+
+        // 2. ค้นหาออเดอร์ (เลขที่ออเดอร์)
+        $orders = \App\Models\Order::with('customer')
+            ->where('order_number', 'like', "%{$query}%")
+            ->orderBy('created_at', 'desc')
+            ->take(5) // เอามา 5 อัน
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => 'order',
+                    'id' => $item->id,
+                    'text' => "📄 Order: {$item->order_number}",
+                    'subtext' => "ลูกค้า: " . ($item->customer->name ?? '-'),
+                    // ลิงก์ไปหน้า Order Show
+                    'url' => route('orders.show', $item->id)
+                ];
+            });
+
+        // รวมผลลัพธ์ (สินค้า + ออเดอร์)
+        $results = $products->concat($orders);
+
+        return response()->json($results);
+    }
+    // ==========================================
+    // 🔍 ฟังก์ชันค้นหาสำหรับ AJAX
+    // ==========================================
+    public function ajaxSearch(\Illuminate\Http\Request $request)
+    {
+        $query = $request->get('q');
+
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $products = \App\Models\Product::with('productImages') // โหลดความสัมพันธ์รูปภาพ
+            ->where('is_active', 1)
+            ->where(function($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                  ->orWhere('id_stock', 'like', "%{$query}%");
+            })
+            ->take(10)
+            ->get()
+            ->map(function($item) {
+                // ✅ ลอจิกเดียวกับ Blade: เช็คว่ามีรูปไหม ถ้ามีเอาอันแรก
+                $imgUrl = 'https://placehold.co/50x50?text=No+Img'; // ค่าเริ่มต้น (ไม่มีรูป)
+
+                if ($item->productImages->count() > 0) {
+                    // ดึงรูปแรกเหมือนใน index.blade.php
+                    $firstImg = $item->productImages->first();
+                    // สร้าง URL เต็ม
+                    $imgUrl = asset('storage/' . $firstImg->image_url);
+                }
+
+                return [
+                    'id' => $item->id,
+                    'id_stock' => $item->id_stock,
+                    'name' => $item->name,
+                    'price' => number_format($item->price),
+                    'image_url' => $imgUrl, // ✅ ส่ง URL รูปภาพไปให้ JS
+                    'url' => route('products.show', $item->id) 
+                ];
+            });
+
+        return response()->json($products);
+    }
     public function updateVariantStock(Request $request, $productId, $variantId)
     {
         $request->validate([
@@ -550,7 +642,7 @@ $product->load([
         if ($request->hasFile('image')) {
             // บันทึกไฟล์ลง Storage
             $path = $request->file('image')->store('product_images', 'public');
-            
+
             // สร้างข้อมูลในฐานข้อมูล
             $product->productImages()->create([
                 'image_url' => $path,
@@ -565,7 +657,7 @@ $product->load([
     public function deleteImage($id)
     {
         $image = \App\Models\ProductImage::findOrFail($id);
-        
+
         // ลบไฟล์จาก Storage (ถ้าต้องการ)
         // if (\Storage::disk('public')->exists($image->image_url)) {
         //    \Storage::disk('public')->delete($image->image_url);
@@ -575,7 +667,7 @@ $product->load([
 
         return back()->with('success', 'ลบรูปภาพเรียบร้อยแล้ว');
     }
-// =========================================================
+    // =========================================================
     // 🛒 ส่วนสำหรับ Sales (ดูอย่างเดียว)
     // =========================================================
 
@@ -616,10 +708,10 @@ $product->load([
     public function setMainImage($productId, $imageId)
     {
         $product = Product::findOrFail($productId);
-        
+
         // รีเซ็ตรูปอื่นไม่ให้เป็นรูปหลัก
         $product->productImages()->update(['is_main' => false]);
-        
+
         // ตั้งรูปที่เลือกเป็นรูปหลัก
         $product->productImages()->where('id', $imageId)->update(['is_main' => true]);
 
@@ -635,6 +727,4 @@ $product->load([
 
         return back()->with('success', 'เปลี่ยนสถานะเรียบร้อยแล้ว');
     }
-
-    
 }

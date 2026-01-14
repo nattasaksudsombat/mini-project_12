@@ -186,49 +186,47 @@
         </div>
         @endforeach
 
-        {{-- Modal: รายการออเดอร์ที่กำลังจับ --}}
-        <div class="modal fade" id="holdsModal" tabindex="-1" aria-labelledby="holdsModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="fas fa-clipboard-list"></i>
-                            ออเดอร์ที่กำลังจับอยู่: <span id="hold-title"></span>
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="hold-empty" class="alert alert-info d-none">
-                            ไม่มีออเดอร์ที่กำลังจับอยู่สำหรับรายการนี้
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-striped" id="holds-table">
-                                <thead>
-                                    <tr>
-                                        <th>เลขออเดอร์</th>
-                                        <th>ลูกค้า</th>
-                                        <th>สถานะ</th>
-                                        <th class="text-end">จำนวน</th>
-                                        <th width="12%"></th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th colspan="3" class="text-end">รวมกำลังจับ</th>
-                                        <th class="text-end" id="hold-total">0</th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
-                    </div>
+  <div class="modal fade" id="holdsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-clipboard-list"></i>
+                    ออเดอร์ที่กำลังจับอยู่: <span id="modalVariantTitle" class="fw-bold"></span>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>วันที่</th>
+                                <th>เลขออเดอร์</th>
+                                <th>ลูกค้า</th>
+                                <th class="text-center">สถานะ</th>
+                                <th class="text-end">จำนวน</th>
+                                <th class="text-center" width="10%">ดู</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdsTableBody">
+                            </tbody>
+                        <tfoot>
+                            <tr class="table-info">
+                                <td colspan="4" class="text-end fw-bold">รวมกำลังจับทั้งหมด:</td>
+                                <td class="text-end fw-bold" id="totalHolds">0</td>
+                                <td>ชิ้น</td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+            </div>
         </div>
+    </div>
+</div>
 
         {{-- Modal: พิมพ์บาร์โค้ด --}}
         <div class="modal fade" id="barcodeModal" tabindex="-1" aria-labelledby="barcodeModalLabel" aria-hidden="true">
@@ -278,65 +276,87 @@
     <script type="application/json" id="holds-json">
         @json($holdsRows, JSON_UNESCAPED_UNICODE)
     </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ฟังก์ชันเปิด Modal และดึงข้อมูล (เหมือนหน้า Sales)
+    async function openHoldModal(variantId, colorName, sizeName) {
+        
+        // 1. ตั้งชื่อหัวข้อ Modal
+        document.getElementById('modalVariantTitle').textContent = `${colorName} / ${sizeName}`;
+        
+        // 2. เตรียมตาราง (แสดง Loading)
+        const tbody = document.getElementById('holdsTableBody');
+        const sumEl = document.getElementById('totalHolds');
+        
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border text-primary"></div> กำลังโหลดข้อมูล...</td></tr>';
+        sumEl.textContent = '...';
 
-    <script>
-        (function() {
-            const holdsData = JSON.parse(document.getElementById('holds-json').textContent || '{}');
+        // 3. เปิด Modal
+        const modalElement = document.getElementById('holdsModal');
+        const modal = new bootstrap.Modal(modalElement);
+        modal.show();
 
-            window.openHoldModal = function(variantId, colorName, sizeName) {
-                const title = `${colorName || '-'} - ${sizeName || '-'}`;
-                document.getElementById('hold-title').textContent = title;
+        try {
+            // 4. เรียก API ดึงข้อมูล
+            const res = await fetch(`/stock/api/holds/${variantId}`);
+            
+            if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลได้');
+            
+            const data = await res.json();
+            
+            tbody.innerHTML = '';
+            let sum = 0;
 
-                const list = holdsData[String(variantId)] || [];
-                const tbody = document.querySelector('#holds-table tbody');
-                const empty = document.getElementById('hold-empty');
-                const sumEl = document.getElementById('hold-total');
-                tbody.innerHTML = '';
-                let sum = 0;
-
-                if (!list.length) {
-                    empty.classList.remove('d-none');
-                    sumEl.textContent = '0';
-                } else {
-                    empty.classList.add('d-none');
-                    list.forEach(row => {
-                        sum += Number(row.quantity || 0);
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td><span class="badge bg-secondary">${escapeHtml(row.order_number ?? row.order_id ?? '-')}</span></td>
-                            <td>${escapeHtml(row.customer_name || '-')}</td>
-                            <td>${formatStatus(row.status)}</td>
-                            <td class="text-end">${Number(row.quantity||0).toLocaleString('th-TH')}</td>
-                            <td><a href="/orders/${row.order_id}" class="btn btn-sm btn-outline-info"><i class="fas fa-eye"></i> ดูออเดอร์</a></td>
-                        `;
-                        tbody.appendChild(tr);
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูลออเดอร์ที่จองอยู่</td></tr>';
+            } else {
+                data.forEach(row => {
+                    sum += row.quantity;
+                    const tr = document.createElement('tr');
+                    
+                    const date = new Date(row.created_at).toLocaleDateString('th-TH', {
+                        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'
                     });
-                    sumEl.textContent = sum.toLocaleString('th-TH');
-                }
 
-                const modal = new bootstrap.Modal(document.getElementById('holdsModal'));
-                modal.show();
-            };
-
-            function escapeHtml(x) {
-                if (typeof x !== 'string') return '';
-                return x.replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
+                    tr.innerHTML = `
+                        <td>${date}</td>
+                        <td class="fw-bold text-primary">${row.order_number}</td>
+                        <td>${escapeHtml(row.customer_name)}</td>
+                        <td class="text-center">${formatStatus(row.status)}</td>
+                        <td class="text-end fw-bold text-warning">${Number(row.quantity).toLocaleString()}</td>
+                        <td class="text-center">
+                            <a href="/orders/${row.order_id}" class="btn btn-sm btn-outline-info" target="_blank">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
             }
+            // 5. แสดงผลรวม
+            sumEl.textContent = sum.toLocaleString('th-TH');
 
-            function formatStatus(s) {
-                const map = {
-                    pending: '<span class="badge text-bg-warning">รอดำเนินการ</span>',
-                    processing: '<span class="badge text-bg-info">กำลังจัดการ</span>',
-                    shipped: '<span class="badge text-bg-primary">จัดส่งแล้ว</span>',
-                    delivered: '<span class="badge text-bg-success">ส่งสำเร็จ</span>',
-                    cancelled: '<span class="badge text-bg-danger">ยกเลิก</span>'
-                };
-                return map[s] || `<span class="badge text-bg-secondary">${escapeHtml(String(s||'-'))}</span>`;
-            }
-        })();
-    </script>
+        } catch (err) {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">เกิดข้อผิดพลาด: ${err.message}</td></tr>`;
+            sumEl.textContent = '0';
+        }
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '-';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function formatStatus(status) {
+        const map = {
+            'pending': '<span class="badge bg-warning text-dark">รอดำเนินการ</span>',
+            'processing': '<span class="badge bg-info text-dark">กำลังเตรียม</span>',
+            'shipped': '<span class="badge bg-primary">จัดส่งแล้ว</span>',
+            'delivered': '<span class="badge bg-success">สำเร็จ</span>',
+            'cancelled': '<span class="badge bg-danger">ยกเลิก</span>'
+        };
+        return map[status] || `<span class="badge bg-secondary">${status}</span>`;
+    }
+</script>
 @endsection

@@ -615,4 +615,31 @@ public function store(Request $request)
         }
         return [$colorId, $sizeId, $variant, $hasVariants];
     }
+    // ไฟล์: app/Http/Controllers/StockController.php
+
+    public function getVariantHolds($variantId)
+    {
+        // เช็คว่าตาราง orders มีคอลัมน์ชื่ออะไร (order_number หรือ code)
+        $orderNoCol = \Illuminate\Support\Facades\Schema::hasColumn('orders', 'order_number') 
+            ? 'orders.order_number' 
+            : 'orders.id';
+
+        $holds = \Illuminate\Support\Facades\DB::table('stock_holds')
+            ->join('orders', 'stock_holds.order_id', '=', 'orders.id')
+            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+            ->where('stock_holds.product_color_size_id', $variantId)
+            ->where('stock_holds.status', 'active') // ต้องเป็นสถานะ active เท่านั้น
+            ->select(
+                'orders.id as order_id',
+                "$orderNoCol as order_number",
+                'customers.name as customer_name',
+                'stock_holds.quantity',
+                'orders.status',
+                'stock_holds.created_at'
+            )
+            ->orderBy('stock_holds.created_at', 'desc')
+            ->get();
+
+        return response()->json($holds);
+    }
 }

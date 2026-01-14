@@ -60,14 +60,14 @@
     .search-results a:hover {
         background-color: #f8f9fa;
     }
+
     #results .list-group-item {
-    padding: 8px 12px;
-}
+        padding: 8px 12px;
+    }
 
-#results img {
-    border-radius: 4px;
-}
-
+    #results img {
+        border-radius: 4px;
+    }
 </style>
 
 </style>
@@ -85,15 +85,18 @@
 
 
             <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <form action="{{ route('products.index') }}" method="GET" class="d-flex ms-auto me-3" role="search">
-                        <input type="text" id="search" class="form-control" placeholder="พิมพ์ชื่อสินค้า...">
-                        <button class="btn btn-outline-light" type="submit">
-                            <i class="fas fa-search"></i>
-                        </button>
-                    </form>
-                    <ul id="results" class="list-group search-results"></ul>
-                </li>
+                <li class="nav-item position-relative">
+    <form action="{{ route('products.index') }}" method="GET" class="d-flex ms-auto me-3" role="search" autocomplete="off">
+        <input type="text" id="search" name="search" class="form-control" 
+               placeholder="ค้นหาสินค้า (ชื่อหรือรหัส)..." 
+               value="{{ request('search') }}">
+        <button class="btn btn-outline-light ms-2" type="submit">
+            <i class="fas fa-search"></i>
+        </button>
+    </form>
+
+    <ul id="results" class="list-group search-results shadow-lg"></ul>
+</li>
                 <li class="nav-item">
                     <a class="nav-link {{ Route::is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
                         <i class="fas fa-chart-line me-1"></i> แดชบอร์ด
@@ -131,47 +134,76 @@
 </nav>
 
 @section('scripts')
+<style>
+    .search-results {
+        position: absolute; top: 100%; left: 0; width: 100%; z-index: 1050;
+        max-height: 400px; overflow-y: auto; display: none; margin-top: 5px;
+        background: white; border-radius: 0 0 5px 5px;
+    }
+    .search-item-img {
+        width: 50px; height: 50px; object-fit: cover; 
+        border-radius: 4px; margin-right: 12px; border: 1px solid #eee;
+    }
+    .list-group-item-action:hover { background-color: #f8f9fa; cursor: pointer; }
+</style>
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
+$(document).ready(function() {
     let timer;
+
     $('#search').on('keyup', function() {
         clearTimeout(timer);
-        let query = $(this).val();
+        let query = $(this).val().trim();
+        let resultsBox = $('#results');
 
         if (query.length < 2) {
-            $('#results').empty();
+            resultsBox.empty().hide();
             return;
         }
 
         timer = setTimeout(function() {
             $.ajax({
-                url: '/products/search',
-                data: {
-                    q: query
-                },
+                url: "{{ route('products.search') }}",
+                method: 'GET',
+                data: { q: query },
                 success: function(data) {
-                    $('#results').empty();
+                    resultsBox.empty();
+                    // console.log("Search Data:", data); // ✅ เช็คข้อมูลที่ได้ใน Console (กด F12)
+
                     if (data.length === 0) {
-                        $('#results').append('<li class="list-group-item">ไม่พบสินค้า</li>');
-                        return;
-                    }
+                        resultsBox.append('<li class="list-group-item text-center text-muted">ไม่พบสินค้า</li>');
+                    } else {
+                        data.forEach(function(product) {
+                            // ✅ ใช้ image_url ที่ส่งมาจาก Controller โดยตรง
+                            let imgSrc = product.image_url;
 
-                    data.forEach(function(product) {
-                        $('#results').append(`
-                            <li class="list-group-item d-flex align-items-center">
-                                <img src="${product.image_url}" alt="${product.id_stock}" 
-                                    style="width: 50px; height: 50px; object-fit: cover; margin-right: 10px;">
-                                <a href="/products/${product.id}" class="text-decoration-none text-dark">
-                                    <strong>${product.id_stock}</strong> - ${Number(product.price).toLocaleString()} บาท
+                            resultsBox.append(`
+                                <a href="${product.url}" class="list-group-item list-group-item-action d-flex align-items-center text-decoration-none">
+                                    <img src="${imgSrc}" class="search-item-img" alt="${product.id_stock}">
+                                    <div class="flex-grow-1" style="line-height: 1.3;">
+                                        <div class="fw-bold text-dark" style="font-size:0.95rem;">${product.id_stock}</div>
+                                        <small class="text-muted" style="font-size:0.85rem;">${product.name}</small>
+                                    </div>
+                                    <span class="fw-bold text-success ms-2">${product.price} ฿</span>
                                 </a>
-                            </li>
-                        `);
-                    });
-
-
+                            `);
+                        });
+                    }
+                    resultsBox.show();
+                },
+                error: function(err) {
+                    console.error('Search Error:', err);
                 }
             });
-        }, 150); // รอ 300ms ค่อยค้น  
+        }, 300);
     });
+
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#search, #results').length) {
+            $('#results').hide();
+        }
+    });
+});
 </script>
 @endsection
