@@ -56,9 +56,41 @@
                         {{ $paymentLabels[$order->customer->payment_method] ?? ucfirst($order->customer->payment_method) }}
                     </p>
                 </div>
-                <div class="col-md-12">
-                    <p><strong>ที่อยู่จัดส่ง:</strong><br>{{ $order->customer->address }}</p>
-                </div>
+<div class="col-md-12 mb-3">
+    <p class="mb-1"><strong>ที่อยู่จัดส่ง:</strong></p>
+    <div class="p-3 bg-light border rounded">
+        @php
+            $showAddress = '- ไม่ระบุ -';
+
+            // 1. เช็คว่ามีข้อมูลในออเดอร์ไหม
+            if (!empty($order->shipping_address)) {
+                if (is_numeric($order->shipping_address)) {
+                    // ถ้าเป็น ID เก่า ให้ไปดึงจากตารางที่อยู่
+                    $addr = \App\Models\CustomerAddress::find($order->shipping_address);
+                    if ($addr) {
+                        $showAddress = $addr->full_address; // หรือต่อ String เองถ้าไม่มี getFullAddressAttribute
+                    }
+                } else {
+                    // ถ้าเป็นข้อความ (แบบใหม่) ใช้ได้เลย
+                    $showAddress = $order->shipping_address;
+                }
+            } 
+            // 2. ถ้าในออเดอร์ว่างเปล่า!! ให้ไปดึงจากข้อมูลลูกค้าโดยตรง (Fallback)
+            elseif ($order->customer && $order->customer->addresses->count() > 0) {
+                $addr = $order->customer->addresses->first(); // เอาที่อยู่อันแรกมาโชว์แก้ขัด
+                $text = $addr->address_line1 . ' ' . 
+                        ($addr->district ? 'ต.'.$addr->district : '') . ' ' . 
+                        ($addr->city ? 'อ.'.$addr->city : '') . ' ' . 
+                        ($addr->province ? 'จ.'.$addr->province : '') . ' ' . 
+                        $addr->postal_code;
+                
+                $showAddress = $text . " <span class='text-muted small'>(ที่อยู่ลูกค้าปัจจุบัน)</span>";
+            }
+        @endphp
+
+        <span class="text-dark">{!! $showAddress !!}</span>
+    </div>
+</div>
             </div>
         </div>
     </div>

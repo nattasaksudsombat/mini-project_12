@@ -31,19 +31,19 @@ class OrderController extends Controller
         // ค้นหา
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('order_number', 'like', "%{$search}%")
-                  ->orWhereHas('customer', function($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
-                  });
+                    ->orWhereHas('customer', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
             });
         }
 
         // กรองสถานะ
         if ($request->filled('status')) $query->where('status', $request->status);
         if ($request->filled('payment_status')) $query->where('payment_status', $request->payment_status);
-        
+
         // กรองวันที่
         if ($request->filled('start_date')) $query->whereDate('created_at', '>=', $request->start_date);
         if ($request->filled('end_date')) $query->whereDate('created_at', '<=', $request->end_date);
@@ -80,6 +80,7 @@ class OrderController extends Controller
                 'customer.purchase_channel' => 'required',
                 'customer.payment_method' => 'required',
                 'customer.address' => 'required|string',
+                'shipping_address' => 'required|string',
                 'existing_address_id' => 'nullable|exists:customer_addresses,id',
                 'new_address.address' => 'nullable|string',
                 'new_address.name' => 'nullable|string',
@@ -123,11 +124,12 @@ class OrderController extends Controller
 
             // 3. สร้าง Order
             $orderNumber = 'ORD-' . date('Ymd') . '-' . str_pad(Order::whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
-            
+
             $order = Order::create([
                 'order_number' => $orderNumber,
                 'customer_id' => $customer->id,
                 'customer_address_id' => $customerAddressId,
+                'shipping_address' => $validated['shipping_address'],
                 'status' => 'pending',
                 'payment_status' => 'pending',
                 'shipping_fee' => $validated['shipping_fee'],
@@ -154,10 +156,10 @@ class OrderController extends Controller
                 // ✅ ใช้ StockService จองสต็อก (Hold) + บันทึกประวัติ
                 // (เพิ่มยอดใน stock_holds ยังไม่ตัด quantity จริง)
                 $this->stockService->reserveNewForOrderVariant(
-                    $variant->id, 
-                    $order->id, 
-                    $item['quantity'], 
-                    $orderNumber, 
+                    $variant->id,
+                    $order->id,
+                    $item['quantity'],
+                    $orderNumber,
                     'สร้างออเดอร์ใหม่'
                 );
 
@@ -181,7 +183,6 @@ class OrderController extends Controller
 
             DB::commit();
             return redirect()->route('orders.show', $order)->with('success', 'สร้างออเดอร์สำเร็จ (จองสต็อกเรียบร้อย)');
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error($e);
@@ -198,7 +199,7 @@ class OrderController extends Controller
     public function edit(Order $order)
     {
         $order->load(['customer', 'customerAddress', 'orderItems.product', 'orderItems.color', 'orderItems.size']);
-        
+
         $products = Product::with(['colorSizes.color', 'colorSizes.size'])
             ->where('is_active', true)
             ->orderBy('name')
@@ -212,7 +213,7 @@ class OrderController extends Controller
                 'color_id' => $item->color_id,
                 'size_id' => $item->size_id,
                 'color_name' => $item->color->name ?? '-',
-                'size_name' => $item->size->size_name ?? '-', 
+                'size_name' => $item->size->size_name ?? '-',
                 'variant_name' => $item->variant_name,
                 'quantity' => $item->quantity,
                 'unit_price' => $item->unit_price,
@@ -233,7 +234,15 @@ class OrderController extends Controller
                 'customer.email' => 'nullable',
                 'customer.purchase_channel' => 'required',
                 'customer.payment_method' => 'required',
-                'customer.address' => 'required',
+
+               'ship_name' => 'nullable|string',
+            'ship_address' => 'required|string', 
+            'ship_soi' => 'nullable|string',
+            'ship_road' => 'nullable|string',
+            'ship_subdistrict' => 'required|string',
+            'ship_district' => 'required|string',
+            'ship_province' => 'required|string',
+            'ship_postal_code' => 'required|string',
                 'status' => 'required',
                 'payment_status' => 'required',
                 'items_json' => 'required|json',
@@ -244,7 +253,8 @@ class OrderController extends Controller
             ]);
 
             DB::beginTransaction();
-
+            $customerData = $validated['customer'];
+            unset($customerData['address']);
             $order->customer->update($validated['customer']);
 
             // 1. คืนสต็อก (Release) ของเดิมทั้งหมดก่อน
@@ -253,13 +263,13 @@ class OrderController extends Controller
                     ->where('color_id', $oldItem->color_id)
                     ->where('size_id', $oldItem->size_id)
                     ->first();
-                
+
                 if ($variant) {
                     // ✅ ใช้ Service ปล่อยจอง (คืนโควต้า)
                     $this->stockService->releaseAllForOrderVariant(
-                        $variant->id, 
-                        $order->id, 
-                        $order->order_number, 
+                        $variant->id,
+                        $order->id,
+                        $order->order_number,
                         'แก้ไขออเดอร์ (Release Old)'
                     );
                 }
@@ -280,10 +290,10 @@ class OrderController extends Controller
 
                 // ✅ ใช้ Service จองใหม่
                 $this->stockService->reserveNewForOrderVariant(
-                    $variant->id, 
-                    $order->id, 
-                    $item['quantity'], 
-                    $order->order_number, 
+                    $variant->id,
+                    $order->id,
+                    $item['quantity'],
+                    $order->order_number,
                     'แก้ไขออเดอร์ (Reserve New)'
                 );
 
@@ -300,25 +310,41 @@ class OrderController extends Controller
                 ]);
                 $subtotal += $newItem->total_price;
             }
-
+$fullAddress = ($validated['ship_name'] ?? '') ? "({$validated['ship_name']}) " : "";
+        $fullAddress .= $validated['ship_address'];
+        if(!empty($validated['ship_soi'])) $fullAddress .= " ซ." . $validated['ship_soi'];
+        if(!empty($validated['ship_road'])) $fullAddress .= " ถ." . $validated['ship_road'];
+        $fullAddress .= " ต." . $validated['ship_subdistrict'];
+        $fullAddress .= " อ." . $validated['ship_district'];
+        $fullAddress .= " จ." . $validated['ship_province'];
+        $fullAddress .= " " . $validated['ship_postal_code'];
             $totalAmount = $subtotal + $validated['shipping_fee'] - ($validated['discount'] ?? 0);
-            $order->update(array_merge($validated, ['subtotal' => $subtotal, 'total_amount' => $totalAmount, 'total_price' => $totalAmount]));
 
-            // ✅ ถ้าสถานะเปลี่ยนเป็น Shipped ให้ตัดสต็อกจริง (Ship Consume)
+            $order->update([
+                'status' => $validated['status'],
+                'payment_status' => $validated['payment_status'],
+                'shipping_fee' => $validated['shipping_fee'],
+                'discount' => $validated['discount'],
+                'tracking_number' => $validated['tracking_number'],
+                'notes' => $validated['notes'],
+                'subtotal' => $subtotal,
+                'total_amount' => $totalAmount,
+                'total_price' => $totalAmount,
+               'shipping_address' => $fullAddress
+            ]);
+
+            // จัดการสถานะ Shipped/Cancelled
             if ($validated['status'] === 'shipped') {
                 $this->stockService->shipConsumeAll($order->id, $order->order_number);
-            }
-            // ✅ ถ้าสถานะเปลี่ยนเป็น Cancelled ให้คืนสต็อก (Release All)
-            elseif ($validated['status'] === 'cancelled') {
+            } elseif ($validated['status'] === 'cancelled') {
                 $this->stockService->cancelOrderReleaseAll($order->id, $order->order_number);
             }
 
             DB::commit();
             return redirect()->route('orders.show', $order)->with('success', 'แก้ไขออเดอร์สำเร็จ');
-
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error($e);
+            \Illuminate\Support\Facades\Log::error($e);
             return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
@@ -327,13 +353,13 @@ class OrderController extends Controller
     {
         try {
             DB::beginTransaction();
-            
+
             // ✅ ใช้ Service คืนสต็อก (Release)
             $this->stockService->cancelOrderReleaseAll($order->id, $order->order_number);
-            
+
             $order->orderItems()->delete();
             $order->delete();
-            
+
             DB::commit();
             return redirect()->route('orders.index')->with('success', 'ลบออเดอร์และคืนยอดจองแล้ว');
         } catch (\Exception $e) {
@@ -348,12 +374,12 @@ class OrderController extends Controller
     {
         try {
             DB::beginTransaction();
-            
+
             // ✅ ใช้ Service คืนยอดจอง (Release)
             $this->stockService->cancelOrderReleaseAll($order->id, $order->order_number);
-            
+
             $order->update(['status' => 'cancelled']);
-            
+
             DB::commit();
             return back()->with('success', 'ยกเลิกออเดอร์และคืนยอดจองแล้ว');
         } catch (\Exception $e) {
@@ -371,7 +397,7 @@ class OrderController extends Controller
             $this->stockService->shipConsumeAll($order->id, $order->order_number);
 
             $order->update(['status' => 'shipped']);
-            
+
             DB::commit();
             return back()->with('success', 'จัดส่งแล้ว (ตัดสต็อกจริงเรียบร้อย)');
         } catch (\Exception $e) {
@@ -385,7 +411,7 @@ class OrderController extends Controller
     public function searchCustomers(Request $request)
     {
         $query = $request->input('q', '');
-        
+
         if (strlen($query) < 2) {
             return response()->json([]);
         }
@@ -403,7 +429,7 @@ class OrderController extends Controller
     {
         try {
             $customer = Customer::findOrFail($customerId);
-            
+
             $addresses = CustomerAddress::where('customer_id', $customerId)
                 ->get()
                 ->map(function ($address) {
@@ -411,11 +437,11 @@ class OrderController extends Controller
                         'id' => $address->id,
                         'label' => $address->name ?? 'ที่อยู่ #' . $address->id,
                         'full_address' => trim(
-                            $address->address . ' ' . 
-                            $address->subdistrict . ' ' . 
-                            $address->district . ' ' . 
-                            $address->province . ' ' . 
-                            $address->postal_code
+                            $address->address . ' ' .
+                                $address->subdistrict . ' ' .
+                                $address->district . ' ' .
+                                $address->province . ' ' .
+                                $address->postal_code
                         ),
                     ];
                 });
@@ -424,7 +450,6 @@ class OrderController extends Controller
                 'success' => true,
                 'addresses' => $addresses
             ]);
-
         } catch (\Exception $e) {
             Log::error('Get Customer Addresses Error: ' . $e->getMessage());
             return response()->json([
@@ -463,7 +488,6 @@ class OrderController extends Controller
             DB::commit();
 
             return back()->with('success', 'แนบสลิปสำเร็จ');
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Order Pay Error: ' . $e->getMessage());
@@ -482,7 +506,7 @@ class OrderController extends Controller
 
             // อัปเดตเลขพัสดุและเปลี่ยนสถานะเป็น Shipped
             // หมายเหตุ: ถ้าจะให้ตัดสต็อกด้วย ควรเรียก ship() หรือเพิ่ม logic shipConsumeAll() ที่นี่
-            
+
             DB::beginTransaction();
 
             $order->update([
@@ -496,7 +520,6 @@ class OrderController extends Controller
             DB::commit();
 
             return back()->with('success', 'อัปเดต Tracking Number สำเร็จ');
-
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Update Tracking Error: ' . $e->getMessage());

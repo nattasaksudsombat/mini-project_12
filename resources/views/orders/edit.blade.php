@@ -15,17 +15,17 @@
     </div>
 
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+    <div class="alert alert-success alert-dismissible fade show">
+        {{ session('success') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
     @endif
 
     @if(session('error'))
-        <div class="alert alert-danger alert-dismissible fade show">
-            {{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+    <div class="alert alert-danger alert-dismissible fade show">
+        {{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
     @endif
 
     @if ($errors->any())
@@ -74,30 +74,30 @@
                     {{-- ชื่อลูกค้า --}}
                     <div class="col-md-4">
                         <label class="form-label">ชื่อลูกค้า <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control @error('customer.name') is-invalid @enderror" 
+                        <input type="text" class="form-control @error('customer.name') is-invalid @enderror"
                             name="customer[name]" value="{{ old('customer.name', $order->customer->name ?? '') }}" required>
                         @error('customer.name')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                        <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
                     {{-- เบอร์โทร --}}
                     <div class="col-md-4">
                         <label class="form-label">เบอร์โทร</label>
-                        <input type="text" class="form-control @error('customer.phone') is-invalid @enderror" 
+                        <input type="text" class="form-control @error('customer.phone') is-invalid @enderror"
                             name="customer[phone]" value="{{ old('customer.phone', $order->customer->phone ?? '') }}">
                         @error('customer.phone')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                        <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
                     {{-- อีเมล --}}
                     <div class="col-md-4">
                         <label class="form-label">อีเมล</label>
-                        <input type="email" class="form-control @error('customer.email') is-invalid @enderror" 
+                        <input type="email" class="form-control @error('customer.email') is-invalid @enderror"
                             name="customer[email]" value="{{ old('customer.email', $order->customer->email ?? '') }}">
                         @error('customer.email')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                        <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
@@ -106,16 +106,16 @@
                         <label class="form-label">ช่องทางซื้อ <span class="text-danger">*</span></label>
                         @php
                         $channelOptions = [
-                            'facebook' => 'Facebook',
-                            'line' => 'Line',
-                            'website' => 'เว็บไซต์',
-                            'shopee' => 'Shopee',
-                            'lazada' => 'Lazada',
-                            'offline' => 'หน้าร้าน',
+                        'facebook' => 'Facebook',
+                        'line' => 'Line',
+                        'website' => 'เว็บไซต์',
+                        'shopee' => 'Shopee',
+                        'lazada' => 'Lazada',
+                        'offline' => 'หน้าร้าน',
                         ];
                         $chRaw = old('customer.purchase_channel', $order->customer->purchase_channel ?? '');
                         @endphp
-                        <select class="form-select @error('customer.purchase_channel') is-invalid @enderror" 
+                        <select class="form-select @error('customer.purchase_channel') is-invalid @enderror"
                             name="customer[purchase_channel]" required>
                             <option value="">-- เลือกช่องทางซื้อ --</option>
                             @foreach($channelOptions as $val => $label)
@@ -123,7 +123,7 @@
                             @endforeach
                         </select>
                         @error('customer.purchase_channel')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                        <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
@@ -132,14 +132,14 @@
                         <label class="form-label">วิธีชำระเงิน <span class="text-danger">*</span></label>
                         @php
                         $paymentOptions = [
-                            'bank_transfer'    => 'โอน/พร้อมเพย์',
-                            'cash_on_delivery' => 'ชำระปลายทาง (COD)',
-                            'credit_card'      => 'บัตรเครดิต/เดบิต',
-                            'e_wallet'         => 'วอลเล็ต',
+                        'bank_transfer' => 'โอน/พร้อมเพย์',
+                        'cash_on_delivery' => 'ชำระปลายทาง (COD)',
+                        'credit_card' => 'บัตรเครดิต/เดบิต',
+                        'e_wallet' => 'วอลเล็ต',
                         ];
                         $pmRaw = old('customer.payment_method', $order->customer->payment_method ?? '');
                         @endphp
-                        <select class="form-select @error('customer.payment_method') is-invalid @enderror" 
+                        <select class="form-select @error('customer.payment_method') is-invalid @enderror"
                             name="customer[payment_method]" required>
                             <option value="">-- เลือกวิธีชำระเงิน --</option>
                             @foreach($paymentOptions as $val => $label)
@@ -147,27 +147,109 @@
                             @endforeach
                         </select>
                         @error('customer.payment_method')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                        <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
-                    {{-- ที่อยู่จัดส่ง --}}
-                    <div class="col-md-12">
-                        <label class="form-label">ที่อยู่จัดส่ง <span class="text-danger">*</span></label>
-                        <textarea class="form-control @error('customer.address') is-invalid @enderror" 
-                            name="customer[address]" rows="3" required>{{ old('customer.address', $order->customer->address ?? '') }}</textarea>
-                        @error('customer.address')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                        <div class="form-text">ที่อยู่นี้จะถูกอัปเดตเป็นที่อยู่จัดส่งของออเดอร์</div>
+                  <div class="col-md-12 mb-3">
+    @php
+        $addr = [
+            'name' => '', 'address' => '', 'soi' => '', 'road' => '',
+            'subdistrict' => '', 'district' => '', 'province' => '', 'postal_code' => ''
+        ];
+
+        if (is_numeric($order->shipping_address)) {
+            $dbAddr = \App\Models\CustomerAddress::find($order->shipping_address);
+            if ($dbAddr) {
+                $addr['name'] = $dbAddr->name;
+                $addr['address'] = $dbAddr->address; 
+                
+                // ✅ แก้ตรงนี้: ให้ดึงค่าจาก DB กลับมาครับ
+                $addr['soi'] = $dbAddr->soi ?? ''; 
+                $addr['road'] = $dbAddr->road ?? ''; 
+                
+                $addr['subdistrict'] = $dbAddr->subdistrict; 
+                $addr['district'] = $dbAddr->district;       
+                $addr['province'] = $dbAddr->province;
+                $addr['postal_code'] = $dbAddr->postal_code;
+            }
+        } 
+        elseif ($order->customer && $order->customer->addresses->count() > 0) {
+            $dbAddr = $order->customer->addresses->first();
+            $addr['name'] = $dbAddr->name ?? 'ที่อยู่จัดส่ง';
+            $addr['address'] = $dbAddr->address ?? '';
+            
+            // ✅ แก้ตรงนี้: ให้ดึงค่าจาก DB กลับมาครับ
+            $addr['soi'] = $dbAddr->soi ?? '';
+            $addr['road'] = $dbAddr->road ?? '';
+            
+            $addr['subdistrict'] = $dbAddr->subdistrict ?? '';
+            $addr['district'] = $dbAddr->district ?? '';
+            $addr['province'] = $dbAddr->province ?? '';
+            $addr['postal_code'] = $dbAddr->postal_code ?? '';
+        }
+        else {
+             $addr['address'] = $order->shipping_address;
+        }
+    @endphp
+    
+    {{-- ... HTML ฟอร์ม ... --}}
+    {{-- ... (ส่วน HTML ฟอร์ม ให้คงเดิมไว้ได้เลย) ... --}}
+
+                        <div class="card mb-3 address-card shadow-sm border-0">
+                            <div class="card-body position-relative">
+                                <h6 class="card-title text-success fw-bold mb-3">
+                                    <i class="fas fa-map-marker-alt"></i> ที่อยู่จัดส่ง (แก้ไขได้)
+                                </h6>
+
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">ชื่อสถานที่</label>
+                                        <input type="text" class="form-control " id="ship_name" name="ship_name" value="{{ $addr['name'] }}" placeholder="เช่น บ้าน">
+                                    </div>
+                                    <div class="col-md-9">
+                                        <label class="form-label small text-muted">บ้านเลขที่ / อาคาร / หมู่บ้าน <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control " id="ship_address" name="ship_address" value="{{ $addr['address'] ?? '' }}" required>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">ซอย</label>
+                                        <input type="text" class="form-control " id="ship_soi" name="ship_soi" value="{{ $addr['soi'] }}">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label small text-muted">ถนน</label>
+                                        <input type="text" class="form-control " id="ship_road" name="ship_road" value="{{ $addr['road'] }}">
+                                    </div>
+
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">ตำบล/แขวง <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control " id="ship_subdistrict" name="ship_subdistrict" value="{{ $addr['subdistrict'] }}" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">อำเภอ/เขต <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control " id="ship_district" name="ship_district" value="{{ $addr['district'] }}" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">จังหวัด <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control " id="ship_province" name="ship_province" value="{{ $addr['province'] }}" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label small text-muted">รหัสไปรษณีย์ <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control " id="ship_postal_code" name="ship_postal_code" value="{{ $addr['postal_code'] }}" required>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="col-12"><hr></div>
+                    <div class="col-12">
+                        <hr>
+                    </div>
 
                     {{-- สถานะคำสั่งซื้อ --}}
                     <div class="col-md-4">
                         <label class="form-label">สถานะคำสั่งซื้อ <span class="text-danger">*</span></label>
-                        <select class="form-select @error('status') is-invalid @enderror" 
+                        <select class="form-select @error('status') is-invalid @enderror"
                             name="status" id="statusSelect" required>
                             @php $status = old('status', $order->status); @endphp
                             <option value="pending" {{ $status === 'pending' ? 'selected' : '' }}>รอดำเนินการ</option>
@@ -177,21 +259,21 @@
                             <option value="cancelled" {{ $status === 'cancelled' ? 'selected' : '' }}>ยกเลิก</option>
                         </select>
                         @error('status')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                        <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
                     {{-- สถานะการชำระเงิน --}}
                     <div class="col-md-4">
                         <label class="form-label">สถานะการชำระเงิน <span class="text-danger">*</span></label>
-                        <select class="form-select @error('payment_status') is-invalid @enderror" 
+                        <select class="form-select @error('payment_status') is-invalid @enderror"
                             name="payment_status" id="paymentSelect" required>
                             @php $pay = old('payment_status', $order->payment_status); @endphp
                             <option value="pending" {{ $pay === 'pending' ? 'selected' : '' }}>ยังไม่ชำระ</option>
                             <option value="paid" {{ $pay === 'paid' ? 'selected' : '' }}>ชำระแล้ว</option>
                         </select>
                         @error('payment_status')
-                            <div class="invalid-feedback">{{ $message }}</div>
+                        <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
@@ -206,16 +288,16 @@
                     {{-- ค่าจัดส่ง --}}
                     <div class="col-md-4">
                         <label class="form-label">ค่าจัดส่ง</label>
-                        <input type="number" name="shipping_fee" id="shipping-fee" class="form-control" 
-                            value="{{ old('shipping_fee', $order->shipping_fee) }}" step="0.01" required 
+                        <input type="number" name="shipping_fee" id="shipping-fee" class="form-control"
+                            value="{{ old('shipping_fee', $order->shipping_fee) }}" step="0.01" required
                             onchange="calculateTotals()">
                     </div>
 
                     {{-- ส่วนลด --}}
                     <div class="col-md-4">
                         <label class="form-label">ส่วนลด</label>
-                        <input type="number" name="discount" id="discount" class="form-control" 
-                            value="{{ old('discount', $order->discount) }}" step="0.01" 
+                        <input type="number" name="discount" id="discount" class="form-control"
+                            value="{{ old('discount', $order->discount) }}" step="0.01"
                             onchange="calculateTotals()">
                     </div>
 
@@ -332,85 +414,118 @@
 
 @push('scripts')
 <script>
-// ============= Global Variables =============
-let selectedItems = [];
-let allProducts = [];
-let currentProductForVariant = null;
-const variantModal = new bootstrap.Modal(document.getElementById('variantModal'));
+    $(document).ready(function() {
+        $('#customer_id').on('change', function() {
+            var customerId = $(this).val();
 
-// ============= Initialization =============
-document.addEventListener('DOMContentLoaded', function() {
-    try {
-        const orderData = JSON.parse(document.getElementById('order-data')?.textContent || '{}');
-        const productsData = JSON.parse(document.getElementById('products-data')?.textContent || '[]');
-        const itemsData = JSON.parse(document.getElementById('items-data')?.textContent || '[]');
-        
-        allProducts = productsData;
-        
-        // โหลดสินค้าในออเดอร์
-        if (Array.isArray(itemsData) && itemsData.length > 0) {
-            selectedItems = itemsData.map(it => ({
-                id: it.id || null,
-                product_id: it.product_id,
-                product_name: it.product_name || it.name,
-                color_id: it.color_id,
-                size_id: it.size_id,
-                color_name: it.color_name || '',
-                size_name: it.size_name || '',
-                variant_name: it.variant_name || `${it.color_name} - ${it.size_name}`,
-                quantity: parseInt(it.quantity) || 1,
-                unit_price: parseFloat(it.unit_price || it.price || 0),
-                total_price: parseFloat(it.total_price || (it.quantity * it.unit_price)) || 0,
-                color_size_id: it.color_size_id || it.product_color_size_id,
-                max_total_for_order: it.max_total_for_order || 9999,
-                is_existing_item: true
-            }));
-        }
-        
-        renderOrderItems();
-        calculateTotals();
-        
-        // ค้นหาสินค้า
-        const searchInput = document.getElementById('product-search');
-        if (searchInput) {
-            searchInput.addEventListener('input', function(e) {
-                searchProducts(e.target.value);
-            });
-        }
-        
-        // Badge Updates
-        document.getElementById('statusSelect')?.addEventListener('change', updateStatusBadge);
-        document.getElementById('paymentSelect')?.addEventListener('change', updatePaymentBadge);
-        
-    } catch (err) {
-        console.error('Init error:', err);
-        showAlert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message, 'danger');
-    }
-});
+            if (customerId) {
+                $.ajax({
+                    url: '/api/customers/' + customerId + '/addresses',
+                    type: 'GET',
+                    success: function(response) {
+                        if (response.length > 0) {
+                            var addr = response[0];
+                            
+                            $('#ship_name').val(addr.name || 'ที่อยู่จัดส่ง');
+                            $('#ship_address').val(addr.address || ''); 
+                            
+                            // ✅ แก้ตรงนี้: ให้ดึงค่ากลับมาครับ
+                            $('#ship_soi').val(addr.soi || ''); 
+                            $('#ship_road').val(addr.road || ''); 
+                            
+                            $('#ship_subdistrict').val(addr.subdistrict || '');
+                            $('#ship_district').val(addr.district || ''); 
+                            $('#ship_province').val(addr.province || '');
+                            $('#ship_postal_code').val(addr.postal_code || '');
+                        } else {
+                            $('input[id^="ship_"]').val('');
+                        }
+                    }
+                });
+            }
+        });
+    });
+</script>
+<script>
+    // ============= Global Variables =============
+    let selectedItems = [];
+    let allProducts = [];
+    let currentProductForVariant = null;
+    const variantModal = new bootstrap.Modal(document.getElementById('variantModal'));
 
-// ============= Product Search =============
-function searchProducts(term) {
-    const resultsBox = document.getElementById('search-results');
-    if (!resultsBox) return;
-    
-    if (!term || term.length < 2) {
-        resultsBox.innerHTML = '';
-        return;
-    }
-    
-    const filtered = allProducts.filter(p => 
-        p.name?.toLowerCase().includes(term.toLowerCase()) ||
-        p.id_stock?.toLowerCase().includes(term.toLowerCase())
-    );
-    
-    if (filtered.length === 0) {
-        resultsBox.innerHTML = '<div class="alert alert-info">ไม่พบสินค้า</div>';
-        return;
-    }
-    
-    let html = '<div class="list-group">';
-    filtered.forEach(p => {
-        html += `
+    // ============= Initialization =============
+    document.addEventListener('DOMContentLoaded', function() {
+        try {
+            const orderData = JSON.parse(document.getElementById('order-data')?.textContent || '{}');
+            const productsData = JSON.parse(document.getElementById('products-data')?.textContent || '[]');
+            const itemsData = JSON.parse(document.getElementById('items-data')?.textContent || '[]');
+
+            allProducts = productsData;
+
+            // โหลดสินค้าในออเดอร์
+            if (Array.isArray(itemsData) && itemsData.length > 0) {
+                selectedItems = itemsData.map(it => ({
+                    id: it.id || null,
+                    product_id: it.product_id,
+                    product_name: it.product_name || it.name,
+                    color_id: it.color_id,
+                    size_id: it.size_id,
+                    color_name: it.color_name || '',
+                    size_name: it.size_name || '',
+                    variant_name: it.variant_name || `${it.color_name} - ${it.size_name}`,
+                    quantity: parseInt(it.quantity) || 1,
+                    unit_price: parseFloat(it.unit_price || it.price || 0),
+                    total_price: parseFloat(it.total_price || (it.quantity * it.unit_price)) || 0,
+                    color_size_id: it.color_size_id || it.product_color_size_id,
+                    max_total_for_order: it.max_total_for_order || 9999,
+                    is_existing_item: true
+                }));
+            }
+
+            renderOrderItems();
+            calculateTotals();
+
+            // ค้นหาสินค้า
+            const searchInput = document.getElementById('product-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function(e) {
+                    searchProducts(e.target.value);
+                });
+            }
+
+            // Badge Updates
+            document.getElementById('statusSelect')?.addEventListener('change', updateStatusBadge);
+            document.getElementById('paymentSelect')?.addEventListener('change', updatePaymentBadge);
+
+        } catch (err) {
+            console.error('Init error:', err);
+            showAlert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + err.message, 'danger');
+        }
+    });
+
+    // ============= Product Search =============
+    function searchProducts(term) {
+        const resultsBox = document.getElementById('search-results');
+        if (!resultsBox) return;
+
+        if (!term || term.length < 2) {
+            resultsBox.innerHTML = '';
+            return;
+        }
+
+        const filtered = allProducts.filter(p =>
+            p.name?.toLowerCase().includes(term.toLowerCase()) ||
+            p.id_stock?.toLowerCase().includes(term.toLowerCase())
+        );
+
+        if (filtered.length === 0) {
+            resultsBox.innerHTML = '<div class="alert alert-info">ไม่พบสินค้า</div>';
+            return;
+        }
+
+        let html = '<div class="list-group">';
+        filtered.forEach(p => {
+            html += `
             <button type="button" class="list-group-item list-group-item-action" 
                     onclick="selectProductForOrder(${p.id})">
                 <strong>${escapeHtml(p.name)}</strong> 
@@ -418,107 +533,107 @@ function searchProducts(term) {
                 <br><small class="text-muted">ราคา: ฿${Number(p.price || 0).toFixed(2)}</small>
             </button>
         `;
-    });
-    html += '</div>';
-    resultsBox.innerHTML = html;
-}
-
-function selectProductForOrder(productId) {
-    const product = allProducts.find(p => p.id == productId);
-    if (!product) return;
-    
-    currentProductForVariant = product;
-    document.getElementById('selected-product-name').textContent = product.name;
-    
-    const variantSelect = document.getElementById('variant-select');
-    variantSelect.innerHTML = '<option value="">-- เลือก --</option>';
-    
-    if (Array.isArray(product.color_sizes) && product.color_sizes.length > 0) {
-        product.color_sizes.forEach(cs => {
-            const opt = document.createElement('option');
-            opt.value = cs.id;
-            opt.textContent = `${cs.color_name} - ${cs.size_name} (สต็อก: ${cs.stock})`;
-            opt.dataset.colorId = cs.color_id;
-            opt.dataset.sizeId = cs.size_id;
-            opt.dataset.stock = cs.stock;
-            opt.dataset.colorName = cs.color_name;
-            opt.dataset.sizeName = cs.size_name;
-            variantSelect.appendChild(opt);
         });
+        html += '</div>';
+        resultsBox.innerHTML = html;
     }
-    
-    document.getElementById('variant-quantity').value = 1;
-    variantModal.show();
-    document.getElementById('search-results').innerHTML = '';
-}
 
-function addItemToOrder() {
-    const variantSelect = document.getElementById('variant-select');
-    const qtyInput = document.getElementById('variant-quantity');
-    
-    if (!variantSelect.value) {
-        alert('กรุณาเลือกสี-ไซส์');
-        return;
-    }
-    
-    const selected = variantSelect.selectedOptions[0];
-    const colorId = parseInt(selected.dataset.colorId);
-    const sizeId = parseInt(selected.dataset.sizeId);
-    const stock = parseInt(selected.dataset.stock || 0);
-    const qty = parseInt(qtyInput.value || 1);
-    
-    if (qty > stock) {
-        alert(`สต็อกไม่พอ มีเพียง ${stock} ชิ้น`);
-        return;
-    }
-    
-    const existingIndex = selectedItems.findIndex(it => 
-        it.product_id == currentProductForVariant.id && 
-        it.color_id == colorId && 
-        it.size_id == sizeId
-    );
-    
-    if (existingIndex >= 0) {
-        selectedItems[existingIndex].quantity += qty;
-        selectedItems[existingIndex].total_price = selectedItems[existingIndex].quantity * selectedItems[existingIndex].unit_price;
-    } else {
-        selectedItems.push({
-            id: null,
-            product_id: currentProductForVariant.id,
-            product_name: currentProductForVariant.name,
-            color_id: colorId,
-            size_id: sizeId,
-            color_name: selected.dataset.colorName,
-            size_name: selected.dataset.sizeName,
-            variant_name: `${selected.dataset.colorName} - ${selected.dataset.sizeName}`,
-            quantity: qty,
-            unit_price: parseFloat(currentProductForVariant.price || 0),
-            total_price: qty * parseFloat(currentProductForVariant.price || 0),
-            color_size_id: parseInt(variantSelect.value),
-            max_total_for_order: stock,
-            is_existing_item: false
-        });
-    }
-    
-    renderOrderItems();
-    calculateTotals();
-    variantModal.hide();
-    showAlert('เพิ่มสินค้าสำเร็จ', 'success');
-}
+    function selectProductForOrder(productId) {
+        const product = allProducts.find(p => p.id == productId);
+        if (!product) return;
 
-// ============= Render & Calculate =============
-function renderOrderItems() {
-    const tbody = document.getElementById('order-items-body');
-    if (!tbody) return;
-    
-    if (selectedItems.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">ยังไม่มีสินค้า</td></tr>';
-        return;
+        currentProductForVariant = product;
+        document.getElementById('selected-product-name').textContent = product.name;
+
+        const variantSelect = document.getElementById('variant-select');
+        variantSelect.innerHTML = '<option value="">-- เลือก --</option>';
+
+        if (Array.isArray(product.color_sizes) && product.color_sizes.length > 0) {
+            product.color_sizes.forEach(cs => {
+                const opt = document.createElement('option');
+                opt.value = cs.id;
+                opt.textContent = `${cs.color_name} - ${cs.size_name} (สต็อก: ${cs.stock})`;
+                opt.dataset.colorId = cs.color_id;
+                opt.dataset.sizeId = cs.size_id;
+                opt.dataset.stock = cs.stock;
+                opt.dataset.colorName = cs.color_name;
+                opt.dataset.sizeName = cs.size_name;
+                variantSelect.appendChild(opt);
+            });
+        }
+
+        document.getElementById('variant-quantity').value = 1;
+        variantModal.show();
+        document.getElementById('search-results').innerHTML = '';
     }
-    
-    let html = '';
-    selectedItems.forEach((it, idx) => {
-        html += `
+
+    function addItemToOrder() {
+        const variantSelect = document.getElementById('variant-select');
+        const qtyInput = document.getElementById('variant-quantity');
+
+        if (!variantSelect.value) {
+            alert('กรุณาเลือกสี-ไซส์');
+            return;
+        }
+
+        const selected = variantSelect.selectedOptions[0];
+        const colorId = parseInt(selected.dataset.colorId);
+        const sizeId = parseInt(selected.dataset.sizeId);
+        const stock = parseInt(selected.dataset.stock || 0);
+        const qty = parseInt(qtyInput.value || 1);
+
+        if (qty > stock) {
+            alert(`สต็อกไม่พอ มีเพียง ${stock} ชิ้น`);
+            return;
+        }
+
+        const existingIndex = selectedItems.findIndex(it =>
+            it.product_id == currentProductForVariant.id &&
+            it.color_id == colorId &&
+            it.size_id == sizeId
+        );
+
+        if (existingIndex >= 0) {
+            selectedItems[existingIndex].quantity += qty;
+            selectedItems[existingIndex].total_price = selectedItems[existingIndex].quantity * selectedItems[existingIndex].unit_price;
+        } else {
+            selectedItems.push({
+                id: null,
+                product_id: currentProductForVariant.id,
+                product_name: currentProductForVariant.name,
+                color_id: colorId,
+                size_id: sizeId,
+                color_name: selected.dataset.colorName,
+                size_name: selected.dataset.sizeName,
+                variant_name: `${selected.dataset.colorName} - ${selected.dataset.sizeName}`,
+                quantity: qty,
+                unit_price: parseFloat(currentProductForVariant.price || 0),
+                total_price: qty * parseFloat(currentProductForVariant.price || 0),
+                color_size_id: parseInt(variantSelect.value),
+                max_total_for_order: stock,
+                is_existing_item: false
+            });
+        }
+
+        renderOrderItems();
+        calculateTotals();
+        variantModal.hide();
+        showAlert('เพิ่มสินค้าสำเร็จ', 'success');
+    }
+
+    // ============= Render & Calculate =============
+    function renderOrderItems() {
+        const tbody = document.getElementById('order-items-body');
+        if (!tbody) return;
+
+        if (selectedItems.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">ยังไม่มีสินค้า</td></tr>';
+            return;
+        }
+
+        let html = '';
+        selectedItems.forEach((it, idx) => {
+            html += `
             <tr data-index="${idx}">
                 <td>${escapeHtml(it.product_name)}</td>
                 <td><span class="badge bg-info">${escapeHtml(it.variant_name)}</span></td>
@@ -543,199 +658,203 @@ function renderOrderItems() {
                 </td>
             </tr>
         `;
-    });
-    
-    tbody.innerHTML = html;
-}
+        });
 
-function changeItemQuantity(index, delta) {
-    if (index < 0 || index >= selectedItems.length) return;
-    const it = selectedItems[index];
-    
-    const newQty = it.quantity + delta;
-    const maxTotal = it.max_total_for_order || 9999;
-    
-    if (newQty < 1) {
-        showAlert('จำนวนต้องไม่ต่ำกว่า 1', 'warning');
-        return;
+        tbody.innerHTML = html;
     }
-    
-    if (newQty > maxTotal) {
-        showAlert(`สต็อกไม่พอ มีเพียง ${maxTotal} ชิ้น`, 'warning');
-        return;
-    }
-    
-    it.quantity = newQty;
-    it.total_price = it.unit_price * newQty;
-    
-    renderOrderItems();
-    calculateTotals();
-}
 
-function updateQuantity(index, value) {
-    if (index < 0 || index >= selectedItems.length) return;
-    const it = selectedItems[index];
-    
-    let qty = parseInt(value || 0);
-    const maxTotal = it.max_total_for_order || 9999;
-    
-    if (qty < 1) {
-        showAlert('จำนวนต้องไม่ต่ำกว่า 1', 'warning');
-        qty = 1;
-    }
-    
-    if (qty > maxTotal) {
-        showAlert(`สต็อกไม่พอ มีเพียง ${maxTotal} ชิ้น`, 'warning');
-        qty = maxTotal;
-    }
-    
-    it.quantity = qty;
-    it.total_price = it.unit_price * qty;
-    
-    renderOrderItems();
-    calculateTotals();
-}
+    function changeItemQuantity(index, delta) {
+        if (index < 0 || index >= selectedItems.length) return;
+        const it = selectedItems[index];
 
-function removeItem(index) {
-    if (!confirm('คุณต้องการลบสินค้านี้หรือไม่?')) return;
-    selectedItems.splice(index, 1);
-    renderOrderItems();
-    calculateTotals();
-    showAlert('ลบสินค้าเรียบร้อยแล้ว', 'success');
-}
+        const newQty = it.quantity + delta;
+        const maxTotal = it.max_total_for_order || 9999;
 
-function calculateTotals() {
-    let subtotal = 0;
-    selectedItems.forEach(it => {
-        subtotal += it.total_price;
-    });
-    
-    const shippingEl = document.getElementById('shipping-fee');
-    const discountEl = document.getElementById('discount');
-    const shipping = parseFloat(shippingEl?.value || 0);
-    const discount = parseFloat(discountEl?.value || 0);
-    const total = subtotal + shipping - discount;
-    
-    const subEl = document.getElementById('subtotal-display');
-    const totalEl = document.getElementById('total-amount');
-    
-    if (subEl) subEl.textContent = `฿${subtotal.toFixed(2)}`;
-    if (totalEl) totalEl.value = `฿${total.toFixed(2)}`;
-}
-
-// ============= Form Actions =============
-function resetForm() {
-    if (confirm('รีเซ็ตข้อมูลกลับค่าเดิม?')) {
-        location.reload();
-    }
-}
-
-function submitOrder() {
-    // Validate
-    for (let i = 0; i < selectedItems.length; i++) {
-        const it = selectedItems[i];
-        if (!it.is_existing_item && (!it.color_id || !it.size_id || !it.color_size_id)) {
-            alert(`สินค้าใหม่แถวที่ ${i + 1} ขาดข้อมูลสี-ไซส์`);
+        if (newQty < 1) {
+            showAlert('จำนวนต้องไม่ต่ำกว่า 1', 'warning');
             return;
         }
-    }
-    
-    // Update JSON
-    const payload = selectedItems.map(it => ({
-        id: it.id,
-        product_id: it.product_id,
-        name: it.product_name,
-        product_name: it.product_name,
-        quantity: it.quantity,
-        unit_price: it.unit_price,
-        price: it.unit_price,
-        product_color_size_id: it.color_size_id,
-        color_size_id: it.color_size_id,
-        color_id: it.color_id,
-        size_id: it.size_id,
-        color_name: it.color_name,
-        size_name: it.size_name,
-        variant_name: it.variant_name,
-        is_existing_item: !!it.is_existing_item
-    }));
-    
-    document.getElementById('items-json').value = JSON.stringify(payload);
-    
-    const totalEl = document.getElementById('total-amount');
-    const total = totalEl ? totalEl.value : '฿0.00';
-    
-    if (!confirm(`ต้องการบันทึกการแก้ไขหรือไม่?\nยอดรวม: ${total}\nจำนวนสินค้า: ${selectedItems.length} รายการ`)) {
-        return;
-    }
-    
-    const btn = document.querySelector('button[onclick="submitOrder()"]');
-    if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังบันทึก...';
-    }
-    
-    setTimeout(() => {
-        document.getElementById('orderForm').submit();
-    }, 200);
-}
 
-// ============= UI Updates =============
-function updateStatusBadge() {
-    const select = document.getElementById('statusSelect');
-    const badge = document.getElementById('statusBadge');
-    const value = select.value;
-    
-    badge.className = 'badge rounded-pill';
-    
-    if (value === 'pending') badge.classList.add('text-bg-warning');
-    else if (value === 'processing') badge.classList.add('text-bg-info');
-    else if (value === 'shipped') badge.classList.add('text-bg-primary');
-    else if (value === 'delivered') badge.classList.add('text-bg-success');
-    else if (value === 'cancelled') badge.classList.add('text-bg-danger');
-    else badge.classList.add('text-bg-secondary');
-    
-    badge.textContent = select.selectedOptions[0].text;
-}
+        if (newQty > maxTotal) {
+            showAlert(`สต็อกไม่พอ มีเพียง ${maxTotal} ชิ้น`, 'warning');
+            return;
+        }
 
-function updatePaymentBadge() {
-    const select = document.getElementById('paymentSelect');
-    const badge = document.getElementById('paymentBadge');
-    const value = select.value;
-    
-    badge.className = 'badge rounded-pill';
-    
-    if (value === 'paid') {
-        badge.classList.add('text-bg-success');
-        badge.textContent = 'ชำระแล้ว';
-    } else {
-        badge.classList.add('text-bg-secondary');
-        badge.textContent = 'ยังไม่ชำระ';
+        it.quantity = newQty;
+        it.total_price = it.unit_price * newQty;
+
+        renderOrderItems();
+        calculateTotals();
     }
-}
 
-function showAlert(message, type = 'info') {
-    const div = document.createElement('div');
-    div.className = `alert alert-${type} alert-dismissible fade show`;
-    const icon = type === 'danger' ? 'exclamation-triangle' : 
-                 (type === 'success' ? 'check-circle' : 'info-circle');
-    div.innerHTML = `
+    function updateQuantity(index, value) {
+        if (index < 0 || index >= selectedItems.length) return;
+        const it = selectedItems[index];
+
+        let qty = parseInt(value || 0);
+        const maxTotal = it.max_total_for_order || 9999;
+
+        if (qty < 1) {
+            showAlert('จำนวนต้องไม่ต่ำกว่า 1', 'warning');
+            qty = 1;
+        }
+
+        if (qty > maxTotal) {
+            showAlert(`สต็อกไม่พอ มีเพียง ${maxTotal} ชิ้น`, 'warning');
+            qty = maxTotal;
+        }
+
+        it.quantity = qty;
+        it.total_price = it.unit_price * qty;
+
+        renderOrderItems();
+        calculateTotals();
+    }
+
+    function removeItem(index) {
+        if (!confirm('คุณต้องการลบสินค้านี้หรือไม่?')) return;
+        selectedItems.splice(index, 1);
+        renderOrderItems();
+        calculateTotals();
+        showAlert('ลบสินค้าเรียบร้อยแล้ว', 'success');
+    }
+
+    function calculateTotals() {
+        let subtotal = 0;
+        selectedItems.forEach(it => {
+            subtotal += it.total_price;
+        });
+
+        const shippingEl = document.getElementById('shipping-fee');
+        const discountEl = document.getElementById('discount');
+        const shipping = parseFloat(shippingEl?.value || 0);
+        const discount = parseFloat(discountEl?.value || 0);
+        const total = subtotal + shipping - discount;
+
+        const subEl = document.getElementById('subtotal-display');
+        const totalEl = document.getElementById('total-amount');
+
+        if (subEl) subEl.textContent = `฿${subtotal.toFixed(2)}`;
+        if (totalEl) totalEl.value = `฿${total.toFixed(2)}`;
+    }
+
+    // ============= Form Actions =============
+    function resetForm() {
+        if (confirm('รีเซ็ตข้อมูลกลับค่าเดิม?')) {
+            location.reload();
+        }
+    }
+
+    function submitOrder() {
+        // Validate
+        for (let i = 0; i < selectedItems.length; i++) {
+            const it = selectedItems[i];
+            if (!it.is_existing_item && (!it.color_id || !it.size_id || !it.color_size_id)) {
+                alert(`สินค้าใหม่แถวที่ ${i + 1} ขาดข้อมูลสี-ไซส์`);
+                return;
+            }
+        }
+
+        // Update JSON
+        const payload = selectedItems.map(it => ({
+            id: it.id,
+            product_id: it.product_id,
+            name: it.product_name,
+            product_name: it.product_name,
+            quantity: it.quantity,
+            unit_price: it.unit_price,
+            price: it.unit_price,
+            product_color_size_id: it.color_size_id,
+            color_size_id: it.color_size_id,
+            color_id: it.color_id,
+            size_id: it.size_id,
+            color_name: it.color_name,
+            size_name: it.size_name,
+            variant_name: it.variant_name,
+            is_existing_item: !!it.is_existing_item
+        }));
+
+        document.getElementById('items-json').value = JSON.stringify(payload);
+
+        const totalEl = document.getElementById('total-amount');
+        const total = totalEl ? totalEl.value : '฿0.00';
+
+        if (!confirm(`ต้องการบันทึกการแก้ไขหรือไม่?\nยอดรวม: ${total}\nจำนวนสินค้า: ${selectedItems.length} รายการ`)) {
+            return;
+        }
+
+        const btn = document.querySelector('button[onclick="submitOrder()"]');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังบันทึก...';
+        }
+
+        setTimeout(() => {
+            document.getElementById('orderForm').submit();
+        }, 200);
+    }
+
+    // ============= UI Updates =============
+    function updateStatusBadge() {
+        const select = document.getElementById('statusSelect');
+        const badge = document.getElementById('statusBadge');
+        const value = select.value;
+
+        badge.className = 'badge rounded-pill';
+
+        if (value === 'pending') badge.classList.add('text-bg-warning');
+        else if (value === 'processing') badge.classList.add('text-bg-info');
+        else if (value === 'shipped') badge.classList.add('text-bg-primary');
+        else if (value === 'delivered') badge.classList.add('text-bg-success');
+        else if (value === 'cancelled') badge.classList.add('text-bg-danger');
+        else badge.classList.add('text-bg-secondary');
+
+        badge.textContent = select.selectedOptions[0].text;
+    }
+
+    function updatePaymentBadge() {
+        const select = document.getElementById('paymentSelect');
+        const badge = document.getElementById('paymentBadge');
+        const value = select.value;
+
+        badge.className = 'badge rounded-pill';
+
+        if (value === 'paid') {
+            badge.classList.add('text-bg-success');
+            badge.textContent = 'ชำระแล้ว';
+        } else {
+            badge.classList.add('text-bg-secondary');
+            badge.textContent = 'ยังไม่ชำระ';
+        }
+    }
+
+    function showAlert(message, type = 'info') {
+        const div = document.createElement('div');
+        div.className = `alert alert-${type} alert-dismissible fade show`;
+        const icon = type === 'danger' ? 'exclamation-triangle' :
+            (type === 'success' ? 'check-circle' : 'info-circle');
+        div.innerHTML = `
         <i class="fas fa-${icon}"></i> ${escapeHtml(message)}
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>`;
-    
-    const container = document.querySelector('.container');
-    if (container) {
-        container.insertBefore(div, container.firstChild);
-        window.scrollTo({top: 0, behavior: 'smooth'});
-    }
-    
-    setTimeout(() => { if (div.parentNode) div.remove(); }, 5000);
-}
 
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+        const container = document.querySelector('.container');
+        if (container) {
+            container.insertBefore(div, container.firstChild);
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        setTimeout(() => {
+            if (div.parentNode) div.remove();
+        }, 5000);
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
 </script>
 @endpush
-@endsection

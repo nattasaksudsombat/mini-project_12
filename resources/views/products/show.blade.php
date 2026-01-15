@@ -39,16 +39,26 @@
             <tr>
                 <th>รูป</th>
                 <td colspan="5">
-                    @php
-                        $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
-                    @endphp
-                    @if ($mainImage)
-                        <img src="{{ asset('storage/' . $mainImage->image_url) }}" alt="{{ $product->name }}" width="300" height="250">
-                    @else
-                        <p>ไม่มีรูปภาพสินค้า</p>
-                    @endif
-                    <a href="{{ route('products.images.edit', $product->id) }}" class="btn btn-image">แก้ไขรูปภาพ</a>
-                </td>
+    @php
+        // ดึงรูปหลัก หรือรูปแรกถ้าไม่มีรูปหลัก
+        $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
+    @endphp
+
+    @if ($mainImage)
+        <img src="{{ asset('storage/' . $mainImage->image_url) }}" alt="{{ $product->name }}" width="300" height="250" style="object-fit: cover; border-radius: 8px;">
+    @else
+        <div class="text-muted p-4 border rounded bg-light text-center" style="width: 300px; height: 250px; display: flex; align-items: center; justify-content: center;">
+            <p class="mb-0">ไม่มีรูปภาพสินค้า</p>
+        </div>
+    @endif
+
+    <div class="mt-3">
+        {{-- ✅ แก้ไขตรงนี้: เปลี่ยนจาก .edit เป็น .index --}}
+        <a href="{{ route('product_images.index', $product->id) }}" class="btn btn-info text-white">
+            <i class="fas fa-images"></i> แก้ไขรูปภาพ
+        </a>
+    </div>
+</td>
             </tr>
             <tr>
                 <th>ชื่อสินค้า</th>
