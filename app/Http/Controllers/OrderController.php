@@ -537,4 +537,16 @@ $fullAddress = ($validated['ship_name'] ?? '') ? "({$validated['ship_name']}) " 
             return back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         }
     }
+
+    public function invoice(Order $order)
+    {
+        $order->load(['customer', 'customerAddress', 'orderItems.product', 'orderItems.color', 'orderItems.size']);
+        return view('orders.invoice', compact('order'));
+    }
+
+    public function packingList(Order $order)
+    {
+        $order->load(['customer', 'customerAddress', 'orderItems.product', 'orderItems.color', 'orderItems.size']);
+        return view('orders.packing_list', compact('order'));
+    }
 }

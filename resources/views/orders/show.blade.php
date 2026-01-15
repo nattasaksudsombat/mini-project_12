@@ -213,9 +213,12 @@
 
     {{-- ================= ปุ่มจัดการ ================= --}}
     <div class="mt-4 d-flex gap-2 flex-wrap">
-        <button class="btn btn-primary" onclick="window.print()">
-            <i class="fas fa-print"></i> พิมพ์ใบสั่งซื้อ
-        </button>
+        <a href="{{ route('orders.invoice', $order->id) }}" target="_blank" class="btn btn-primary">
+            <i class="fas fa-file-invoice"></i> พิมพ์ใบเสร็จ
+        </a>
+        <a href="{{ route('orders.packing_list', $order->id) }}" target="_blank" class="btn btn-secondary">
+            <i class="fas fa-box-open"></i> พิมพ์ใบปะหน้า
+        </a>
         <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-info">
             <i class="fas fa-edit"></i> แก้ไขคำสั่งซื้อ
         </a>
