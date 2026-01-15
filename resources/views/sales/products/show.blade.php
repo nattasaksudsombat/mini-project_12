@@ -1,6 +1,6 @@
 @extends('layouts.app')
 {{-- เลือก Navbar ตามที่คุณต้องการ --}}
-@include('layouts.navbarPD')
+@include('layouts.navbarSalesPD')
 
 @section('content')
 

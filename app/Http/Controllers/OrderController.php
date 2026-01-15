@@ -72,64 +72,103 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         try {
-            $validated = $request->validate([
+            // 1. Validate เบื้องต้น (ยังไม่บังคับ customer.address)
+            $rules = [
                 'customer_id' => 'nullable|exists:customers,id',
-                'customer.name' => 'required|string|max:255',
+                'customer.name' => 'required|string|max:255', // บังคับชื่อเสมอ (ทั้งเก่าและใหม่)
                 'customer.phone' => 'nullable|string|max:20',
                 'customer.email' => 'nullable|email|max:255',
                 'customer.purchase_channel' => 'required',
                 'customer.payment_method' => 'required',
-                'customer.address' => 'required|string',
-                'shipping_address' => 'required|string',
-                'existing_address_id' => 'nullable|exists:customer_addresses,id',
-                'new_address.address' => 'nullable|string',
-                'new_address.name' => 'nullable|string',
-                'new_address.subdistrict' => 'nullable|string',
-                'new_address.district' => 'nullable|string',
-                'new_address.province' => 'nullable|string',
-                'new_address.postal_code' => 'nullable|string',
+                // ตัด customer.address ออก เพราะเราจะดูจาก new_address แทนถ้าเป็นลูกค้าใหม่
+                
                 'items_json' => 'required|json',
                 'shipping_fee' => 'required|numeric|min:0',
                 'discount' => 'nullable|numeric|min:0',
                 'notes' => 'nullable|string',
-            ], [
+            ];
+
+            // ถ้าไม่ได้เลือกลูกค้าเดิม (คือสร้างใหม่) ต้องบังคับให้กรอกที่อยู่ใหม่
+            if (!$request->filled('customer_id')) {
+                $rules['new_address.address'] = 'required|string'; // บ้านเลขที่
+                $rules['new_address.subdistrict'] = 'required|string';
+                $rules['new_address.district'] = 'required|string';
+                $rules['new_address.province'] = 'required|string';
+                $rules['new_address.postal_code'] = 'required|string';
+            }
+
+            $validated = $request->validate($rules, [
                 'items_json.required' => 'กรุณาเลือกสินค้าอย่างน้อย 1 รายการ',
+                'new_address.address.required' => 'กรุณากรอกที่อยู่ (บ้านเลขที่)',
+                'customer.name.required' => 'กรุณากรอกชื่อลูกค้า',
             ]);
 
             DB::beginTransaction();
 
-            // 1. ลูกค้า
+            $customer = null;
+            $customerAddressId = null;
+            $shippingAddressText = '';
+
+            // ---------------------------------------------------------
+            // 2. จัดการลูกค้า (Customer)
+            // ---------------------------------------------------------
             if ($request->filled('customer_id')) {
-                $customer = Customer::findOrFail($request->customer_id);
+                // A. กรณีลูกค้าเก่า
+                $customer = \App\Models\Customer::findOrFail($request->customer_id);
+                
+                // ถ้ามีการเลือกที่อยู่เดิม
+                if ($request->filled('existing_address_id')) {
+                    $addr = \App\Models\CustomerAddress::find($request->existing_address_id);
+                    if ($addr) {
+                        $customerAddressId = $addr->id;
+                        $shippingAddressText = $addr->full_address; // ใช้ Accessor ที่มีใน Model หรือต่อ String เอง
+                    }
+                } 
+                // ถ้ามีการเพิ่มที่อยู่ใหม่ให้ลูกค้าเก่า
+                elseif ($request->filled('new_address.address')) {
+                    $newAddrData = $request->input('new_address');
+                    $newAddrData['customer_id'] = $customer->id;
+                    // ล้างค่า null ใน soi/road เพื่อป้องกัน error
+                    $newAddrData['soi'] = $newAddrData['soi'] ?? '';
+                    $newAddrData['road'] = $newAddrData['road'] ?? '';
+                    
+                    $newAddress = \App\Models\CustomerAddress::create($newAddrData);
+                    $customerAddressId = $newAddress->id;
+                    // รวมข้อความที่อยู่สำหรับ shipping_address
+                    $shippingAddressText = $this->formatFullAddress($newAddress);
+                }
             } else {
-                $customer = Customer::create([
+                // B. กรณีลูกค้าใหม่ (สร้าง Customer + Address)
+                $customer = \App\Models\Customer::create([
                     'name' => $validated['customer']['name'],
                     'phone' => $validated['customer']['phone'] ?? null,
                     'email' => $validated['customer']['email'] ?? null,
                     'purchase_channel' => $validated['customer']['purchase_channel'],
                     'payment_method' => $validated['customer']['payment_method'],
                 ]);
-            }
 
-            // 2. ที่อยู่
-            $customerAddressId = null;
-            if ($request->filled('existing_address_id')) {
-                $customerAddressId = $request->existing_address_id;
-            } elseif ($request->filled('new_address.address')) {
-                $addrData = $request->input('new_address');
-                $addrData['customer_id'] = $customer->id;
-                $newAddress = CustomerAddress::create($addrData);
+                // สร้างที่อยู่ใหม่ผูกกับลูกค้าใหม่ทันที
+                $newAddrData = $request->input('new_address');
+                $newAddrData['customer_id'] = $customer->id;
+                $newAddrData['name'] = $newAddrData['name'] ?? 'ที่อยู่จัดส่ง'; // ตั้งชื่อ Default
+                $newAddrData['soi'] = $newAddrData['soi'] ?? '';
+                $newAddrData['road'] = $newAddrData['road'] ?? '';
+
+                $newAddress = \App\Models\CustomerAddress::create($newAddrData);
                 $customerAddressId = $newAddress->id;
+                $shippingAddressText = $this->formatFullAddress($newAddress);
             }
 
+            // ---------------------------------------------------------
             // 3. สร้าง Order
-            $orderNumber = 'ORD-' . date('Ymd') . '-' . str_pad(Order::whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
-
-            $order = Order::create([
+            // ---------------------------------------------------------
+            $orderNumber = 'ORD-' . date('Ymd') . '-' . str_pad(\App\Models\Order::whereDate('created_at', today())->count() + 1, 4, '0', STR_PAD_LEFT);
+            
+            $order = \App\Models\Order::create([
                 'order_number' => $orderNumber,
                 'customer_id' => $customer->id,
-                'customer_address_id' => $customerAddressId,
-                'shipping_address' => $validated['shipping_address'],
+                'customer_address_id' => $customerAddressId, // เก็บ ID อ้างอิง (ถ้ามี)
+                'shipping_address' => $shippingAddressText,  // ✅ เก็บเป็นข้อความ (สำคัญ!)
                 'status' => 'pending',
                 'payment_status' => 'pending',
                 'shipping_fee' => $validated['shipping_fee'],
@@ -140,30 +179,24 @@ class OrderController extends Controller
                 'total_price' => 0,
             ]);
 
-            // 4. เพิ่มสินค้า & จองสต็อก (Hold)
+            // 4. เพิ่มสินค้า & จองสต็อก (Hold) -- ส่วนนี้คงเดิม ไม่แตะต้อง
             $items = json_decode($validated['items_json'], true);
             $subtotal = 0;
 
             foreach ($items as $item) {
-                // ค้นหา Variant ID
-                $variant = ProductColorSize::where('product_id', $item['product_id'])
+                $variant = \App\Models\ProductColorSize::where('product_id', $item['product_id'])
                     ->where('color_id', $item['color_id'])
                     ->where('size_id', $item['size_id'])
                     ->first();
 
                 if (!$variant) throw new \Exception("ไม่พบสินค้า: {$item['product_name']} ({$item['variant_name']})");
 
-                // ✅ ใช้ StockService จองสต็อก (Hold) + บันทึกประวัติ
-                // (เพิ่มยอดใน stock_holds ยังไม่ตัด quantity จริง)
                 $this->stockService->reserveNewForOrderVariant(
-                    $variant->id,
-                    $order->id,
-                    $item['quantity'],
-                    $orderNumber,
-                    'สร้างออเดอร์ใหม่'
+                    $variant->id, $order->id, $item['quantity'], 
+                    $orderNumber, 'สร้างออเดอร์ใหม่'
                 );
 
-                $orderItem = OrderItem::create([
+                $orderItem = \App\Models\OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
                     'product_name' => $item['product_name'],
@@ -183,13 +216,22 @@ class OrderController extends Controller
 
             DB::commit();
             return redirect()->route('orders.show', $order)->with('success', 'สร้างออเดอร์สำเร็จ (จองสต็อกเรียบร้อย)');
+
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error($e);
+            \Illuminate\Support\Facades\Log::error($e);
             return back()->withErrors(['error' => 'เกิดข้อผิดพลาด: ' . $e->getMessage()])->withInput();
         }
     }
 
+    // Helper Function สำหรับรวมข้อความที่อยู่ (ใส่เพิ่มใน Controller)
+    private function formatFullAddress($addr) {
+        $text = ($addr->name ? "({$addr->name}) " : "") . $addr->address;
+        if($addr->soi) $text .= " ซ." . $addr->soi;
+        if($addr->road) $text .= " ถ." . $addr->road;
+        $text .= " ต." . $addr->subdistrict . " อ." . $addr->district . " จ." . $addr->province . " " . $addr->postal_code;
+        return $text;
+    }
     public function show(Order $order)
     {
         $order->load(['customer', 'customerAddress', 'orderItems.product', 'orderItems.color', 'orderItems.size']);

@@ -8,9 +8,18 @@
                 </a>
             </li>
             <li class="nav-item">
+                {{-- ✅ ตรวจสอบว่าเป็น "คนขาย" (sales) หรือไม่ --}}
+                @if(Auth::user()->role === 'sales')
+                {{-- 👉 ถ้าเป็นคนขาย ให้ไปหน้า Sales --}}
+                <a class="nav-link {{ Request::is('sales/products*') ? 'active' : '' }}" href="{{ url('/sales/products') }}">
+                    <i class="fas fa-tags me-2"></i> ดูราคาสินค้า
+                </a>
+                @else
+                {{-- 👉 ถ้าเป็นแอดมิน (หรืออื่นๆ) ให้ไปหน้าจัดการสินค้าเหมือนเดิม --}}
                 <a class="nav-link {{ Route::is('products.index') ? 'active' : '' }}" href="{{ route('products.index') }}">
                     <i class="fas fa-box me-2"></i> จัดการสินค้า
                 </a>
+                @endif
             </li>
             <li class="nav-item">
                 <a class="nav-link {{ Route::is('orders.index') ? 'active' : '' }}" href="{{ route('orders.index') }}">
@@ -28,13 +37,13 @@
                 </a>
             </li>
             <li class="nav-item">
-                   <form action="{{ route('logout') }}" method="POST" class="d-inline">
-    @csrf
-    <button type="submit" class="btn btn-danger btn-sm">
-        <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
-    </button>
-</form>
-                </li>
+                <form action="{{ route('logout') }}" method="POST" class="d-inline">
+                    @csrf
+                    <button type="submit" class="btn btn-danger btn-sm">
+                        <i class="fas fa-sign-out-alt"></i> ออกจากระบบ
+                    </button>
+                </form>
+            </li>
         </ul>
     </div>
 </div>

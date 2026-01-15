@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@include('layouts.navbarPD')
+@include('layouts.navbarSalesPD')
 
 @section('content')
 <h1>Product List</h1>

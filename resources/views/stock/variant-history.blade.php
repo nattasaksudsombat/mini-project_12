@@ -33,9 +33,7 @@
                 </a>
             </div>
             
-            <a href="{{ route('stock.adjust.form', $variantId) }}" class="btn btn-warning ms-2">
-                <i class="fas fa-edit"></i> ปรับสต็อก
-            </a>
+          
         </div>
     </div>
 

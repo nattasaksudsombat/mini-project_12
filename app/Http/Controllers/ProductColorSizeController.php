@@ -264,4 +264,55 @@ class ProductColorSizeController extends Controller
             return back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         }
     }
+    // 1. ดึงสีตามสินค้า
+    public function getColors($id)
+    {
+        // ดึงสีที่มีการจับคู่กับสินค้านี้ (ผ่านตาราง product_color_sizes)
+        // หรือจะดึงจาก ProductColor โดยตรงก็ได้ แล้วแต่โครงสร้าง
+        
+        // ตัวอย่าง: ดึงสีที่มีในสต็อกจริง
+        $colors = ProductColorSize::where('product_id', $id)
+            ->with('color')
+            ->get()
+            ->pluck('color')
+            ->unique('id')
+            ->values();
+
+        return response()->json($colors);
+    }
+
+    // 2. ดึงไซส์ตามสินค้าและสี
+    public function getSizes(Request $request, $id)
+    {
+        $colorId = $request->query('color_id');
+
+        $sizes = ProductColorSize::where('product_id', $id)
+            ->where('color_id', $colorId)
+            ->with('size')
+            ->get()
+            ->pluck('size')
+            ->unique('id')
+            ->values();
+
+        return response()->json($sizes);
+    }
+
+    // 3. เช็คสต็อก
+    public function checkStock(Request $request)
+    {
+        $variant = ProductColorSize::where('product_id', $request->product_id)
+            ->where('color_id', $request->color_id)
+            ->where('size_id', $request->size_id)
+            ->first();
+
+        if ($variant) {
+            return response()->json([
+                'status' => 'success',
+                'quantity' => $variant->quantity,
+                'price' => $variant->price // เผื่อราคาต่างกันตามไซส์
+            ]);
+        }
+
+        return response()->json(['status' => 'error', 'message' => 'ไม่พบสินค้า']);
+    }
 }
