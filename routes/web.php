@@ -205,6 +205,10 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('/orders/{order}/pay', [OrderController::class, 'pay'])->name('orders.pay');
         Route::patch('/orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.updateTracking');
 
+        // Documents Printing
+        Route::get('/orders/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');
+        Route::get('/orders/{order}/packing-list', [OrderController::class, 'packingList'])->name('orders.packing_list');
+
         // Order Items
         Route::delete('/order-items/{orderItem}', [OrderItemController::class, 'destroy'])->name('order-items.destroy');
 

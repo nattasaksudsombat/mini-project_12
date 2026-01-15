@@ -4,21 +4,65 @@
 <div class="container-fluid py-4">
     <h2 class="mb-4"><i class="fas fa-chart-line me-2"></i>แดชบอร์ด</h2>
 
-    <!-- Summary Cards -->
+    <!-- Operation Cards -->
     <div class="row mb-4">
         <div class="col-md-4">
-            <div class="card bg-primary  text-white h-100">
+            <div class="card bg-info text-white h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-money-bill-wave me-2"></i>ยอดขายวันนี้</h5>
+                    <h3>{{ number_format($todaySales ?? 0, 2) }} บาท</h3>
+                </div>
+                 <div class="card-footer d-flex justify-content-between">
+                    <small>ประจำวันที่ {{ date('d/m/Y') }}</small>
+                    <a href="{{ route('reports.index') }}" class="text-white">
+                        <i class="fas fa-arrow-right"></i> ดูรายงาน
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-dark h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-box-open me-2"></i>ออเดอร์รอจัดการ</h5>
+                    <h3>{{ number_format($pendingOrdersCount ?? 0) }} รายการ</h3>
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    <small>สถานะ Pending/Processing</small>
+                    <a href="{{ route('orders.index', ['status' => 'pending']) }}" class="text-dark">
+                        <i class="fas fa-arrow-right"></i> ไปจัดการ
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-secondary text-white h-100 shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-exclamation-triangle me-2"></i>สินค้าใกล้หมด</h5>
+                    <h3>{{ number_format($lowStockCount ?? 0) }} รายการ</h3>
+                </div>
+                <div class="card-footer d-flex justify-content-between">
+                    <small>ต่ำกว่า 10 ชิ้น</small>
+                    <a href="{{ route('reports.index') }}" class="text-white">
+                        <i class="fas fa-arrow-right"></i> ดูรายการ
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mb-3"><i class="fas fa-wallet me-2"></i>สรุปการเงิน</h4>
+    <!-- Financial Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white h-100">
                 <div class="card-body">
                     <h5 class="card-title"><i class="fas fa-hand-holding-usd me-2"></i>รายรับทั้งหมด</h5>
                     <h2 class="display-6">
-
-                                        @if($totalIncome)
+                        @if(isset($totalIncome))
                         <h3>{{ number_format($totalIncome, 2) }} บาท</h3>
                         @else
                         <h3> 0.00 บาท</h3>
                         @endif
-
-
                     </h2>
                 </div>
                 <div class="card-footer d-flex justify-content-between">
@@ -33,7 +77,7 @@
             <div class="card bg-danger text-white h-100">
                 <div class="card-body">
                     <h5 class="card-title"><i class="fas fa-shopping-cart me-2"></i>รายจ่ายทั้งหมด</h5>
-                    <h2 class="display-6"><h3>{{ number_format($totalExpense, 2) }} บาท</h3></h2>
+                    <h2 class="display-6"><h3>{{ number_format($totalExpense ?? 0, 2) }} บาท</h3></h2>
                 </div>
                 <div class="card-footer d-flex justify-content-between">
                     <small>ข้อมูลล่าสุด</small>
@@ -44,13 +88,13 @@
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card {{ $balance >= 0 ? 'bg-success' : 'bg-warning' }} text-white h-100">
+            <div class="card {{ ($balance ?? 0) >= 0 ? 'bg-success' : 'bg-warning' }} text-white h-100">
                 <div class="card-body">
                     <h5 class="card-title"><i class="fas fa-balance-scale me-2"></i>ยอดคงเหลือ</h5>
-                    <h2 class="display-6"><h3>{{ number_format($balance, 2) }} บาท</h3> </h2>
+                    <h2 class="display-6"><h3>{{ number_format($balance ?? 0, 2) }} บาท</h3> </h2>
                 </div>
                 <div class="card-footer">
-                    <small>{{ $balance >= 0 ? 'คุณมีเงินเหลือเก็บ!' : 'คุณใช้จ่ายมากกว่ารายรับ!' }}</small>
+                    <small>{{ ($balance ?? 0) >= 0 ? 'คุณมีเงินเหลือเก็บ!' : 'คุณใช้จ่ายมากกว่ารายรับ!' }}</small>
                 </div>
             </div>
         </div>
