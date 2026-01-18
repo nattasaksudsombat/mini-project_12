@@ -6,7 +6,7 @@ use App\Http\Controllers\{
     OrderController,
     OrderItemController,
     ProductController,
-    ProductColorSizeController, // ✅ ต้องมีบรรทัดนี้
+    ProductColorSizeController,
     ProductColorController,
     ProductTagController,
     ProductOptionController,
@@ -33,7 +33,6 @@ use App\Http\Controllers\{
 | Authentication Routes
 |--------------------------------------------------------------------------
 */
-
 Route::get('/', function () {
     return redirect()->route('login');
 });
@@ -49,11 +48,11 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 */
 Route::middleware(['auth'])->group(function () {
 
-    // ✅ Dashboard (ทุกคนเข้าได้)
+    // ✅ Dashboard (ทุกคน)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // =========================================================
-    // 🌍 Shared API Routes (Admin + Sales + Stock ใช้ร่วมกัน)
+    // 🌍 Shared API Routes (ใช้ร่วมกัน Admin + Sales + Stock)
     // =========================================================
     
     // 1. API ดึงที่อยู่ลูกค้า
@@ -71,11 +70,14 @@ Route::middleware(['auth'])->group(function () {
 
 
     // =========================================================
-    // 📦 General View (Read-Only)
+    // 🌍 Public Read-Only (ดูได้ทุกคน)
     // =========================================================
+    // Products - Read Only
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     Route::get('/products/search', [ProductController::class, 'ajaxSearch'])->name('products.search');
     Route::get('/products/{product}/barcode', [ProductController::class, 'barcodePreview'])->name('products.barcode_preview');
+    
+    // Orders - Read Only  
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
 
 
@@ -83,15 +85,31 @@ Route::middleware(['auth'])->group(function () {
     // 👑 Admin ONLY
     // =========================================================
     Route::middleware(['role:admin'])->group(function () {
+        // รายงาน & การเงิน
         Route::resource('incomes', IncomeController::class);
         Route::resource('expenses', ExpenseController::class);
         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-        Route::resource('users', UserController::class);
         
-        // Product Management Full Access
-        Route::resource('products', ProductController::class)->except(['index', 'show']);
-        Route::post('/products/{product}/toggle', [ProductController::class, 'toggleStatus'])->name('products.toggle');
+        // จัดการ Users
+        Route::resource('users', UserController::class);
+    });
+
+
+    // =========================================================
+    // 🕒 Shared Routes (Admin + Stock + Sales)
+    // =========================================================
+    Route::middleware(['role:admin,stock,sales'])->group(function () {
+        // ประวัติสต๊อกของ Variant
+        Route::get('/stock/history/{variant}', [StockController::class, 'variantHistory'])
+            ->name('stock.variant.history');
+
+        Route::get('/stock/api/holds/{variant}', [StockController::class, 'getVariantHolds'])
+            ->name('stock.api.holds');
+        
+        // ⭐ เพิ่มเส้นทางนี้เพื่อให้ Sales ดึง variants ได้ (สำหรับสร้างออเดอร์)
+        Route::get('/products/{product}/variants', [ProductController::class, 'getVariants'])
+            ->name('products.variants.shared');
     });
 
 
@@ -99,40 +117,41 @@ Route::middleware(['auth'])->group(function () {
     // 📦 Stock Management (Admin + Stock)
     // =========================================================
     Route::middleware(['role:admin,stock'])->group(function () {
-        // Export/Import & Product Edit
+        
+        // Export/Import
         Route::get('/export-products', [ProductController::class, 'export'])->name('export.products');
         Route::post('/import-products', [ProductController::class, 'import'])->name('products.import');
         Route::post('/products/import-excel', [ProductExcelController::class, 'import'])->name('products.excel.import');
         Route::post('/products/print-barcode', [ProductController::class, 'printBarcode'])->name('products.printBarcode');
-
+        
+        // Products - CRUD
         Route::get('/products/create', [ProductController::class, 'create'])->name('products.create');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
         Route::get('/products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::put('/products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
-
+        Route::post('/products/{product}/toggle', [ProductController::class, 'toggleStatus'])->name('products.toggle');
+        
         // Product Images
         Route::prefix('products/{product}/images')->name('product_images.')->group(function () {
             Route::get('/', [ProductImageController::class, 'index'])->name('index');
             Route::post('/', [ProductImageController::class, 'store'])->name('store');
-            Route::put('/{productImage}', [ProductImageController::class, 'update'])->name('update');
         });
-        Route::delete('/products/images/{productImage}', [ProductImageController::class, 'destroy'])->name('product_images.destroy');
-        Route::post('/products/{product}/images/{productImage}/main', [ProductImageController::class, 'setMain'])->name('product_images.set_main');
-
-        // Variants
-        Route::get('/products/{product}/variants', [ProductController::class, 'getVariants'])->name('products.variants');
+        Route::delete('/product-images/{productImage}', [ProductImageController::class, 'destroy'])->name('product_images.destroy');
+        Route::post('/product-images/{productImage}/main', [ProductController::class, 'setMainImage'])->name('product_images.set_main');
+        
+        // Product Color-Size Variants
         Route::get('/products/{product}/color-size/create', [ProductColorSizeController::class, 'create'])->name('product.colorSize.create');
         Route::post('/products/{product}/color-size', [ProductColorSizeController::class, 'store'])->name('product.colorSize.store');
         Route::get('/products/{product}/color-size/{colorSize}/edit', [ProductColorSizeController::class, 'edit'])->name('product.colorSize.edit');
         Route::put('/products/{product}/color-size/{colorSize}', [ProductColorSizeController::class, 'update'])->name('product.colorSize.update');
         Route::delete('/products/{product}/color-size/{colorSize}', [ProductColorSizeController::class, 'destroy'])->name('product.colorSize.destroy');
-
-        // Stock Adjustments
+        
+        // Stock Management
         Route::get('/stock/adjust/{variant}', [StockController::class, 'adjustForm'])->name('stock.adjust.form');
         Route::post('/stock/adjust/{variant}', [StockController::class, 'adjustSave'])->name('stock.adjust.save');
-
+        
         // Master Data
         Route::resource('categories', CategoryController::class);
         Route::resource('colors', ColorController::class);
@@ -147,34 +166,34 @@ Route::middleware(['auth'])->group(function () {
     // 🛒 Sales Management (Admin + Sales)
     // =========================================================
     Route::middleware(['role:admin,sales'])->group(function () {
-        // Orders
+        
+        // Orders - Helpers
         Route::get('/orders/customers/search', [OrderController::class, 'searchCustomers'])->name('orders.customers.search');
         Route::get('/orders/customers/{customer}/addresses', [OrderController::class, 'getCustomerAddresses'])->name('orders.customers.addresses');
         
+        // Orders - CRUD
         Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
         Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
         Route::get('/orders/{order}/edit', [OrderController::class, 'edit'])->name('orders.edit');
         Route::put('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');
         Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
-
+        
+        // Orders - Actions
         Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
         Route::post('/orders/{order}/ship', [OrderController::class, 'ship'])->name('orders.ship');
         Route::patch('/orders/{order}/pay', [OrderController::class, 'pay'])->name('orders.pay');
         Route::patch('/orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.updateTracking');
+        
+        // Order Items
         Route::delete('/order-items/{orderItem}', [OrderItemController::class, 'destroy'])->name('order-items.destroy');
-
+        
+        // Customers
         Route::resource('customers', CustomerController::class)->except(['show']);
-
-        // หน้าขายสินค้า Sales
+        
+        // ✅ หน้าดูสินค้าสำหรับ Sales
         Route::get('/sales/products', [ProductController::class, 'salesIndex'])->name('sales.products.index');
         Route::get('/sales/products/{product}', [ProductController::class, 'salesShow'])->name('sales.products.show');
-    });
-
-    // Shared: Stock History
-    Route::middleware(['role:admin,stock,sales'])->group(function () {
-        Route::get('/stock/history/{variant}', [StockController::class, 'variantHistory'])->name('stock.variant.history');
-        Route::get('/stock/api/holds/{variant}', [StockController::class, 'getVariantHolds'])->name('stock.api.holds');
     });
 
 });

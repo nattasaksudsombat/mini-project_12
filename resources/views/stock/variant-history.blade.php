@@ -70,7 +70,7 @@
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
-                    <tr>
+                    <tr>table-light
                         <th style="width: 15%">วัน/เวลา</th>
                         <th style="width: 10%">ประเภท</th>
                         <th class="text-end" style="width: 10%">ก่อน</th>
