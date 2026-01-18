@@ -94,7 +94,11 @@ Route::middleware(['auth'])->group(function () {
         // รายงาน & การเงิน
         Route::resource('incomes', IncomeController::class);
         Route::resource('expenses', ExpenseController::class);
+
+        // Settings
         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+        Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update'); // Added update route
+
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 
         // จัดการ Users

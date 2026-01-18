@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\ProductColorSize;
+use App\Models\Setting; // Added Setting model
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
@@ -22,7 +23,7 @@ class ReportController extends Controller
         $dailySalesData = Order::whereBetween('created_at', [$startDate->format('Y-m-d 00:00:00'), $endDate->format('Y-m-d 23:59:59')])
             ->where('payment_status', 'paid')
             ->select(DB::raw('DATE(created_at) as date'), DB::raw('SUM(total_price) as total'))
-            ->groupBy('date')
+            ->groupBy(DB::raw('DATE(created_at)')) // Fix for Strict Mode
             ->orderBy('date')
             ->get();
 
@@ -64,8 +65,9 @@ class ReportController extends Controller
             ->get();
 
         // 4. Low Stock Items (Variant < 10)
-        // You might want to make this threshold configurable in settings later
-        $lowStockThreshold = 10;
+        // Use setting if available, default to 10
+        $lowStockThreshold = (int) Setting::getValue('low_stock_threshold', 10);
+
         $lowStockItems = ProductColorSize::with(['product', 'color', 'size'])
             ->where('quantity', '<=', $lowStockThreshold)
             ->orderBy('quantity', 'asc')
