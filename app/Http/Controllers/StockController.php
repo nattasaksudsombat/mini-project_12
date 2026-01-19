@@ -521,26 +521,21 @@ public function store(Request $request)
     /**
      * รายงานรวม + Export
      */
-    public function report(Request $request)
-    {
-        $query = DB::table('v_current_stock');
-
-        if ($request->search) {
-            $query->where(function($q) use ($request){
-                $q->where('product_name','like','%'.$request->search.'%')
-                  ->orWhere('id_stock','like','%'.$request->search.'%');
-            });
-        }
-        if ($request->stock_status === 'out') {
-            $query->where('available_stock','<=',0);
-        } elseif ($request->stock_status === 'low') {
-            $query->where('available_stock','>',0)
-                  ->where('available_stock','<=',10);
-        }
-
-        $stocks = $query->paginate(50);
-        return view('stock.report', compact('stocks'));
+   public function report(Request $request)
+{
+    $stockStatus = $request->input('stock_status');
+    
+    $query = DB::table('v_current_stock');
+    
+    if ($stockStatus === 'low') {
+        $query->where('available_stock', '<=', 10)
+              ->where('available_stock', '>', 0);
     }
+    
+    $stocks = $query->orderBy('available_stock', 'asc')->get();
+    
+    return view('stock.report', compact('stocks', 'stockStatus'));
+}
 
     public function export(Request $request)
     {

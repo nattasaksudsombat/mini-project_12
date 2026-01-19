@@ -129,9 +129,9 @@
                 <div class="card-body text-center">
                     <h1 class="display-4 text-warning">{{ $pendingOrders }}</h1>
                     <p class="mb-0">รายการ</p>
-                    <a href="{{ route('orders.index') }}?status=pending" class="btn btn-warning btn-sm mt-2">
-                        ดูรายการ
-                    </a>
+                   <a href="{{ route('products.index') }}" class="btn btn-danger btn-sm mt-2">
+    ดูสินค้า
+</a>
                 </div>
             </div>
         </div>
@@ -145,9 +145,9 @@
                 <div class="card-body text-center">
                     <h1 class="display-4 text-danger">{{ $lowStockCount }}</h1>
                     <p class="mb-0">รายการ (สต็อก ≤ 10)</p>
-                    <a href="{{ route('stock.report') }}?stock_status=low" class="btn btn-danger btn-sm mt-2">
-                        ดูรายการ
-                    </a>
+                   <a href="{{ route('products.index') }}?stock_status=low" class="btn btn-danger btn-sm mt-2">
+    ดูรายการ
+</a>
                 </div>
             </div>
         </div>

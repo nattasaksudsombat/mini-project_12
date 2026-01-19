@@ -30,11 +30,16 @@ class SettingsController extends Controller
             'shop_name' => 'ร้านค้าของฉัน',
             'shop_phone' => '02-xxx-xxxx',
             'shop_address' => 'กรุณากรอกที่อยู่ร้าน',
-            'low_stock_threshold' => 10, // แจ้งเตือนเมื่อสต็อก <= 10
+            'low_stock_threshold' => 10,
+            'default_shipping_fee' => 50,
+            'bank_accounts' => '[]',
         ];
 
         // Merge ค่า Default กับค่าจากฐานข้อมูล
         $settings = array_merge($defaults, $settings);
+
+        // แปลง bank_accounts จาก JSON เป็น Array
+        $settings['bank_accounts'] = json_decode($settings['bank_accounts'], true) ?? [];
 
         return view('settings.index', compact('settings'));
     }
