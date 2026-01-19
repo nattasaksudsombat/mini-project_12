@@ -133,7 +133,7 @@
                 <div class="col-md-6">
                     <p><strong>Tracking Number:</strong>
                         @if ($order->tracking_number)
-                        <span class="text-primary">{{ $order->tracking_number }}</span>
+                        <span class="text-primary fw-bold">{{ $order->tracking_number }}</span>
                         @else
                         <span class="text-muted">ยังไม่มี</span>
                         @endif
@@ -152,7 +152,12 @@
             @if($order->slip_image)
             <div class="mt-4">
                 <h5>สลิปชำระเงิน</h5>
-                <img src="{{ asset('storage/' . $order->slip_image) }}" class="img-fluid border rounded" style="max-width: 400px;">
+                <a href="{{ asset('storage/' . $order->slip_image) }}" target="_blank">
+                    <img src="{{ asset('storage/' . $order->slip_image) }}" class="img-fluid border rounded" style="max-width: 400px;">
+                </a>
+                <p class="text-muted small mt-2">
+                    <i class="fas fa-info-circle"></i> คลิกที่รูปเพื่อดูขนาดเต็ม
+                </p>
             </div>
             @endif
         </div>
@@ -178,10 +183,8 @@
                         @foreach($order->orderItems as $item)
                         <tr>
                             <td>{{ $item->product_name }}</td>
-                            <td>{{ $item->product->id_stock ?? '-' }}</td>
-                            <td>
-                                <span class="badge bg-info text-dark">{{ $item->variant_name }}</span>
-                            </td>
+                            <td>{{ $item->sku ?? '-' }}</td>
+                            <td>{{ $item->variant_name ?? '-' }}</td>
                             <td>{{ $item->quantity }}</td>
                             <td>฿{{ number_format($item->unit_price, 2) }}</td>
                             <td>฿{{ number_format($item->total_price, 2) }}</td>
@@ -211,34 +214,44 @@
         </div>
     </div>
 
-    {{-- ================= ปุ่มจัดการ ================= --}}
+    {{-- ================= ปุ่มจัดการ (ปรับตามสิทธิ์) ================= --}}
     <div class="mt-4 d-flex gap-2 flex-wrap">
         <button class="btn btn-primary" onclick="window.print()">
             <i class="fas fa-print"></i> พิมพ์ใบสั่งซื้อ
         </button>
-        <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-info">
-            <i class="fas fa-edit"></i> แก้ไขคำสั่งซื้อ
-        </a>
+        
+        {{-- ซ่อนปุ่มสำหรับยศ Stock --}}
+        @if(auth()->user()->role !== 'stock')
+            <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-info">
+                <i class="fas fa-edit"></i> แก้ไขคำสั่งซื้อ
+            </a>
 
-        @if($order->payment_status === 'pending')
-        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paymentModal">
-            <i class="fas fa-money-bill-wave"></i> ชำระเงิน / แนบสลิป
-        </button>
+            @if($order->payment_status === 'pending')
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paymentModal">
+                <i class="fas fa-money-bill-wave"></i> ชำระเงิน / แนบสลิป
+            </button>
+            @endif
+
+            @if($order->payment_status === 'paid' && $order->slip_image)
+            <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#trackingModal">
+                <i class="fas fa-truck"></i> เพิ่ม/แก้ไข Tracking Number
+            </button>
+            @endif
+
+            <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteOrderModal">
+                <i class="fas fa-trash"></i> ลบออเดอร์
+            </button>
+        @else
+            {{-- แสดงข้อความแจ้งเตือนสำหรับยศ Stock --}}
+            <div class="alert alert-info mb-0 flex-grow-1">
+                <i class="fas fa-info-circle"></i> คุณสามารถดูข้อมูลได้อย่างเดียว ไม่สามารถแก้ไขหรือจัดการออเดอร์ได้
+            </div>
         @endif
-
-        @if($order->payment_status === 'paid' && $order->slip_image)
-        <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#trackingModal">
-            <i class="fas fa-truck"></i> เพิ่ม/แก้ไข Tracking Number
-        </button>
-        @endif
-
-        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteOrderModal">
-            <i class="fas fa-trash"></i> ลบออเดอร์
-        </button>
     </div>
 </div>
 
-{{-- ================= Modal ชำระเงิน ================= --}}
+{{-- ================= Modal ชำระเงิน (เฉพาะยศที่ไม่ใช่ Stock) ================= --}}
+@if(auth()->user()->role !== 'stock')
 <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" action="{{ route('orders.pay', $order->id) }}" enctype="multipart/form-data">
@@ -264,7 +277,7 @@
     </div>
 </div>
 
-{{-- ================= Modal Tracking Number ================= --}}
+{{-- ================= Modal Tracking Number (เฉพาะยศที่ไม่ใช่ Stock) ================= --}}
 <div class="modal fade" id="trackingModal" tabindex="-1" aria-labelledby="trackingModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" action="{{ route('orders.updateTracking', $order->id) }}">
@@ -291,7 +304,7 @@
     </div>
 </div>
 
-{{-- ================= Modal ยืนยันการลบออเดอร์ ================= --}}
+{{-- ================= Modal ยืนยันการลบออเดอร์ (เฉพาะยศที่ไม่ใช่ Stock) ================= --}}
 <div class="modal fade" id="deleteOrderModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -327,11 +340,12 @@
         </div>
     </div>
 </div>
+@endif
 
 {{-- ================= CSS สำหรับพิมพ์ ================= --}}
 <style>
     @media print {
-        .btn, .card-header, nav, footer, .modal {
+        .btn, .card-header, nav, footer, .modal, .alert {
             display: none !important;
         }
         .container {

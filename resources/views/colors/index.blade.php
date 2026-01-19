@@ -41,7 +41,9 @@
                     <td>{{ $color->products_count ?? 0 }}</td>
                     <td>
                         <!-- ปุ่มแก้ไข -->
-                        <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editColorModal{{ $color->id }}">แก้ไข</button>
+                        <button class="btn btn-warning btn-sm" data-bs-toggle="modal"  {{ ($color->products_count ?? 0) > 0 ? 'disabled' : '' }}data-bs-target="#editColorModal{{ $color->id }}">
+                            แก้ไข
+                        </button>
 
                         <!-- ปุ่มลบ -->
                         <form action="{{ route('colors.destroy', $color) }}" method="POST" style="display:inline-block;"

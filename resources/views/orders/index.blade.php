@@ -11,9 +11,12 @@
             <a href="{{ route('customers.index') }}" class="btn btn-outline-primary">
                 <i class="fas fa-users"></i> จัดการลูกค้า
             </a>
+            {{-- ซ่อนปุ่มสร้างออเดอร์สำหรับยศ Stock --}}
+            @if(auth()->user()->role !== 'stock')
             <a href="{{ route('orders.create') }}" class="btn btn-success">
                 <i class="fas fa-plus"></i> สร้างออเดอร์ใหม่
             </a>
+            @endif
         </div>
     </div>
 
@@ -84,6 +87,8 @@
                             <th>ยอดรวม</th>
                             <th>สถานะ</th>
                             <th>การชำระเงิน</th>
+                            <th>เลขส่ง (Tracking)</th>
+                            <th>สลิป</th>
                             <th>วันที่สั่งซื้อ</th>
                             <th width="300">จัดการ</th>
                         </tr>
@@ -126,59 +131,79 @@
                                     {{ $order->payment_status == 'paid' ? 'ชำระแล้ว' : 'รอชำระ' }}
                                 </span>
                             </td>
+                            <td>
+                                @if($order->tracking_number)
+                                    <span class="text-primary fw-bold">{{ $order->tracking_number }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                @if($order->slip_image)
+                                    <a href="{{ asset('storage/' . $order->slip_image) }}" target="_blank" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-receipt"></i> ดูสลิป
+                                    </a>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
                             <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ route('orders.show', $order->id) }}" class="btn btn-info" title="ดูรายละเอียด">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    {{-- ซ่อนปุ่มแก้ไขสำหรับยศ Stock --}}
+                                    @if(auth()->user()->role !== 'stock')
                                     <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-warning" title="แก้ไข">
                                         <i class="fas fa-edit"></i>
                                     </a>
+                                    @endif
                                 </div>
                                 
-                                @if($order->payment_status === 'pending')
-                                <button class="btn btn-success btn-sm btn-open-payment-modal" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#paymentModal" 
-                                        data-id="{{ $order->id }}"
-                                        data-order-number="{{ $order->order_number }}"
-                                        title="ชำระเงิน">
-                                    <i class="fas fa-money-bill-wave"></i> ชำระเงิน
-                                </button>
-                                @endif
-                                
-                                @if($order->payment_status === 'paid')
-                                <button class="btn btn-primary btn-sm btn-open-tracking-modal" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#trackingModal" 
-                                        data-id="{{ $order->id }}"
-                                        data-order-number="{{ $order->order_number }}"
-                                        data-tracking="{{ $order->tracking_number ?? '' }}"
-                                        title="จัดการ Tracking">
-                                    <i class="fas fa-truck"></i> Tracking
-                                </button>
+                                {{-- ซ่อนปุ่มชำระเงินและ Tracking สำหรับยศ Stock --}}
+                                @if(auth()->user()->role !== 'stock')
+                                    @if($order->payment_status === 'pending')
+                                    <button class="btn btn-success btn-sm btn-open-payment-modal" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#paymentModal" 
+                                            data-id="{{ $order->id }}"
+                                            data-order-number="{{ $order->order_number }}"
+                                            title="ชำระเงิน">
+                                        <i class="fas fa-money-bill-wave"></i> ชำระเงิน
+                                    </button>
+                                    @endif
+                                    
+                                    @if($order->payment_status === 'paid')
+                                    <button class="btn btn-primary btn-sm btn-open-tracking-modal" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#trackingModal" 
+                                            data-id="{{ $order->id }}"
+                                            data-order-number="{{ $order->order_number }}"
+                                            data-tracking="{{ $order->tracking_number ?? '' }}"
+                                            title="จัดการ Tracking">
+                                        <i class="fas fa-truck"></i> Tracking
+                                    </button>
+                                    @endif
                                 @endif
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-5">
-                                <i class="fas fa-inbox fa-3x mb-3"></i>
-                                <p>ไม่พบข้อมูลออเดอร์</p>
+                            <td colspan="9" class="text-center py-4">
+                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                                <p class="text-muted">ไม่พบข้อมูลออเดอร์</p>
                             </td>
                         </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            
+
             {{-- Pagination --}}
-            @if($orders->hasPages())
             <div class="d-flex justify-content-center mt-4">
                 {{ $orders->appends(request()->query())->links() }}
             </div>
-            @endif
         </div>
     </div>
 
@@ -254,7 +279,8 @@
     @endif
 </div>
 
-{{-- ================= Modal ชำระเงิน ================= --}}
+{{-- ================= Modal ชำระเงิน (เฉพาะยศที่ไม่ใช่ Stock) ================= --}}
+@if(auth()->user()->role !== 'stock')
 <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" id="payment-form" enctype="multipart/form-data">
@@ -283,7 +309,7 @@
     </div>
 </div>
 
-{{-- ================= Modal Tracking Number ================= --}}
+{{-- ================= Modal Tracking Number (เฉพาะยศที่ไม่ใช่ Stock) ================= --}}
 <div class="modal fade" id="trackingModal" tabindex="-1" aria-labelledby="trackingModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <form method="POST" id="tracking-form">
@@ -312,6 +338,7 @@
         </form>
     </div>
 </div>
+@endif
 @endsection
 
 @push('scripts')
@@ -322,15 +349,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const paymentForm = document.getElementById('payment-form');
     const paymentOrderDisplay = document.getElementById('payment-order-display');
     
-    paymentButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const orderId = this.getAttribute('data-id');
-            const orderNumber = this.getAttribute('data-order-number');
-            
-            paymentForm.action = `/orders/${orderId}/pay`;
-            paymentOrderDisplay.textContent = `(${orderNumber})`;
+    if (paymentButtons.length > 0 && paymentForm) {
+        paymentButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const orderId = this.getAttribute('data-id');
+                const orderNumber = this.getAttribute('data-order-number');
+                
+                paymentForm.action = `/orders/${orderId}/pay`;
+                paymentOrderDisplay.textContent = `(${orderNumber})`;
+            });
         });
-    });
+    }
     
     // Tracking Modal
     const trackingButtons = document.querySelectorAll('.btn-open-tracking-modal');
@@ -338,17 +367,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const trackingOrderDisplay = document.getElementById('tracking-order-display');
     const trackingNumberInput = document.getElementById('tracking_number');
     
-    trackingButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const orderId = this.getAttribute('data-id');
-            const orderNumber = this.getAttribute('data-order-number');
-            const currentTracking = this.getAttribute('data-tracking');
-            
-            trackingForm.action = `/orders/${orderId}/tracking`;
-            trackingOrderDisplay.textContent = `(${orderNumber})`;
-            trackingNumberInput.value = currentTracking || '';
+    if (trackingButtons.length > 0 && trackingForm) {
+        trackingButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const orderId = this.getAttribute('data-id');
+                const orderNumber = this.getAttribute('data-order-number');
+                const currentTracking = this.getAttribute('data-tracking');
+                
+                trackingForm.action = `/orders/${orderId}/tracking`;
+                trackingOrderDisplay.textContent = `(${orderNumber})`;
+                trackingNumberInput.value = currentTracking || '';
+            });
         });
-    });
+    }
 });
 </script>
 @endpush

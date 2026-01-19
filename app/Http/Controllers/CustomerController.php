@@ -12,22 +12,24 @@ class CustomerController extends Controller
 {
     public function index(Request $request)
     {
-        $q = trim((string) $request->query('q', ''));
         $builder = Customer::query()->withCount('orders')->orderByDesc('id');
 
-        if ($q !== '') {
-            $builder->where(function ($w) use ($q) {
-                $like = '%'.$q.'%';
-                $w->where('name', 'like', $like)
-                  ->orWhere('phone', 'like', $like)
-                  ->orWhere('email', 'like', $like);
+        // ✅ ค้นหาจากชื่อ, เบอร์โทร, อีเมล
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+            $builder->where(function ($query) use ($search) {
+                $like = '%' . $search . '%';
+                $query->where('name', 'like', $like)
+                      ->orWhere('phone', 'like', $like)
+                      ->orWhere('email', 'like', $like);
             });
 
+            // ✅ ค้นหาจากที่อยู่ (ถ้ามีตาราง customer_addresses)
             if (Schema::hasTable('customer_addresses')) {
-                $builder->orWhereHas('addresses', function ($aw) use ($q) {
-                    $like = '%'.$q.'%';
-                    $aw->where(function ($x) use ($like) {
-                        $x->where('name', 'like', $like)
+                $builder->orWhereHas('addresses', function ($addressQuery) use ($search) {
+                    $like = '%' . $search . '%';
+                    $addressQuery->where(function ($q) use ($like) {
+                        $q->where('name', 'like', $like)
                           ->orWhere('address', 'like', $like)
                           ->orWhere('subdistrict', 'like', $like)
                           ->orWhere('district', 'like', $like)
@@ -35,15 +37,22 @@ class CustomerController extends Controller
                           ->orWhere('postal_code', 'like', $like);
                     });
                 });
-            } else {
-                if (Schema::hasColumn('customers', 'address')) {
-                    $builder->orWhere('address', 'like', '%'.$q.'%');
-                }
             }
         }
 
-        $customers = $builder->paginate(20)->appends(['q' => $q]);
-        return view('customers.index', compact('customers', 'q'));
+        // ✅ กรองตามช่องทางการซื้อ
+        if ($request->filled('purchase_channel')) {
+            $builder->where('purchase_channel', $request->input('purchase_channel'));
+        }
+
+        // ✅ กรองตามวิธีชำระเงิน
+        if ($request->filled('payment_method')) {
+            $builder->where('payment_method', $request->input('payment_method'));
+        }
+
+        $customers = $builder->paginate(20)->appends($request->query());
+        
+        return view('customers.index', compact('customers'));
     }
 
     public function create()

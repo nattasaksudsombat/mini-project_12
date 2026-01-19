@@ -26,6 +26,7 @@ use App\Http\Controllers\{
     ProductExcelController,
     AuthController,
     UserController,
+    UserManagementController,
 };
 
 /*
@@ -77,8 +78,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/products/search', [ProductController::class, 'ajaxSearch'])->name('products.search');
     Route::get('/products/{product}/barcode', [ProductController::class, 'barcodePreview'])->name('products.barcode_preview');
     
-    // Orders - Read Only  
-    Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+    // ✅ Orders - Read Only (ทุกคนดูได้รวมทั้ง Stock)
+  
+// ✅ Orders - Index Only (เฉพาะดูรายการ)
+Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
+
+// ✅ Customers - Read Only
+Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
+
 
 
     // =========================================================
@@ -93,14 +100,39 @@ Route::middleware(['auth'])->group(function () {
         
         // จัดการ Users
         Route::resource('users', UserController::class);
+        // Dashboard สรุปภาพรวม
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    
+    // กราฟวิเคราะห์
+    Route::get('/reports/charts', [ReportController::class, 'charts'])->name('reports.charts');
+    
+    // รายงานการเงิน
+    Route::get('/reports/financial', [ReportController::class, 'financial'])->name('reports.financial');
+    
+    // Export Excel (CSV)
+    Route::get('/reports/export/financial', [ReportController::class, 'exportFinancial'])->name('reports.export.financial');+
+     // หน้าตั้งค่า
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    
+    // บันทึกการตั้งค่า
+    Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::resource('users', UserManagementController::class)->names([
+        'index'   => 'users.index',    // GET  /users
+        'create'  => 'users.create',   // GET  /users/create
+        'store'   => 'users.store',    // POST /users
+        'show'    => 'users.show',     // GET  /users/{id} (ไม่ได้ใช้ แต่ให้ไว้)
+        'edit'    => 'users.edit',     // GET  /users/{id}/edit
+        'update'  => 'users.update',   // PUT  /users/{id}
+        'destroy' => 'users.destroy',  // DELETE /users/{id}
+    ]);
     });
 
 
     // =========================================================
-    // 🕒 Shared Routes (Admin + Stock + Sales)
+    // 🕑 Shared Routes (Admin + Stock + Sales)
     // =========================================================
     Route::middleware(['role:admin,stock,sales'])->group(function () {
-        // ประวัติสต๊อกของ Variant
+        // ประวัติสต็อกของ Variant
         Route::get('/stock/history/{variant}', [StockController::class, 'variantHistory'])
             ->name('stock.variant.history');
 
@@ -165,35 +197,41 @@ Route::middleware(['auth'])->group(function () {
     // =========================================================
     // 🛒 Sales Management (Admin + Sales)
     // =========================================================
-    Route::middleware(['role:admin,sales'])->group(function () {
-        
-        // Orders - Helpers
-        Route::get('/orders/customers/search', [OrderController::class, 'searchCustomers'])->name('orders.customers.search');
-        Route::get('/orders/customers/{customer}/addresses', [OrderController::class, 'getCustomerAddresses'])->name('orders.customers.addresses');
-        
-        // Orders - CRUD
-        Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
-        Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
-        Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
-        Route::get('/orders/{order}/edit', [OrderController::class, 'edit'])->name('orders.edit');
-        Route::put('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');
-        Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
-        
-        // Orders - Actions
-        Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
-        Route::post('/orders/{order}/ship', [OrderController::class, 'ship'])->name('orders.ship');
-        Route::patch('/orders/{order}/pay', [OrderController::class, 'pay'])->name('orders.pay');
-        Route::patch('/orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.updateTracking');
-        
-        // Order Items
-        Route::delete('/order-items/{orderItem}', [OrderItemController::class, 'destroy'])->name('order-items.destroy');
-        
-        // Customers
-        Route::resource('customers', CustomerController::class)->except(['show']);
-        
-        // ✅ หน้าดูสินค้าสำหรับ Sales
-        Route::get('/sales/products', [ProductController::class, 'salesIndex'])->name('sales.products.index');
-        Route::get('/sales/products/{product}', [ProductController::class, 'salesShow'])->name('sales.products.show');
-    });
+   Route::middleware(['role:admin,sales'])->group(function () {
+    
+    // Orders - Helpers
+    Route::get('/orders/customers/search', [OrderController::class, 'searchCustomers'])->name('orders.customers.search');
+    Route::get('/orders/customers/{customer}/addresses', [OrderController::class, 'getCustomerAddresses'])->name('orders.customers.addresses');
+    
+    // ⭐ Orders - CRUD (เรียงลำดับใหม่: create/store ก่อน show/edit/update)
+    Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
+    Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
+    Route::get('/orders/{order}/edit', [OrderController::class, 'edit'])->name('orders.edit');
+    Route::get('/orders/{order}', [OrderController::class, 'show'])->name('orders.show');
+    Route::put('/orders/{order}', [OrderController::class, 'update'])->name('orders.update');
+    Route::delete('/orders/{order}', [OrderController::class, 'destroy'])->name('orders.destroy');
+    
+    // Orders - Actions
+    Route::post('/orders/{order}/cancel', [OrderController::class, 'cancel'])->name('orders.cancel');
+    Route::post('/orders/{order}/ship', [OrderController::class, 'ship'])->name('orders.ship');
+    Route::patch('/orders/{order}/pay', [OrderController::class, 'pay'])->name('orders.pay');
+    Route::patch('/orders/{order}/tracking', [OrderController::class, 'updateTracking'])->name('orders.updateTracking');
+    
+    // Order Items
+    Route::delete('/order-items/{orderItem}', [OrderItemController::class, 'destroy'])->name('order-items.destroy');
+    
+    // ✅ Customers - CRUD
+    Route::get('/customers/create', [CustomerController::class, 'create'])->name('customers.create');
+    Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
+    Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
+    Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
+    Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
+    
+    // ✅ หน้าดูสินค้าสำหรับ Sales
+    Route::get('/sales/products', [ProductController::class, 'salesIndex'])->name('sales.products.index');
+    Route::get('/sales/products/{product}', [ProductController::class, 'salesShow'])->name('sales.products.show');
+});
 
+
+   
 });

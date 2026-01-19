@@ -36,6 +36,49 @@
                     <i class="fas fa-cogs me-2"></i> ตั้งค่าและผู้ใช้
                 </a>
             </li>
+            @if(auth()->check() && auth()->user()->role === 'admin')
+
+<li class="nav-item">
+    <a class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}" 
+       href="{{ route('reports.index') }}">
+        <i class="bi bi-graph-up"></i>
+        <span>รายงาน & วิเคราะห์</span>
+    </a>
+</li>
+
+@endif
+
+
+<!-- ====================================== -->
+<!-- ⚙️ เมนูตั้งค่า & ผู้ใช้ (Admin Only) -->
+<!-- ====================================== -->
+@if(auth()->check() && auth()->user()->role === 'admin')
+
+{{-- หัวข้อกลุ่ม (Optional) --}}
+<li class="nav-header text-muted px-3 mt-3" style="font-size: 0.75rem; text-transform: uppercase;">
+    การจัดการระบบ
+</li>
+
+{{-- เมนูจัดการผู้ใช้ --}}
+<li class="nav-item">
+    <a class="nav-link {{ request()->routeIs('users.*') ? 'active' : '' }}" 
+       href="{{ route('users.index') }}">
+        <i class="bi bi-people"></i>
+        <span>จัดการผู้ใช้งาน</span>
+    </a>
+</li>
+
+{{-- เมนูตั้งค่า --}}
+<li class="nav-item">
+    <a class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}" 
+       href="{{ route('settings.index') }}">
+        <i class="bi bi-gear"></i>
+        <span>ตั้งค่าระบบ</span>
+    </a>
+</li>
+
+@endif
+
             <li class="nav-item">
                 <form action="{{ route('logout') }}" method="POST" class="d-inline">
                     @csrf
