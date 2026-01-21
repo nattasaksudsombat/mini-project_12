@@ -26,6 +26,83 @@ use Illuminate\Support\Facades\Schema;
 class ProductController extends Controller
 {
 
+
+public function searchApi(Request $request)
+{
+    $query = $request->get('q');
+    
+    if (!$query) {
+        return response()->json([]);
+    }
+
+    // ค้นหาสินค้า
+    $products = \App\Models\Product::where(function($q) use ($query) {
+            $q->where('id', 'like', "{$query}%")
+              ->orWhere('id_stock', 'like', "{$query}%")
+              ->orWhere('sku', 'like', "{$query}%");
+        })
+        ->with('colorSizes')
+        ->limit(20)
+        ->get()
+        ->map(function ($p) {
+            // ⭐ คำนวณสต็อกที่จองได้จริง (available) จาก v_current_stock
+            $availableStock = \Illuminate\Support\Facades\DB::table('v_current_stock')
+                ->whereIn('variant_id', $p->colorSizes->pluck('id'))
+                ->sum('available_stock');
+            
+            return [
+                'id' => $p->id,
+                'name' => $p->name, 
+                'price' => $p->price,
+                'id_stock' => $p->id_stock ?? $p->sku ?? $p->id, 
+                'image' => $p->image_url ?? null,
+                'available_stock' => $availableStock, // ⭐ จำนวนที่จองได้จริง
+            ];
+        })
+        ->filter(function ($p) {
+            // กรองเฉพาะที่มีสต็อกจองได้ > 0
+            return $p['available_stock'] > 0;
+        })
+        ->values();
+
+    return response()->json($products);
+}
+         public function getVariantsApi($id)
+    {
+        $variants = \App\Models\ProductColorSize::where('product_id', $id)
+            ->with(['color', 'size'])
+            ->where('quantity', '>', 0) 
+            ->get()
+            ->map(function ($v) {
+                
+                // 1. คำนวณยอดจอง (Logic เดียวกับหน้า Stock History)
+                $reserved = 0;
+                if (\Illuminate\Support\Facades\Schema::hasTable('stock_holds')) {
+                    $reserved = \Illuminate\Support\Facades\DB::table('stock_holds')
+                        ->where('product_color_size_id', $v->id)
+                        ->where('status', 'active') 
+                        ->sum('quantity');
+                }
+
+                // 2. คำนวณยอดพร้อมขาย
+                $available = max(0, $v->quantity - $reserved);
+
+                return [
+                    'id' => $v->id,
+                    'color_name' => $v->color->name ?? '',
+                    'size_name' => $v->size->size_name ?? '', 
+                    'display_name' => ($v->color->name ?? '-') . ' - ' . ($v->size->size_name ?? '-'),
+                    
+                    'quantity' => $v->quantity, // ยอดจริง (เก็บไว้ดูเล่น)
+                    'available' => $available,  // ✅ ยอดพร้อมขาย (ตัวแปรสำคัญ!)
+                    
+                    'color_id' => $v->color_id,
+                    'size_id' => $v->size_id,
+                ];
+            });
+
+        return response()->json($variants);
+    }
     public function index(Request $request)
     {
         $query = Product::with(['category', 'productImages', 'productOptions', 'productColors', 'productTags']);

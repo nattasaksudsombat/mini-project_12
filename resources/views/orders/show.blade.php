@@ -183,7 +183,7 @@
                         @foreach($order->orderItems as $item)
                         <tr>
                             <td>{{ $item->product_name }}</td>
-                            <td>{{ $item->sku ?? '-' }}</td>
+                            <td>{{ $item->product->id_stock ?? '-' }}</td>
                             <td>{{ $item->variant_name ?? '-' }}</td>
                             <td>{{ $item->quantity }}</td>
                             <td>฿{{ number_format($item->unit_price, 2) }}</td>

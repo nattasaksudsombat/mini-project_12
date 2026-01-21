@@ -33,6 +33,7 @@ use App\Http\Controllers\{
 | Authentication Routes
 |--------------------------------------------------------------------------
 */
+
 Route::get('/', function () {
     return redirect()->route('login');
 });
@@ -58,16 +59,28 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('incomes', IncomeController::class);
         Route::resource('expenses', ExpenseController::class);
         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-        
+
+        // ✅ เพิ่มบรรทัดนี้ครับ (เพื่อแก้ Error)
+        Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+
         Route::resource('users', UserController::class);
-          Route::prefix('reports')->name('reports.')->group(function () {
-        Route::get('/', [ReportController::class, 'index'])->name('index');
-        Route::get('/charts', [ReportController::class, 'charts'])->name('charts');
-        Route::get('/financial', [ReportController::class, 'financial'])->name('financial');
-        Route::get('/export/financial', [ReportController::class, 'exportFinancial'])->name('export.financial');
-         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-    Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
-    });
+        Route::prefix('reports')->name('reports.')->group(function () {
+            Route::get('/', [ReportController::class, 'index'])->name('index');
+            Route::get('/charts', [ReportController::class, 'charts'])->name('charts');
+            Route::get('/financial', [ReportController::class, 'financial'])->name('financial');
+            Route::get('/export/financial', [ReportController::class, 'exportFinancial'])->name('export.financial');
+            Route::get('/api/customers/{customer}/addresses', function (\App\Models\Customer $customer) {
+                return response()->json($customer->addresses);
+            })->name('api.customer.addresses');
+        });
+        Route::get('/api/product/{id}/colors', [ProductColorSizeController::class, 'getColors'])->name('api.product.colors');
+        Route::get('/api/product/{id}/sizes', [ProductColorSizeController::class, 'getSizes'])->name('api.product.sizes');
+        Route::post('/api/check-stock', [ProductColorSizeController::class, 'checkStock'])->name('api.check.stock');
+
+        // 3. Global Search API
+        Route::get('/api/global-search', [ProductController::class, 'globalSearch'])->name('api.global.search');
+                Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+        Route::get('/products/{product}/variants', [ProductController::class, 'getVariantsApi'])->name('products.variants.api');
     });
 
     // =========================================================
@@ -75,19 +88,21 @@ Route::middleware(['auth'])->group(function () {
     // ⚠️ ต้องประกาศก่อน Wildcard Route ของ Order
     // =========================================================
     Route::middleware(['role:admin,sales'])->group(function () {
-        
+
         Route::prefix('orders')->name('orders.')->group(function () {
             // Helpers
             Route::get('customers/search', [OrderController::class, 'searchCustomers'])->name('customers.search');
             Route::get('customers/{customer}/addresses', [OrderController::class, 'getCustomerAddresses'])->name('customers.addresses');
-            
+
             // Actions
             Route::post('{order}/cancel', [OrderController::class, 'cancel'])->name('cancel');
             Route::post('{order}/ship',   [OrderController::class, 'ship'])->name('ship');
             Route::patch('{order}/pay',   [OrderController::class, 'pay'])->name('pay');
             Route::patch('{order}/tracking', [OrderController::class, 'updateTracking'])->name('updateTracking');
         });
-
+ // ✅ เพิ่ม Route สำหรับค้นหาสินค้าและดึง variants (สำหรับสร้าง Order)
+        Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
+        Route::get('/products/{product}/variants', [ProductController::class, 'getVariantsApi'])->name('products.variants.api');
         // CRUD Order (create ต้องมาก่อน show)
         Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
         Route::post('/orders', [OrderController::class, 'store'])->name('orders.store');
@@ -103,7 +118,7 @@ Route::middleware(['auth'])->group(function () {
     // 📦 Stock Management (Admin + Stock)
     // =========================================================
     Route::middleware(['role:admin,stock'])->group(function () {
-        
+
         // CRUD สินค้า
         Route::controller(ProductController::class)->group(function () {
             Route::get('/products/create', 'create')->name('products.create');
@@ -119,10 +134,13 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/products/print-barcode', 'printBarcode')->name('products.printBarcode');
 
             // รูปภาพ
-            Route::get('/products/{product}/images', 'editImages')->name('products.images.edit');
-            Route::post('/products/{product}/images', 'addImage')->name('products.images.store');
-            Route::delete('/products/images/{image}', 'deleteImage')->name('products.images.destroy');
-            Route::post('/products/{product}/images/{image}/main', 'setMainImage')->name('products.setMain');
+            Route::prefix('products/{product}/images')->name('product_images.')->group(function () {
+        Route::get('/', [ProductImageController::class, 'index'])->name('index');
+        Route::post('/', [ProductImageController::class, 'store'])->name('store');
+        Route::put('/{image}', [ProductImageController::class, 'update'])->name('update');
+        Route::delete('/{image}', [ProductImageController::class, 'destroy'])->name('destroy');
+        Route::post('/{image}/set-main', [ProductImageController::class, 'setMain'])->name('setMain');
+    });
         });
 
         // จัดการ Variants & Stock
@@ -143,20 +161,20 @@ Route::middleware(['auth'])->group(function () {
         Route::resource('tags', TagController::class);
         Route::resource('options', OptionController::class);
         Route::resource('types', TypeProductController::class);
-        
+
         Route::post('products/import-excel', [ProductExcelController::class, 'import'])->name('products.excel.import');
-          Route::get('/stock/report', [StockController::class, 'report'])->name('stock.report');
-    
-    Route::get('/stock/adjust/{variant}', [StockController::class, 'adjustForm'])->name('stock.adjust.form');
+        Route::get('/stock/report', [StockController::class, 'report'])->name('stock.report');
+
+        Route::get('/stock/adjust/{variant}', [StockController::class, 'adjustForm'])->name('stock.adjust.form');
     });
 
     // =========================================================
     // 🌍 Public Read-Only (Wildcard Routes ควรอยู่ล่างสุดเสมอ)
     // =========================================================
+    Route::get('/products/api/search-order', [ProductController::class, 'searchApi'])->name('products.api.search');
     Route::controller(ProductController::class)->group(function () {
         Route::get('/products', 'index')->name('products.index');
-        Route::get('/products/search', 'search')->name('products.search');
-        Route::get('/products/{product}/variants', 'getVariantsApi')->name('products.variants.api'); 
+        Route::get('/products/{product}/variants', 'getVariantsApi')->name('products.variants.api');
         Route::get('/products/{product}', 'show')->name('products.show');
     });
 
@@ -164,5 +182,4 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/orders', 'index')->name('orders.index');
         Route::get('/orders/{order}', 'show')->name('orders.show');
     });
-
 });

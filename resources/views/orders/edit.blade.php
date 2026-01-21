@@ -132,6 +132,7 @@
                         <label class="form-label">วิธีชำระเงิน <span class="text-danger">*</span></label>
                         @php
                         $paymentOptions = [
+                        'cash' => 'เงินสด (Cash)',
                         'bank_transfer' => 'โอน/พร้อมเพย์',
                         'cash_on_delivery' => 'ชำระปลายทาง (COD)',
                         'credit_card' => 'บัตรเครดิต/เดบิต',

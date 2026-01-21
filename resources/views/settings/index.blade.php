@@ -34,7 +34,7 @@
             {{-- ฟอร์มตั้งค่า --}}
             <form method="POST" action="{{ route('settings.update') }}">
                 @csrf
-                @method('PUT')
+       
 
                 {{-- 1. ข้อมูลร้านค้า --}}
                 <div class="card mb-4">
