@@ -21,7 +21,12 @@ class Size extends Model
     protected $primaryKey = 'id';
 
 
-
+  public function productColorSizes()
+    {
+        // ถ้าใช้ตาราง product_sizes ให้เปลี่ยนเป็น 'product_sizes'
+        // ถ้าใช้ตาราง product_color_size ให้เปลี่ยนเป็น 'product_color_size'
+        return $this->hasMany(\App\Models\ProductSize::class, 'size_id');
+    }
     // Map ชื่อ 'name' ให้ไปที่ 'size_name'
     public function getNameAttribute()
     {

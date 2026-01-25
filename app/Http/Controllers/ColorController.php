@@ -15,45 +15,58 @@ class ColorController extends Controller
     }
 
     // เพิ่มสีใหม่
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:colors,name',
+            'hex_code' => 'required|string|max:7',
+        ], [
+            'name.required' => 'กรุณากรอกชื่อสี',
+            'name.unique' => 'ชื่อสีนี้มีอยู่ในระบบแล้ว',
+            'hex_code.required' => 'กรุณาเลือกรหัสสี',
+        ]);
 
-public function store(Request $request)
-{
-    $request->validate([
-        'color_name' => 'required|unique:colors,name',
-        'hex_code' => 'string',
-    ]);
+        Color::create([
+            'name' => $request->name,
+            'hex_code' => $request->hex_code,
+        ]);
 
-    // ปรับการส่งข้อมูลไปยังฐานข้อมูล
-    Color::create([
-        'name' => $request->color_name,  // แก้เป็น 'name' ไม่ใช่ 'color_name'
-        'hex_code' => $request->hex_code ?? '#000000',
-    ]);
-
-    return redirect()->route('colors.index')->with('success', 'เพิ่มสีเรียบร้อยแล้ว');
-}
+        return redirect()->route('colors.index')->with('success', 'เพิ่มสีเรียบร้อยแล้ว');
+    }
 
     
-// อัปเดตสี
-public function update(Request $request, Color $color)
-{
-    $request->validate([
-        'color_name' => 'required|unique:colors,name,' . $color->id,
-        'hex_code' => 'required',
-    ]);
+    // อัปเดตสี
+    public function update(Request $request, Color $color)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255|unique:colors,name,' . $color->id,
+            'hex_code' => 'required|string|max:7',
+        ], [
+            'name.required' => 'กรุณากรอกชื่อสี',
+            'name.unique' => 'ชื่อสีนี้มีอยู่ในระบบแล้ว',
+            'hex_code.required' => 'กรุณาเลือกรหัสสี',
+        ]);
 
-    // แก้ไขค่าที่ตรงกับฐานข้อมูล
-    $color->update([
-        'name' => $request->color_name, // แก้เป็น 'name' ไม่ใช่ 'color_name'
-        'hex_code' => $request->hex_code,
-    ]);
+        $color->update([
+            'name' => $request->name,
+            'hex_code' => $request->hex_code,
+        ]);
 
-    return redirect()->back()->with('success', 'อัปเดตสีเรียบร้อย');
-}
+        return redirect()->back()->with('success', 'อัปเดตสีเรียบร้อย');
+    }
 
 
-public function destroy(Color $color)
-{
-    $color->delete();
-    return redirect()->back()->with('success', 'ลบสีเรียบร้อย');
-}
+    // ลบสี
+    public function destroy(Color $color)
+    {
+        // ตรวจสอบว่ามีสินค้าใช้สีนี้อยู่หรือไม่
+        $productCount = $color->products()->count();
+        
+        if ($productCount > 0) {
+            return redirect()->back()->with('error', 'ไม่สามารถลบสีได้ เนื่องจากมีสินค้า ' . $productCount . ' รายการใช้สีนี้อยู่');
+        }
+
+        $color->delete();
+        return redirect()->back()->with('success', 'ลบสีเรียบร้อย');
+    }
 }

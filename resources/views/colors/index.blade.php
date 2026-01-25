@@ -117,48 +117,75 @@
     </div>
 </div>
 
-<div class="modal fade dark-modal" id="addColorModal" tabindex="-1">
+@endsection
+
+{{-- ย้าย Modal ออกมาไว้นอก section เพื่อหลีกเลี่ยงปัญหา --}}
+<div class="modal fade dark-modal" id="addColorModal" tabindex="-1" aria-labelledby="addColorModalLabel" aria-hidden="true">
   <div class="modal-dialog">
-    <form class="modal-content" method="POST" action="{{ route('colors.store') }}">
+    <form class="modal-content" method="POST" action="{{ route('colors.store') }}" id="addColorForm">
       @csrf
       {{-- ใส่ hidden field เพื่อให้ JS รู้ว่า Error มาจากฟอร์มนี้ --}}
       <input type="hidden" name="action" value="create_color">
 
       <div class="modal-header">
-        <h5 class="modal-title">เพิ่มสีใหม่</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title" id="addColorModalLabel">เพิ่มสีใหม่</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label>ชื่อสี</label>
-          <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" required placeholder="เช่น แดง, ดำ, น้ำเงิน">
+          <label for="colorName" class="form-label">ชื่อสี <span class="text-danger">*</span></label>
+          <input type="text" id="colorName" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" required placeholder="เช่น แดง, ดำ, น้ำเงิน">
           @error('name')
               <div class="invalid-feedback">{{ $message }}</div>
           @enderror
         </div>
         <div class="mb-3">
-          <label>รหัสสี (เลือกจากแถบ)</label>
-          <input type="color" name="hex_code" class="form-control form-control-color" value="{{ old('hex_code', '#000000') }}" required>
+          <label for="colorHex" class="form-label">รหัสสี (เลือกจากแถบ) <span class="text-danger">*</span></label>
+          <input type="color" id="colorHex" name="hex_code" class="form-control form-control-color" value="{{ old('hex_code', '#000000') }}" required>
+          @error('hex_code')
+              <div class="invalid-feedback d-block">{{ $message }}</div>
+          @enderror
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-        <button type="submit" class="btn btn-primary">บันทึก</button>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          <i class="fas fa-save"></i> บันทึก
+        </button>
       </div>
     </form>
   </div>
 </div>
 
-@endsection
-
 @push('scripts')
 <script>
     // ✅ สคริปต์สำหรับเปิด Modal อัตโนมัติ เมื่อมีการ submit แล้วเกิด Error
     document.addEventListener('DOMContentLoaded', function() {
+        // เปิด Modal ถ้ามี error จากการ submit
         @if($errors->any() && old('action') == 'create_color')
             var myModal = new bootstrap.Modal(document.getElementById('addColorModal'));
             myModal.show();
         @endif
+
+        // Debug: ตรวจสอบว่า form submit ทำงานหรือไม่
+        const form = document.getElementById('addColorForm');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        if(form) {
+            form.addEventListener('submit', function(e) {
+                console.log('Form is being submitted...');
+                console.log('Action:', form.action);
+                console.log('Method:', form.method);
+                
+                // ป้องกันการ submit ซ้ำ
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
+                
+                // หากต้องการ debug ให้ uncomment บรรทัดนี้
+                // e.preventDefault();
+                // console.log('Form data:', new FormData(form));
+            });
+        }
     });
 </script>
 @endpush

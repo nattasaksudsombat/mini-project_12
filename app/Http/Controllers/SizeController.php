@@ -8,9 +8,10 @@ use App\Models\Size;
 class SizeController extends Controller
 {
     // แสดงรายการขนาดทั้งหมด
-        public function index()
+    public function index()
     {
-        $sizes = Size::orderBy('id')->get();
+        // ✅ โหลดความสัมพันธ์เพื่อนับจำนวนสินค้า (ใช้ตาราง product_sizes)
+        $sizes = Size::withCount('productColorSizes')->orderBy('id')->get();
         return view('sizes.index', compact('sizes'));
     }
 
@@ -19,6 +20,10 @@ class SizeController extends Controller
     {
         $request->validate([
             'size_name' => 'required|unique:sizes,size_name|max:50',
+        ], [
+            'size_name.required' => 'กรุณากรอกชื่อขนาด',
+            'size_name.unique' => 'ชื่อขนาดนี้มีอยู่ในระบบแล้ว',
+            'size_name.max' => 'ชื่อขนาดต้องไม่เกิน 50 ตัวอักษร',
         ]);
 
         Size::create([
@@ -31,8 +36,19 @@ class SizeController extends Controller
     // อัปเดตข้อมูลขนาด
     public function update(Request $request, Size $size)
     {
+        // ✅ ตรวจสอบว่ามีสินค้าใช้ขนาดนี้อยู่หรือไม่ (จากตาราง product_sizes)
+        $productCount = $size->productColorSizes()->count();
+        
+        if ($productCount > 0) {
+            return redirect()->back()->with('error', 'ไม่สามารถแก้ไขขนาดได้ เนื่องจากมีสินค้า ' . $productCount . ' รายการใช้ขนาดนี้อยู่');
+        }
+
         $request->validate([
             'size_name' => 'required|max:50|unique:sizes,size_name,' . $size->id,
+        ], [
+            'size_name.required' => 'กรุณากรอกชื่อขนาด',
+            'size_name.unique' => 'ชื่อขนาดนี้มีอยู่ในระบบแล้ว',
+            'size_name.max' => 'ชื่อขนาดต้องไม่เกิน 50 ตัวอักษร',
         ]);
 
         $size->update([
@@ -45,6 +61,13 @@ class SizeController extends Controller
     // ลบขนาด
     public function destroy(Size $size)
     {
+        // ✅ ตรวจสอบว่ามีสินค้าใช้ขนาดนี้อยู่หรือไม่ (จากตาราง product_sizes)
+        $productCount = $size->productColorSizes()->count();
+        
+        if ($productCount > 0) {
+            return redirect()->back()->with('error', 'ไม่สามารถลบขนาดได้ เนื่องจากมีสินค้า ' . $productCount . ' รายการใช้ขนาดนี้อยู่');
+        }
+
         $size->delete();
         return redirect()->route('sizes.index')->with('success', 'ลบขนาดเรียบร้อยแล้ว');
     }
