@@ -2,11 +2,60 @@
 @include('layouts.navbarPD')
 
 @section('content')
+<style>
+    /* ธีมสีดำสำหรับ Modal */
+    .dark-modal .modal-content {
+        background-color: #2c2c2c !important;
+        color: #ffffff !important;
+    }
+
+    .dark-modal .modal-header,
+    .dark-modal .modal-footer {
+        background-color: #1e1e1e !important;
+        color: #ffffff !important;
+        border-color: #444;
+    }
+
+    .dark-modal .form-control {
+        background-color: #444 !important;
+        color: white !important;
+        border: 1px solid #666;
+    }
+
+    .dark-modal .form-control:focus {
+        background-color: #555 !important;
+        border-color: #888;
+        color: white !important;
+    }
+
+    .dark-modal label {
+        color: #fff !important;
+    }
+
+    .dark-modal .btn-secondary {
+        border: 1px solid #666;
+        background-color: #444;
+        color: #ccc;
+    }
+    
+    .dark-modal .btn-secondary:hover {
+        background-color: #555;
+        color: white;
+    }
+
+    .dark-modal .btn-close {
+        filter: invert(1);
+    }
+
+    .dark-modal .invalid-feedback {
+        color: #ff6b6b !important;
+    }
+</style>
 
 <div class="container">
     <h2>รายการสี</h2>
 
-    {{-- Alert แจ้งเตือน --}}
+    {{-- Alert แจ้งเตือน Success --}}
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show">
             {{ session('success') }}
@@ -14,8 +63,8 @@
         </div>
     @endif
 
-    {{-- แสดง Error ทั่วไป (ที่ไม่ใช่จาก Modal เพิ่มสี) --}}
-    @if($errors->any() && old('action') != 'create_color')
+    {{-- Alert แจ้งเตือน Error ทั่วไป --}}
+    @if($errors->any() && !old('action'))
         <div class="alert alert-danger alert-dismissible fade show">
             {{ $errors->first() }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -40,8 +89,6 @@
                 <tbody>
                     @foreach($colors as $color)
                         @php
-                            // ✅ แก้จุดที่ 3: ดึงจำนวนสินค้าที่ใช้สีนี้ (ผ่าน Relation โดยตรง)
-                            // เช็คทั้งตาราง pivot (product_color_size) หรือ products ตรงๆ
                             $count = 0;
                             if($color->relationLoaded('productColorSizes')) {
                                 $count = $color->productColorSizes->count();
@@ -62,7 +109,7 @@
                                 @endif
                             </td>
                             <td class="text-center">
-                                {{-- ✅ แก้จุดที่ 2: ถ้ามีสินค้าใช้สีนี้ (count > 0) ห้ามแก้ไข/ลบ --}}
+                                {{-- ปุ่มแก้ไข --}}
                                 <button class="btn btn-warning btn-sm me-1" 
                                     data-bs-toggle="modal" 
                                     data-bs-target="#editModal{{ $color->id }}"
@@ -80,34 +127,6 @@
                                         <i class="fas fa-trash"></i> ลบ
                                     </button>
                                 </form>
-
-                                {{-- Modal แก้ไข (Edit) --}}
-                                <div class="modal fade" id="editModal{{ $color->id }}" tabindex="-1">
-                                    <div class="modal-dialog">
-                                        <form class="modal-content" method="POST" action="{{ route('colors.update', $color->id) }}">
-                                            @csrf
-                                            @method('PUT')
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">แก้ไขสี</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <div class="modal-body text-start">
-                                                <div class="mb-3">
-                                                    <label>ชื่อสี</label>
-                                                    <input type="text" name="name" class="form-control" value="{{ $color->name }}" required>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label>รหัสสี</label>
-                                                    <input type="color" name="hex_code" class="form-control form-control-color" value="{{ $color->hex_code }}" required>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                                                <button type="submit" class="btn btn-warning">อัปเดต</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
                             </td>
                         </tr>
                     @endforeach
@@ -117,75 +136,103 @@
     </div>
 </div>
 
-@endsection
-
-{{-- ย้าย Modal ออกมาไว้นอก section เพื่อหลีกเลี่ยงปัญหา --}}
-<div class="modal fade dark-modal" id="addColorModal" tabindex="-1" aria-labelledby="addColorModalLabel" aria-hidden="true">
+{{-- 1. Modal เพิ่มสี (Add) --}}
+<div class="modal fade dark-modal" id="addColorModal" tabindex="-1">
   <div class="modal-dialog">
-    <form class="modal-content" method="POST" action="{{ route('colors.store') }}" id="addColorForm">
+    <form class="modal-content" method="POST" action="{{ route('colors.store') }}">
       @csrf
-      {{-- ใส่ hidden field เพื่อให้ JS รู้ว่า Error มาจากฟอร์มนี้ --}}
+      {{-- Hidden Field: บอกว่าเป็นฟอร์มเพิ่ม --}}
       <input type="hidden" name="action" value="create_color">
 
       <div class="modal-header">
-        <h5 class="modal-title" id="addColorModalLabel">เพิ่มสีใหม่</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <h5 class="modal-title">เพิ่มสีใหม่</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label for="colorName" class="form-label">ชื่อสี <span class="text-danger">*</span></label>
-          <input type="text" id="colorName" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" required placeholder="เช่น แดง, ดำ, น้ำเงิน">
-          @error('name')
-              <div class="invalid-feedback">{{ $message }}</div>
-          @enderror
+          <label>ชื่อสี <span class="text-danger">*</span></label>
+          <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" required placeholder="เช่น แดง, ดำ, น้ำเงิน">
+          @if($errors->has('name') && old('action') == 'create_color')
+              <div class="invalid-feedback">{{ $errors->first('name') }}</div>
+          @endif
         </div>
         <div class="mb-3">
-          <label for="colorHex" class="form-label">รหัสสี (เลือกจากแถบ) <span class="text-danger">*</span></label>
-          <input type="color" id="colorHex" name="hex_code" class="form-control form-control-color" value="{{ old('hex_code', '#000000') }}" required>
-          @error('hex_code')
-              <div class="invalid-feedback d-block">{{ $message }}</div>
-          @enderror
+          <label>รหัสสี (เลือกจากแถบ) <span class="text-danger">*</span></label>
+          <input type="color" name="hex_code" class="form-control form-control-color" value="{{ old('hex_code', '#000000') }}" required>
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-        <button type="submit" class="btn btn-primary" id="submitBtn">
-          <i class="fas fa-save"></i> บันทึก
+        <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> บันทึก
         </button>
       </div>
     </form>
   </div>
 </div>
 
+{{-- 2. Modal แก้ไขสี (Edit) - แยกออกมานอกตาราง --}}
+@foreach($colors as $color)
+<div class="modal fade dark-modal" id="editModal{{ $color->id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <form class="modal-content" method="POST" action="{{ route('colors.update', $color->id) }}">
+            @csrf
+            @method('PUT')
+            {{-- Hidden Fields: บอกว่าเป็นฟอร์มแก้ไข และแก้ ID ไหน --}}
+            <input type="hidden" name="action" value="edit_color">
+            <input type="hidden" name="edit_id" value="{{ $color->id }}">
+
+            <div class="modal-header">
+                <h5 class="modal-title">แก้ไขสี</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-start">
+                <div class="mb-3">
+                    <label>ชื่อสี <span class="text-danger">*</span></label>
+                    <input type="text" name="name" 
+                           class="form-control {{ $errors->has('name') && old('edit_id') == $color->id ? 'is-invalid' : '' }}" 
+                           value="{{ old('edit_id') == $color->id ? old('name') : $color->name }}" required>
+                    
+                    @if($errors->has('name') && old('edit_id') == $color->id)
+                        <div class="invalid-feedback">{{ $errors->first('name') }}</div>
+                    @endif
+                </div>
+                <div class="mb-3">
+                    <label>รหัสสี <span class="text-danger">*</span></label>
+                    <input type="color" name="hex_code" class="form-control form-control-color" value="{{ $color->hex_code }}" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-save"></i> อัปเดต
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endforeach
+
+@endsection
+
 @push('scripts')
 <script>
-    // ✅ สคริปต์สำหรับเปิด Modal อัตโนมัติ เมื่อมีการ submit แล้วเกิด Error
     document.addEventListener('DOMContentLoaded', function() {
-        // เปิด Modal ถ้ามี error จากการ submit
+        // กรณี Error จากการ "เพิ่มใหม่"
         @if($errors->any() && old('action') == 'create_color')
-            var myModal = new bootstrap.Modal(document.getElementById('addColorModal'));
-            myModal.show();
+            var addModal = new bootstrap.Modal(document.getElementById('addColorModal'));
+            addModal.show();
         @endif
 
-        // Debug: ตรวจสอบว่า form submit ทำงานหรือไม่
-        const form = document.getElementById('addColorForm');
-        const submitBtn = document.getElementById('submitBtn');
-        
-        if(form) {
-            form.addEventListener('submit', function(e) {
-                console.log('Form is being submitted...');
-                console.log('Action:', form.action);
-                console.log('Method:', form.method);
-                
-                // ป้องกันการ submit ซ้ำ
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
-                
-                // หากต้องการ debug ให้ uncomment บรรทัดนี้
-                // e.preventDefault();
-                // console.log('Form data:', new FormData(form));
-            });
-        }
+        // กรณี Error จากการ "แก้ไข"
+        @if($errors->any() && old('action') == 'edit_color')
+            var editId = "{{ old('edit_id') }}";
+            var editModalEl = document.getElementById('editModal' + editId);
+            if(editModalEl) {
+                var editModal = new bootstrap.Modal(editModalEl);
+                editModal.show();
+            }
+        @endif
     });
 </script>
 @endpush

@@ -2,73 +2,57 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Size;
+use Illuminate\Http\Request;
 
 class SizeController extends Controller
 {
-    // แสดงรายการขนาดทั้งหมด
     public function index()
     {
-        // ✅ โหลดความสัมพันธ์เพื่อนับจำนวนสินค้า (ใช้ตาราง product_sizes)
-        $sizes = Size::withCount('productColorSizes')->orderBy('id')->get();
+        // ดึงข้อมูลไซส์พร้อมนับจำนวนสินค้าที่ใช้อยู่ (product_color_sizes_count)
+        $sizes = Size::withCount('productColorSizes')->get();
         return view('sizes.index', compact('sizes'));
     }
 
-    // บันทึกขนาดใหม่
     public function store(Request $request)
     {
+        // ✅ Validation: ห้ามชื่อซ้ำ
         $request->validate([
-            'size_name' => 'required|unique:sizes,size_name|max:50',
+            'size_name' => 'required|string|max:50|unique:sizes,size_name',
         ], [
-            'size_name.required' => 'กรุณากรอกชื่อขนาด',
-            'size_name.unique' => 'ชื่อขนาดนี้มีอยู่ในระบบแล้ว',
-            'size_name.max' => 'ชื่อขนาดต้องไม่เกิน 50 ตัวอักษร',
+            'size_name.required' => 'กรุณากรอกชื่อไซส์',
+            'size_name.unique' => 'ชื่อไซส์นี้มีอยู่แล้ว',
         ]);
 
-        Size::create([
-            'size_name' => $request->size_name,
-        ]);
+        Size::create($request->all());
 
-        return redirect()->route('sizes.index')->with('success', 'เพิ่มขนาดเรียบร้อยแล้ว');
+        return redirect()->route('sizes.index')->with('success', 'เพิ่มไซส์เรียบร้อยแล้ว');
     }
 
-    // อัปเดตข้อมูลขนาด
     public function update(Request $request, Size $size)
     {
-        // ✅ ตรวจสอบว่ามีสินค้าใช้ขนาดนี้อยู่หรือไม่ (จากตาราง product_sizes)
-        $productCount = $size->productColorSizes()->count();
-        
-        if ($productCount > 0) {
-            return redirect()->back()->with('error', 'ไม่สามารถแก้ไขขนาดได้ เนื่องจากมีสินค้า ' . $productCount . ' รายการใช้ขนาดนี้อยู่');
-        }
-
+        // ✅ Validation: ห้ามชื่อซ้ำ (ยกเว้นตัวมันเอง)
         $request->validate([
-            'size_name' => 'required|max:50|unique:sizes,size_name,' . $size->id,
+            'size_name' => 'required|string|max:50|unique:sizes,size_name,' . $size->id,
         ], [
-            'size_name.required' => 'กรุณากรอกชื่อขนาด',
-            'size_name.unique' => 'ชื่อขนาดนี้มีอยู่ในระบบแล้ว',
-            'size_name.max' => 'ชื่อขนาดต้องไม่เกิน 50 ตัวอักษร',
+            'size_name.required' => 'กรุณากรอกชื่อไซส์',
+            'size_name.unique' => 'ชื่อไซส์นี้มีอยู่แล้ว',
         ]);
 
-        $size->update([
-            'size_name' => $request->size_name,
-        ]);
+        $size->update($request->all());
 
-        return redirect()->route('sizes.index')->with('success', 'แก้ไขขนาดเรียบร้อยแล้ว');
+        return redirect()->route('sizes.index')->with('success', 'แก้ไขไซส์เรียบร้อยแล้ว');
     }
 
-    // ลบขนาด
     public function destroy(Size $size)
     {
-        // ✅ ตรวจสอบว่ามีสินค้าใช้ขนาดนี้อยู่หรือไม่ (จากตาราง product_sizes)
-        $productCount = $size->productColorSizes()->count();
-        
-        if ($productCount > 0) {
-            return redirect()->back()->with('error', 'ไม่สามารถลบขนาดได้ เนื่องจากมีสินค้า ' . $productCount . ' รายการใช้ขนาดนี้อยู่');
+        // ✅ เช็คก่อนลบ: ถ้ามีสินค้าใช้ไซส์นี้ ห้ามลบ
+        if ($size->productColorSizes()->count() > 0) {
+            return redirect()->back()->withErrors(['msg' => 'ไม่สามารถลบได้ เนื่องจากมีสินค้าใช้งานไซส์นี้อยู่']);
         }
 
         $size->delete();
-        return redirect()->route('sizes.index')->with('success', 'ลบขนาดเรียบร้อยแล้ว');
+
+        return redirect()->route('sizes.index')->with('success', 'ลบไซส์เรียบร้อยแล้ว');
     }
 }

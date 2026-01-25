@@ -3,36 +3,59 @@
 
 @section('content')
 <style>
+    /* ธีมสีดำสำหรับ Modal */
     .dark-modal .modal-content {
         background-color: #2c2c2c !important;
         color: #ffffff !important;
     }
+
     .dark-modal .modal-header,
     .dark-modal .modal-footer {
         background-color: #1e1e1e !important;
         color: #ffffff !important;
+        border-color: #444;
     }
+
     .dark-modal .form-control {
         background-color: #444 !important;
         color: white !important;
         border: 1px solid #666;
     }
+
+    .dark-modal .form-control:focus {
+        background-color: #555 !important;
+        border-color: #888;
+        color: white !important;
+    }
+
     .dark-modal label {
         color: #fff !important;
     }
-    .dark-modal .btn {
-        border: 1px solid #ccc;
+
+    .dark-modal .btn-secondary {
+        border: 1px solid #666;
+        background-color: #444;
+        color: #ccc;
+    }
+    
+    .dark-modal .btn-secondary:hover {
+        background-color: #555;
         color: white;
     }
+
     .dark-modal .btn-close {
         filter: invert(1);
+    }
+
+    .dark-modal .invalid-feedback {
+        color: #ff6b6b !important;
     }
 </style>
 
 <div class="container">
-    <h2>รายการขนาด (Size)</h2>
+    <h2>รายการไซส์</h2>
 
-    {{-- Alert แจ้งเตือน --}}
+    {{-- Alert แจ้งเตือน Success --}}
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show">
             {{ session('success') }}
@@ -40,16 +63,19 @@
         </div>
     @endif
 
-    {{-- แสดง Error ทั่วไป (ที่ไม่ใช่จาก Modal เพิ่มขนาด) --}}
-    @if($errors->any() && old('action') != 'create_size')
+    {{-- Alert แจ้งเตือน Error ทั่วไป --}}
+    @if($errors->any() && !old('action')) 
         <div class="alert alert-danger alert-dismissible fade show">
-            {{ $errors->first() }}
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     @endif
 
+    {{-- ปุ่มเปิด Modal เพิ่มไซส์ --}}
     <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addSizeModal">
-        <i class="fas fa-plus"></i> เพิ่มขนาดใหม่
+        <i class="fas fa-plus"></i> เพิ่มไซส์ใหม่
     </button>
 
     <div class="card shadow-sm">
@@ -57,7 +83,7 @@
             <table class="table table-bordered table-hover">
                 <thead class="table-light">
                     <tr>
-                        <th width="40%">ชื่อขนาด</th>
+                        <th width="40%">ชื่อไซส์</th>
                         <th width="30%" class="text-center">จำนวนสินค้า</th>
                         <th width="30%" class="text-center">การจัดการ</th>
                     </tr>
@@ -65,7 +91,7 @@
                 <tbody>
                     @foreach($sizes as $size)
                         @php
-                            // ✅ แก้ไข: ใช้ attribute ที่ withCount สร้างให้
+                            // นับจำนวนสินค้าที่ใช้ไซส์นี้
                             $count = $size->product_color_sizes_count ?? 0;
                         @endphp
                         <tr>
@@ -78,16 +104,17 @@
                                 @endif
                             </td>
                             <td class="text-center">
-                                {{-- ถ้ามีสินค้าใช้ขนาดนี้ ห้ามแก้ไข/ลบ --}}
+                                {{-- ปุ่มแก้ไข --}}
                                 <button class="btn btn-warning btn-sm me-1" 
                                     data-bs-toggle="modal" 
-                                    data-bs-target="#editSizeModal{{ $size->id }}"
+                                    data-bs-target="#editModal{{ $size->id }}"
                                     {{ $count > 0 ? 'disabled' : '' }}
                                     title="{{ $count > 0 ? 'แก้ไขไม่ได้เพราะมีสินค้าใช้อยู่' : 'แก้ไข' }}">
                                     <i class="fas fa-edit"></i> แก้ไข
                                 </button>
 
-                                <form action="{{ route('sizes.destroy', $size) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('ยืนยันการลบขนาดนี้?');">
+                                {{-- ปุ่มลบ --}}
+                                <form action="{{ route('sizes.destroy', $size->id) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('ยืนยันการลบไซส์นี้?');">
                                     @csrf
                                     @method('DELETE')
                                     <button class="btn btn-danger btn-sm" 
@@ -96,30 +123,6 @@
                                         <i class="fas fa-trash"></i> ลบ
                                     </button>
                                 </form>
-
-                                {{-- Modal แก้ไข (Edit) --}}
-                                <div class="modal fade dark-modal" id="editSizeModal{{ $size->id }}" tabindex="-1">
-                                    <div class="modal-dialog">
-                                        <form class="modal-content" method="POST" action="{{ route('sizes.update', $size) }}">
-                                            @csrf
-                                            @method('PUT')
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">แก้ไขขนาด</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <div class="mb-3">
-                                                    <label>ชื่อขนาด</label>
-                                                    <input type="text" name="size_name" class="form-control" value="{{ $size->size_name }}" required>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                                                <button type="submit" class="btn btn-warning">อัปเดต</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
                             </td>
                         </tr>
                     @endforeach
@@ -129,63 +132,93 @@
     </div>
 </div>
 
-{{-- Modal เพิ่มขนาดใหม่ --}}
-<div class="modal fade dark-modal" id="addSizeModal" tabindex="-1" aria-labelledby="addSizeModalLabel" aria-hidden="true">
+{{-- 1. Modal เพิ่มไซส์ (Add) --}}
+<div class="modal fade dark-modal" id="addSizeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form class="modal-content" method="POST" action="{{ route('sizes.store') }}">
+      @csrf
+      <input type="hidden" name="action" value="create_size">
+
+      <div class="modal-header">
+        <h5 class="modal-title">เพิ่มไซส์ใหม่</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label>ชื่อไซส์</label>
+          <input type="text" name="size_name" 
+                 class="form-control {{ $errors->has('size_name') && old('action') == 'create_size' ? 'is-invalid' : '' }}" 
+                 value="{{ old('action') == 'create_size' ? old('size_name') : '' }}" required 
+                 placeholder="เช่น S, M, L, XL, 38, 40">
+          
+          @if($errors->has('size_name') && old('action') == 'create_size')
+              <div class="invalid-feedback">{{ $errors->first('size_name') }}</div>
+          @endif
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="submit" class="btn btn-primary">บันทึก</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{{-- 2. Modal แก้ไขไซส์ (Edit) - แยกออกมานอกตารางเพื่อความสะอาด --}}
+@foreach($sizes as $size)
+<div class="modal fade dark-modal" id="editModal{{ $size->id }}" tabindex="-1">
     <div class="modal-dialog">
-        <form class="modal-content" method="POST" action="{{ route('sizes.store') }}" id="addSizeForm">
+        <form class="modal-content" method="POST" action="{{ route('sizes.update', $size->id) }}">
             @csrf
-            {{-- ใส่ hidden field เพื่อให้ JS รู้ว่า Error มาจากฟอร์มนี้ --}}
-            <input type="hidden" name="action" value="create_size">
+            @method('PUT')
+            <input type="hidden" name="action" value="edit_size">
+            <input type="hidden" name="edit_id" value="{{ $size->id }}">
 
             <div class="modal-header">
-                <h5 class="modal-title" id="addSizeModalLabel">เพิ่มขนาดใหม่</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">แก้ไขไซส์</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body text-start">
                 <div class="mb-3">
-                    <label for="sizeName" class="form-label">ชื่อขนาด <span class="text-danger">*</span></label>
-                    <input type="text" id="sizeName" name="size_name" class="form-control @error('size_name') is-invalid @enderror" value="{{ old('size_name') }}" required placeholder="เช่น S, M, L, XL">
-                    @error('size_name')
-                        <div class="invalid-feedback">{{ $message }}</div>
-                    @enderror
+                    <label>ชื่อไซส์</label>
+                    <input type="text" name="size_name" 
+                           class="form-control {{ $errors->has('size_name') && old('edit_id') == $size->id ? 'is-invalid' : '' }}" 
+                           value="{{ old('edit_id') == $size->id ? old('size_name') : $size->size_name }}" required>
+                    
+                    @if($errors->has('size_name') && old('edit_id') == $size->id)
+                        <div class="invalid-feedback">{{ $errors->first('size_name') }}</div>
+                    @endif
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                <button type="submit" class="btn btn-primary" id="submitBtn">
-                    <i class="fas fa-save"></i> บันทึก
-                </button>
+                <button type="submit" class="btn btn-warning">อัปเดต</button>
             </div>
         </form>
     </div>
 </div>
+@endforeach
+
 @endsection
 
 @push('scripts')
 <script>
-    // สคริปต์สำหรับเปิด Modal อัตโนมัติ เมื่อมีการ submit แล้วเกิด Error
     document.addEventListener('DOMContentLoaded', function() {
-        // เปิด Modal ถ้ามี error จากการ submit
+        // กรณี Error จากการเพิ่มใหม่
         @if($errors->any() && old('action') == 'create_size')
-            var myModal = new bootstrap.Modal(document.getElementById('addSizeModal'));
-            myModal.show();
+            var addModal = new bootstrap.Modal(document.getElementById('addSizeModal'));
+            addModal.show();
         @endif
 
-        // Debug: ตรวจสอบว่า form submit ทำงานหรือไม่
-        const form = document.getElementById('addSizeForm');
-        const submitBtn = document.getElementById('submitBtn');
-        
-        if(form) {
-            form.addEventListener('submit', function(e) {
-                console.log('Form is being submitted...');
-                console.log('Action:', form.action);
-                console.log('Method:', form.method);
-                
-                // ป้องกันการ submit ซ้ำ
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>กำลังบันทึก...';
-            });
-        }
+        // กรณี Error จากการแก้ไข
+        @if($errors->any() && old('action') == 'edit_size')
+            var editId = "{{ old('edit_id') }}";
+            var editModalEl = document.getElementById('editModal' + editId);
+            if(editModalEl) {
+                var editModal = new bootstrap.Modal(editModalEl);
+                editModal.show();
+            }
+        @endif
     });
 </script>
 @endpush

@@ -4,7 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-
+use App\Models\ProductSize;
+use App\Models\ProductColorSize;
 class Size extends Model
 {
     use HasFactory;
@@ -25,7 +26,7 @@ class Size extends Model
     {
         // ถ้าใช้ตาราง product_sizes ให้เปลี่ยนเป็น 'product_sizes'
         // ถ้าใช้ตาราง product_color_size ให้เปลี่ยนเป็น 'product_color_size'
-        return $this->hasMany(\App\Models\ProductSize::class, 'size_id');
+        return $this->hasMany(ProductColorSize::class, 'size_id');
     }
     // Map ชื่อ 'name' ให้ไปที่ 'size_name'
     public function getNameAttribute()
