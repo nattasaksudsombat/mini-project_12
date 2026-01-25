@@ -205,4 +205,70 @@
         });
     });
 </script>
+<script>
+    const searchInput = document.getElementById('navbar-search-input');
+    const searchResult = document.getElementById('navbar-search-results');
+
+    searchInput.addEventListener('keyup', function() {
+        let query = this.value;
+        if (query.length > 1) {
+            // เรียก Route Search
+            fetch(`{{ route('products.search') }}?q=${query}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest' // บอก Controller ว่าเป็น Ajax
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                searchResult.innerHTML = '';
+                
+                if (data.length > 0) {
+                    searchResult.classList.add('show'); // โชว์ผลลัพธ์
+                    data.forEach(product => {
+                        // ✅ เช็คว่ามีรูปภาพหรือไม่ ถ้าไม่มีให้ใช้รูป Default
+                        let imgSrc = product.image ? product.image : 'https://placehold.co/50x50?text=No+Image';
+                        
+                        // ✅ สร้าง HTML พร้อมตรวจสอบ ID ให้แน่ใจว่ามีค่า
+                        searchResult.innerHTML += `
+                            <div class="search-item p-2 border-bottom action-hover" 
+                                 onclick="selectProduct(${product.id})" 
+                                 style="cursor: pointer;">
+                                <div class="d-flex align-items-center">
+                                    <img src="${imgSrc}" alt="" class="me-2 rounded" style="width: 40px; height: 40px; object-fit: cover;">
+                                    <div>
+                                        <div class="fw-bold text-dark">${product.name}</div>
+                                        <div class="small text-muted">ราคา: ${product.price} บาท</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    searchResult.classList.remove('show');
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        } else {
+            searchResult.innerHTML = '';
+            searchResult.classList.remove('show');
+        }
+    });
+
+    // ✅ ฟังก์ชันเลือกสินค้า (แก้ไข URL ให้ถูกต้อง)
+    function selectProduct(id) {
+        if (id) {
+            // แก้จาก "/" + id เป็น "/products/" + id
+            window.location.href = "/products/" + id;
+        } else {
+            console.error('ไม่พบรหัสสินค้า (Product ID is missing)');
+        }
+    }
+
+    // ซ่อนผลการค้นหาเมื่อคลิกที่อื่น
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !searchResult.contains(e.target)) {
+            searchResult.classList.remove('show');
+        }
+    });
+</script>
 @endsection

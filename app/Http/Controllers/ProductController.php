@@ -137,29 +137,46 @@ public function searchApi(Request $request)
     {
         $q = $request->input('q', '');
 
-        // 1. ยังคงเงื่อนไขเดิม: ต้องพิมพ์อย่างน้อย 2 ตัวอักษร
+        // 1. ตรวจสอบจำนวนตัวอักษร
         if (strlen($q) < 2) {
             return response()->json([]);
         }
 
-        // 2. แก้ไข Query ให้ JOIN ตารางที่เกี่ยวข้อง
+        // 2. ค้นหาข้อมูล (Query เดิมของคุณ)
         $products = Product::query()
             ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
             ->leftJoin('product_tags', 'products.id', '=', 'product_tags.product_id')
             ->leftJoin('tags', 'product_tags.tag_id', '=', 'tags.id')
-            ->where('products.is_active', 1) // 3. ยังคงเงื่อนไขเดิม: ค้นหาเฉพาะสินค้าที่ Active
+            ->where('products.is_active', 1)
             ->where(function ($query) use ($q) {
-                // 4. เพิ่มเงื่อนไขการค้นหาในตารางที่ JOIN มา
                 $query->where('products.name', 'like', "%{$q}%")
                     ->orWhere('products.id_stock', 'like', "%{$q}%")
-                    ->orWhere('categories.category_name', 'like', "%{$q}%") // <-- ค้นหาชื่อหมวดหมู่
-                    ->orWhere('tags.tag_name', 'like', "%{$q}%");            // <-- ค้นหาชื่อแท็ก
+                    ->orWhere('categories.category_name', 'like', "%{$q}%")
+                    ->orWhere('tags.tag_name', 'like', "%{$q}%");
             })
-            // 5. ระบุ table 'products.' ให้ชัดเจนป้องกันคอลัมน์ซ้ำ
-            ->select('products.id', 'products.name', 'products.id_stock', 'products.price')
-            ->distinct() // 6. ป้องกันสินค้าซ้ำซ้อน (หากเจอทั้งชื่อและแท็ก)
+            // ✅ แก้ไข 1: เปลี่ยนเป็น products.* เพื่อให้ Model ทำงานสมบูรณ์
+            ->select('products.*') 
+            ->distinct()
+            ->with('productImages') // ✅ แก้ไข 2: โหลดความสัมพันธ์รูปภาพมาด้วย
             ->limit(10)
-            ->get();
+            ->get()
+            // ✅ แก้ไข 3: แปลงข้อมูล (Map) เพิ่ม field ที่หน้าเว็บต้องการ (image_url, url)
+            ->map(function ($item) {
+                // จัดการรูปภาพ
+                $imgUrl = 'https://placehold.co/50x50?text=No+Img';
+                if ($item->productImages->count() > 0) {
+                    $imgUrl = asset('storage/' . $item->productImages->first()->image_url);
+                }
+
+                return [
+                    'id' => $item->id,
+                    'id_stock' => $item->id_stock,
+                    'name' => $item->name,
+                    'price' => number_format($item->price),
+                    'image_url' => $imgUrl, // ✅ ส่ง URL รูปภาพไปให้ JavaScript
+                    'url' => route('products.show', $item->id) // ✅ สร้างลิงก์หน้าสินค้าให้ JavaScript
+                ];
+            });
 
         return response()->json($products);
     }
