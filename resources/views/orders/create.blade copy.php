@@ -8,12 +8,15 @@
         @csrf
 
         {{-- ================= ข้อมูลลูกค้า ================= --}}
+{{-- ================= ข้อมูลลูกค้า (แก้ไขแล้ว) ================= --}}
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span class="fw-bold">ข้อมูลลูกค้า</span>
+             
                 <a href="{{ route('customers.index') }}" class="btn btn-outline-primary btn-sm">
                     <i class="fas fa-users"></i> จัดการลูกค้า
                 </a>
+                
             </div>
 
             <div class="card-body">
@@ -38,9 +41,12 @@
                     </div>
 
                     <div class="col-md-4">
-                        <label class="form-label">เบอร์โทร</label>
+                        <label class="form-label">เบอร์โทร (ตัวเลข 10 หลัก)</label>
+                        {{-- ✅ แก้ไข: ใส่ได้แค่ตัวเลข และห้ามเกิน 10 ตัว --}}
                         <input type="text" class="form-control @error('customer.phone') is-invalid @enderror" 
-                            name="customer[phone]" id="customer-phone" value="{{ old('customer.phone') }}">
+                            name="customer[phone]" id="customer-phone" value="{{ old('customer.phone') }}"
+                            maxlength="10" 
+                            oninput="this.value = this.value.replace(/[^0-9]/g, '')">
                         @error('customer.phone')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
@@ -77,6 +83,7 @@
                         <select class="form-select @error('customer.payment_method') is-invalid @enderror" 
                             name="customer[payment_method]" id="customer-payment" required>
                             <option value="">-- เลือกวิธีชำระเงิน --</option>
+                            <option value="cash" {{ old('customer.payment_method') == 'cash' ? 'selected' : '' }}>เงินสด (Cash)</option>
                             <option value="bank_transfer" {{ old('customer.payment_method') == 'bank_transfer' ? 'selected' : '' }}>โอน/พร้อมเพย์</option>
                             <option value="cash_on_delivery" {{ old('customer.payment_method') == 'cash_on_delivery' ? 'selected' : '' }}>ชำระปลายทาง (COD)</option>
                             <option value="credit_card" {{ old('customer.payment_method') == 'credit_card' ? 'selected' : '' }}>บัตรเครดิต/เดบิต</option>
@@ -104,35 +111,42 @@
                 <div class="mb-3 border rounded p-3 d-none" id="new-address-wrapper">
                     <h6 class="text-primary">เพิ่มที่อยู่ใหม่</h6>
                     <div class="row g-2">
-                        <div class="col-md-3">
-                            <label class="form-label">ชื่อที่อยู่</label>
+                        <div class="col-md-12 mb-2">
+                            <label class="form-label">ชื่อที่อยู่ (เช่น บ้าน, ที่ทำงาน)</label>
                             <input type="text" name="new_address[name]" id="new-address-label"
-                                class="form-control" placeholder="เช่น บ้าน, ที่ทำงาน" value="{{ old('new_address.name') }}">
+                                class="form-control" placeholder="ระบุชื่อเรียกสถานที่..." value="{{ old('new_address.name') }}">
                         </div>
-                        <div class="col-md-9">
-                            <label class="form-label">ที่อยู่ (บ้านเลขที่ / หมู่ / ซอย / ถนน) <span class="text-danger">*</span></label>
-                            <textarea name="new_address[address]" id="new-address-text"
-                                class="form-control" rows="2">{{ old('new_address.address') }}</textarea>
+
+                        {{-- ✅ ย้ายรหัสไปรษณีย์ขึ้นมาเพื่อให้กรอกก่อน --}}
+                        <div class="col-md-4">
+                            <label class="form-label">รหัสไปรษณีย์ <span class="text-danger">*</span></label>
+                            <input type="text" name="new_address[postal_code]" id="new-address-postal"
+                                class="form-control" placeholder="กรอกเลขไปรษณีย์..." value="{{ old('new_address.postal_code') }}" autocomplete="off">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-8 d-flex align-items-center">
+                            <small class="text-muted ms-2"><i class="fas fa-info-circle"></i> พิมพ์รหัสไปรษณีย์ ข้อมูลตำบล/อำเภอ/จังหวัด จะขึ้นอัตโนมัติ</small>
+                        </div>
+
+                        <div class="col-md-4">
                             <label class="form-label">ตำบล/แขวง <span class="text-danger">*</span></label>
                             <input type="text" name="new_address[subdistrict]" id="new-address-subdistrict"
                                 class="form-control" value="{{ old('new_address.subdistrict') }}">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">อำเภอ/เขต <span class="text-danger">*</span></label>
                             <input type="text" name="new_address[district]" id="new-address-district"
                                 class="form-control" value="{{ old('new_address.district') }}">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <label class="form-label">จังหวัด <span class="text-danger">*</span></label>
                             <input type="text" name="new_address[province]" id="new-address-province"
                                 class="form-control" value="{{ old('new_address.province') }}">
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label">รหัสไปรษณีย์ <span class="text-danger">*</span></label>
-                            <input type="text" name="new_address[postal_code]" id="new-address-postal"
-                                class="form-control" value="{{ old('new_address.postal_code') }}">
+
+                        <div class="col-md-12">
+                            <label class="form-label">ที่อยู่ (บ้านเลขที่ / หมู่ / ซอย / ถนน) <span class="text-danger">*</span></label>
+                            <textarea name="new_address[address]" id="new-address-text"
+                                class="form-control" rows="2" placeholder="บ้านเลขที่ หมู่ ซอย ถนน...">{{ old('new_address.address') }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -148,12 +162,13 @@
                 <input type="hidden" name="shipping_address" id="shipping-address">
             </div>
         </div>
+    <div class="mb-3">
 
-        <div class="mb-3">
             <label>หมายเหตุ</label>
-            <textarea name="notes" class="form-control" rows="2"></textarea>
-        </div>
 
+            <textarea name="notes" class="form-control" rows="2"></textarea>
+
+        </div>
         <hr>
 
         <h5>ค้นหาสินค้า</h5>
@@ -219,7 +234,10 @@
                 </div>
                 <div class="mb-3">
                     <label>จำนวน</label>
-                    <input type="number" id="variant-quantity" class="form-control" value="1" min="1">
+                    <input type="number" id="variant-quantity" class="form-control" value="1" min="1" step="1" 
+                        onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                        oninput="this.value = Math.floor(Math.abs(this.value))">
+                    <small id="stock-hint" class="d-block mt-1 fw-bold"></small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -230,7 +248,33 @@
     </div>
 </div>
 @push('scripts')
+{{-- ใส่ Script นี้ไว้ด้านล่างสุดของไฟล์ --}}
+<script type="text/javascript" src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script type="text/javascript" src="https://earthchie.github.io/jquery.Thailand.js/jquery.Thailand.js/dependencies/JQL.min.js"></script>
+<script type="text/javascript" src="https://earthchie.github.io/jquery.Thailand.js/jquery.Thailand.js/dependencies/typeahead.bundle.js"></script>
+<link rel="stylesheet" href="https://earthchie.github.io/jquery.Thailand.js/jquery.Thailand.js/dist/jquery.Thailand.min.css">
+<script type="text/javascript" src="https://earthchie.github.io/jquery.Thailand.js/jquery.Thailand.js/dist/jquery.Thailand.min.js"></script>
+
 <script>
+    $(document).ready(function() {
+        // ✅ เปิดใช้งานระบบ Auto Complete ที่อยู่ไทย
+        $.Thailand({
+            $zipcode: $('#new-address-postal'),     // input ของรหัสไปรษณีย์
+            $district: $('#new-address-subdistrict'), // input ของตำบล
+            $amphoe: $('#new-address-district'),     // input ของอำเภอ
+            $province: $('#new-address-province'),   // input ของจังหวัด
+            
+            // เมื่อเลือกข้อมูลเสร็จ ให้ทำอะไรต่อ?
+            onDataFill: function(data){
+                console.log('เลือกที่อยู่แล้ว:', data);
+                // คุณอาจจะเพิ่ม logic ให้เคอร์เซอร์กระโดดไปช่อง "รายละเอียดที่อยู่" ต่อก็ได้
+                $('#new-address-text').focus();
+            }
+        });
+    });
+</script>
+<script>
+
 document.addEventListener('DOMContentLoaded', function() {
     const customerSearch = document.getElementById('customer-search');
     const addressSelect = document.getElementById('shipping_address_id');

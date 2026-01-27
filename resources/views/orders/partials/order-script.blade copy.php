@@ -5,8 +5,8 @@
     let currentProduct = null;
 
     // แสดง modal เลือกสี-ไซส์ โดยโหลดข้อมูล variant จาก API
-    function showVariantModal(id, name, price) {
-        currentProduct = { id, name, price };
+    function showVariantModal(id, name, price,id_stock) {
+        currentProduct = { id, name, price,id_stock };
         document.getElementById('selected-product-name').textContent = name;
 
         fetch(`/products/${id}/variants`)
@@ -18,16 +18,19 @@
                 select.innerHTML = '<option value="">-- เลือก --</option>';
 
                 data.forEach(v => {
-                    // ⭐ กรองเฉพาะ variant ที่มีสต็อก > 0
-                    if (v.quantity > 0) {
+                    // ⭐ ใช้ available (จำนวนที่จองได้จริง) แทน quantity
+                    const availableQty = v.available || 0;
+                    
+                    // กรองเฉพาะ variant ที่จองได้ > 0
+                    if (availableQty > 0) {
                         select.innerHTML += `<option 
                             value="${v.id}" 
-                            data-stock="${v.quantity}" 
+                            data-stock="${availableQty}" 
                             data-color-id="${v.color_id}" 
                             data-size-id="${v.size_id}"
                             data-color-name="${v.color_name || v.color?.name || ''}"
                             data-size-name="${v.size_name || v.size?.name || ''}">
-                            ${v.display_name} (เหลือ ${v.quantity} ชิ้น)
+                            ${v.display_name} (จองได้ ${availableQty} ชิ้น)
                         </option>`;
                     }
                 });
@@ -59,8 +62,10 @@
 
         selectedItems.push({
             product_id: currentProduct.id,
+            product_id_stock:currentProduct.id_stock,
             product_name: currentProduct.name,
             unit_price: currentProduct.price,
+            stock_id: currentProduct.id_stock,
             quantity,
             total_price: currentProduct.price * quantity,
             color_id: colorId,
@@ -83,7 +88,7 @@
         selectedItems.forEach((item, index) => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${item.product_name}</td>
+                <td>${item.stock_id}</td>
                 <td>${item.variant_name}</td>
                 <td>
                     <input type="number" value="${item.quantity}" min="1" max="${item.max_stock}" 
@@ -164,7 +169,7 @@
                                 <strong>${p.name}</strong><br>
                                 <small>รหัส: ${p.id_stock} | ราคา: ${p.price} บาท</small>
                             </div>
-                            <button type="button" class="btn btn-sm btn-success" onclick="showVariantModal(${p.id}, '${p.name}', ${p.price})">เลือก</button>
+                            <button type="button" class="btn btn-sm btn-success" onclick="showVariantModal(${p.id}, '${p.name}', ${p.price}, '${p.id_stock}')">เลือก</button>
                         </div>`;
                 });
                 

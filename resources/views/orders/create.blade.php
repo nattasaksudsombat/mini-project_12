@@ -3,7 +3,15 @@
 @section('content')
 <div class="container">
     <h1>สร้างออเดอร์ใหม่</h1>
-
+ @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul>
+                @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+        @endif
     <form id="order-form" action="{{ route('orders.store') }}" method="POST"onsubmit="return prepareShippingAddressBeforeSubmit()">
         @csrf
 
@@ -201,15 +209,7 @@
             <input type="number" name="discount" class="form-control" value="0">
         </div>
 
-        @if ($errors->any())
-        <div class="alert alert-danger">
-            <ul>
-                @foreach ($errors->all() as $error)
-                <li>{{ $error }}</li>
-                @endforeach
-            </ul>
-        </div>
-        @endif
+       
 
         <button type="button" class="btn btn-success" onclick="submitOrder()">บันทึกออเดอร์</button>
     </form>

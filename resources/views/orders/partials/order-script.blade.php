@@ -4,9 +4,76 @@
     let selectedItems = [];
     let currentProduct = null;
 
+    // ✅ เมื่อโหลดหน้าเว็บ ให้ดึงข้อมูลจาก localStorage กลับมา
+    document.addEventListener('DOMContentLoaded', function() {
+        // โหลดสินค้าที่เคยเลือกไว้กลับมา
+        const savedItems = localStorage.getItem('orderSelectedItems');
+        if (savedItems) {
+            try {
+                selectedItems = JSON.parse(savedItems);
+                renderOrderItems();
+                console.log('✅ โหลดสินค้าจาก localStorage สำเร็จ:', selectedItems.length, 'รายการ');
+            } catch (e) {
+                console.error('❌ localStorage parse error:', e);
+                selectedItems = [];
+            }
+        }
+
+        // Event listener สำหรับแสดงสต็อก
+        const variantSelect = document.getElementById('variant-select');
+        if (variantSelect) {
+            variantSelect.addEventListener('change', function() {
+                const option = this.options[this.selectedIndex];
+                const stock = option.dataset.stock;
+                const stockHint = document.getElementById('stock-hint');
+                
+                if (stock) {
+                    stockHint.textContent = `จองได้ทั้งหมด ${stock} ชิ้น`;
+                    stockHint.style.color = '#28a745';
+                } else {
+                    stockHint.textContent = '';
+                }
+            });
+        }
+
+        // ระบบค้นหาสินค้า
+        const productSearch = document.getElementById('product-search');
+        if (productSearch) {
+            productSearch.addEventListener('keyup', function() {
+                let q = this.value.trim();
+                if (q.length < 2) {
+                    document.getElementById('search-results').innerHTML = '';
+                    return;
+                }
+
+                fetch(`/products/search?q=${encodeURIComponent(q)}`)
+                    .then(res => res.json())
+                    .then(products => {
+                        let html = '';
+                        products.forEach(p => {
+                            html += `
+                                <div class="border p-2 d-flex justify-content-between mb-2">
+                                    <div>
+                                        <strong>${p.name}</strong><br>
+                                        <small>รหัส: ${p.id_stock} | ราคา: ${p.price} บาท</small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-success" onclick="showVariantModal(${p.id}, '${p.name}', ${p.price}, '${p.id_stock}')">เลือก</button>
+                                </div>`;
+                        });
+                        
+                        if (html === '') {
+                            html = '<div class="text-center text-muted p-3">ไม่พบสินค้า</div>';
+                        }
+                        
+                        document.getElementById('search-results').innerHTML = html;
+                    });
+            });
+        }
+    });
+
     // แสดง modal เลือกสี-ไซส์ โดยโหลดข้อมูล variant จาก API
-    function showVariantModal(id, name, price,id_stock) {
-        currentProduct = { id, name, price,id_stock };
+    function showVariantModal(id, name, price, id_stock) {
+        currentProduct = { id, name, price, id_stock };
         document.getElementById('selected-product-name').textContent = name;
 
         fetch(`/products/${id}/variants`)
@@ -62,7 +129,7 @@
 
         selectedItems.push({
             product_id: currentProduct.id,
-            product_id_stock:currentProduct.id_stock,
+            product_id_stock: currentProduct.id_stock,
             product_name: currentProduct.name,
             unit_price: currentProduct.price,
             stock_id: currentProduct.id_stock,
@@ -76,6 +143,9 @@
             max_stock: stock
         });
 
+        // ✅ บันทึกลง localStorage ทุกครั้งที่เพิ่มสินค้า
+        saveItemsToLocalStorage();
+
         bootstrap.Modal.getInstance(document.getElementById('variantModal')).hide();
         renderOrderItems();
     }
@@ -83,6 +153,8 @@
     // แสดงรายการสินค้าที่ถูกเลือก
     function renderOrderItems() {
         const tbody = document.getElementById('order-items-body');
+        if (!tbody) return;
+        
         tbody.innerHTML = '';
 
         selectedItems.forEach((item, index) => {
@@ -96,13 +168,16 @@
                 </td>
                 <td>${item.unit_price.toFixed(2)}</td>
                 <td>${item.total_price.toFixed(2)}</td>
-                <td><button class="btn btn-danger btn-sm" onclick="removeItem(${index})">ลบ</button></td>
+                <td><button type="button" class="btn btn-danger btn-sm" onclick="removeItem(${index})">ลบ</button></td>
             `;
             tbody.appendChild(row);
         });
 
         // แปลงเป็น JSON เพื่อส่งไป backend
-        document.getElementById('items-json').value = JSON.stringify(selectedItems);
+        const itemsJsonField = document.getElementById('items-json');
+        if (itemsJsonField) {
+            itemsJsonField.value = JSON.stringify(selectedItems);
+        }
     }
 
     // แก้ไขจำนวนสินค้า
@@ -115,13 +190,37 @@
         }
         selectedItems[index].quantity = qty;
         selectedItems[index].total_price = qty * selectedItems[index].unit_price;
+        
+        // ✅ บันทึกลง localStorage เมื่อแก้ไขจำนวน
+        saveItemsToLocalStorage();
+        
         renderOrderItems();
     }
 
     // ลบสินค้าออก
     function removeItem(index) {
         selectedItems.splice(index, 1);
+        
+        // ✅ บันทึกลง localStorage เมื่อลบสินค้า
+        saveItemsToLocalStorage();
+        
         renderOrderItems();
+    }
+
+    // ✅ ฟังก์ชันบันทึกสินค้าลง localStorage
+    function saveItemsToLocalStorage() {
+        try {
+            localStorage.setItem('orderSelectedItems', JSON.stringify(selectedItems));
+            console.log('💾 บันทึกสินค้าลง localStorage:', selectedItems.length, 'รายการ');
+        } catch (e) {
+            console.error('❌ localStorage save error:', e);
+        }
+    }
+
+    // ✅ ฟังก์ชันลบข้อมูลใน localStorage (เมื่อบันทึกสำเร็จ)
+    function clearLocalStorage() {
+        localStorage.removeItem('orderSelectedItems');
+        console.log('🗑️ ลบข้อมูลใน localStorage แล้ว');
     }
 
     // กดส่งออเดอร์
@@ -131,54 +230,11 @@
             alert('กรุณาเพิ่มสินค้าในออเดอร์ก่อน');
             return;
         }
+        
+        // ✅ บันทึกลง localStorage ก่อน submit (กรณี error จะได้ไม่หาย)
+        saveItemsToLocalStorage();
+        
         document.getElementById('order-form').submit();
     }
-
-    // แสดงสต็อกเมื่อเลือก variant
-    document.addEventListener('DOMContentLoaded', function() {
-        const variantSelect = document.getElementById('variant-select');
-        if (variantSelect) {
-            variantSelect.addEventListener('change', function() {
-                const option = this.options[this.selectedIndex];
-                const stock = option.dataset.stock;
-                const stockHint = document.getElementById('stock-hint');
-                
-                if (stock) {
-                    stockHint.textContent = `จองได้ทั้งหมด ${stock} ชิ้น`;
-                    stockHint.style.color = '#28a745';
-                } else {
-                    stockHint.textContent = '';
-                }
-            });
-        }
-    });
-
-    // ระบบค้นหาสินค้า
-    document.getElementById('product-search').addEventListener('keyup', function() {
-        let q = this.value.trim();
-        if (q.length < 2) return document.getElementById('search-results').innerHTML = '';
-
-        fetch(`/products/search?q=${encodeURIComponent(q)}`)
-            .then(res => res.json())
-            .then(products => {
-                let html = '';
-                products.forEach(p => {
-                    html += `
-                        <div class="border p-2 d-flex justify-content-between mb-2">
-                            <div>
-                                <strong>${p.name}</strong><br>
-                                <small>รหัส: ${p.id_stock} | ราคา: ${p.price} บาท</small>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-success" onclick="showVariantModal(${p.id}, '${p.name}', ${p.price}, '${p.id_stock}')">เลือก</button>
-                        </div>`;
-                });
-                
-                if (html === '') {
-                    html = '<div class="text-center text-muted p-3">ไม่พบสินค้า</div>';
-                }
-                
-                document.getElementById('search-results').innerHTML = html;
-            });
-    });
 </script>
 @endpush

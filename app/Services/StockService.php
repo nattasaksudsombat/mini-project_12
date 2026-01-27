@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class StockService
 {
@@ -289,24 +290,148 @@ class StockService
         });
     }
 
-    public function shipConsumeAll(int $orderId, string $orderNumber = ''): void {
-        DB::transaction(function () use ($orderId) {
-            $holds = DB::table('stock_holds')->where('order_id', $orderId)->where('status', 'active')->lockForUpdate()->get();
-            foreach ($holds as $h) {
-                $pcs = DB::table('product_color_size')->where('id', $h->product_color_size_id)->lockForUpdate()->first();
-                if (!$pcs) continue;
-                $newQty = (int)$pcs->quantity - (int)$h->quantity;
-                if ($newQty < 0) throw new \Exception("ตัดสต๊อคติดลบ (variant {$h->product_color_size_id})");
-                
-                // ✅ แก้ไข: เช็ค updated_at ก่อนอัปเดต
-                $updateData = ['quantity' => $newQty];
-                if (Schema::hasColumn('product_color_size', 'updated_at')) {
-                    $updateData['updated_at'] = now();
-                }
-                DB::table('product_color_size')->where('id', $h->product_color_size_id)->update($updateData);
-                
-                DB::table('stock_holds')->where('id', $h->id)->update(['status' => 'consumed', 'updated_at' => now()]);
+    public function shipConsumeAll(int $orderId, string $orderNumber = ''): void 
+{
+    DB::transaction(function () use ($orderId, $orderNumber) {
+        // ดึงรายการที่จองไว้
+        $holds = DB::table('stock_holds')
+            ->where('order_id', $orderId)
+            ->where('status', 'active')
+            ->lockForUpdate()
+            ->get();
+        
+        if ($holds->isEmpty()) {
+            // ไม่มีการจอง ไม่ต้องทำอะไร
+            Log::info("No active holds found for order {$orderId}");
+            return;
+        }
+
+        foreach ($holds as $h) {
+            $variantId = $h->product_color_size_id;
+            $qty = (int)$h->quantity;
+
+            // 1. ล็อคและอ่าน Variant
+            $pcs = DB::table('product_color_size')
+                ->where('id', $variantId)
+                ->lockForUpdate()
+                ->first();
+            
+            if (!$pcs) {
+                Log::warning("Variant {$variantId} not found during shipConsumeAll");
+                continue;
             }
-        });
+
+            // 2. คำนวณสต็อกใหม่
+            $oldQty = (int)$pcs->quantity;
+            $newQty = $oldQty - $qty;
+            
+            if ($newQty < 0) {
+                throw new \Exception("ตัดสต็อกติดลบ (variant {$variantId}, มี {$oldQty} ตัด {$qty})");
+            }
+
+            // 3. ✅ อัปเดตสต็อกจริง (ตัดออก)
+            $updateData = ['quantity' => $newQty];
+            if (Schema::hasColumn('product_color_size', 'updated_at')) {
+                $updateData['updated_at'] = now();
+            }
+            DB::table('product_color_size')
+                ->where('id', $variantId)
+                ->update($updateData);
+
+            // 4. ✅ บันทึก Transaction: ตัดสต็อก (out)
+            $this->logTransaction(
+                $variantId,
+                'out',
+                -$qty,  // ติดลบเพราะเป็นการออก
+                $oldQty,
+                $newQty,
+                "ตัดสต็อกจริง (จัดส่ง {$orderNumber})",
+                $orderNumber,
+                $orderId
+            );
+
+            // 5. ✅ บันทึก Transaction: ปล่อยการจอง (release)
+            // หมายเหตุ: Reserved คำนวณจาก stock_holds ไม่ได้เก็บใน product_color_size
+            // quantity_before/after ใช้ 0 เพราะ release ไม่กระทบ quantity จริง
+            $this->logTransaction(
+                $variantId,
+                'release',
+                $qty,  // บวกเพราะเป็นการปล่อย
+                0,
+                0,
+                "ปล่อยจอง (จัดส่ง {$orderNumber})",
+                $orderNumber,
+                $orderId
+            );
+
+            // 6. ✅ เปลี่ยนสถานะการจองเป็น consumed
+            DB::table('stock_holds')
+                ->where('id', $h->id)
+                ->update([
+                    'status' => 'consumed',
+                    'updated_at' => now()
+                ]);
+        }
+
+        Log::info("Successfully shipped order {$orderId} ({$orderNumber})");
+    });
     }
+    private function logTransaction(
+    int $variantId,
+    string $type,
+    int $quantity,
+    int $quantityBefore,
+    int $quantityAfter,
+    string $reason,
+    ?string $referenceNumber = null,
+    ?int $orderId = null
+): void {
+    // ดึงข้อมูล Variant เพื่อเก็บใน Transaction
+    $variant = DB::table('product_color_size as pcs')
+        ->join('products as p', 'p.id', '=', 'pcs.product_id')
+        ->leftJoin('colors as c', 'c.id', '=', 'pcs.color_id')
+        ->leftJoin('sizes as s', 's.id', '=', 'pcs.size_id')
+        ->where('pcs.id', $variantId)
+        ->select(
+            'p.id as product_id',
+            'p.id_stock',
+            'p.name as product_name',
+            'c.name as color_name',
+            's.size_name'
+        )
+        ->first();
+
+    if (!$variant) {
+        Log::warning("Cannot log transaction: Variant {$variantId} not found");
+        return;
+    }
+
+    // สร้าง Variant Name (สี - ไซส์)
+    $parts = array_filter([
+        $variant->color_name,
+        $variant->size_name
+    ]);
+    $variantName = implode(' - ', $parts) ?: null;
+    
+    // บันทึก Transaction
+    DB::table('stock_transactions')->insert([
+        'product_color_size_id' => $variantId,
+        'product_id' => $variant->product_id,
+        'id_stock' => $variant->id_stock,
+        'product_name' => $variant->product_name,
+        'variant_name' => $variantName,
+        'type' => $type,
+        'quantity' => $quantity,
+        'quantity_before' => $quantityBefore,
+        'quantity_after' => $quantityAfter,
+        'reason' => $reason,
+        'reference_number' => $referenceNumber,
+        'order_id' => $orderId,
+        'user_name' => auth()->user()->name ?? 'system',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    Log::info("Logged transaction: {$type} {$quantity} for variant {$variantId}");
+}
 }
