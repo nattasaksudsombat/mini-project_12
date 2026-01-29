@@ -92,7 +92,7 @@ class Product extends Model
     /**
      * ความสัมพันธ์กับ Colors (ผ่านตาราง pivot product_color_sizes)
      */
-   public function colors()
+    public function colors()
     {
         // แก้จาก 'product_color_sizes' เป็น 'product_color_size' (ตัด s ออก)
         return $this->belongsToMany(Color::class, 'product_color_size', 'product_id', 'color_id')
@@ -171,5 +171,16 @@ class Product extends Model
     public function getStatusLabelAttribute()
     {
         return $this->is_active ? 'ใช้งาน' : 'ปิดการใช้งาน';
+    }
+    public function productColorSizes()
+    {
+        return $this->colorSizes();
+    }
+    /**
+     * ✅ Controller เรียกใช้ 'productSizes'
+     */
+    public function productSizes()
+    {
+        return $this->sizes();
     }
 }

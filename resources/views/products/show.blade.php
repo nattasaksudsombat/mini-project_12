@@ -196,35 +196,35 @@
         </div>
         @endforeach
 
-  <div class="modal fade" id="holdsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title">
-                    <i class="fas fa-clipboard-list"></i>
-                    ออเดอร์ที่กำลังจับอยู่: <span id="modalVariantTitle" class="fw-bold"></span>
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
+ <div class="modal fade" id="holdModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg"> <div class="modal-content">
+            <div class="modal-header">
+                {{-- ID: holdModalTitle ต้องมีอยู่ตรงนี้ --}}
+                <h5 class="modal-title" id="holdModalTitle">ตรวจสอบออเดอร์</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
+                    <table class="table table-bordered table-hover">
                         <thead class="table-light">
                             <tr>
                                 <th>วันที่</th>
                                 <th>เลขออเดอร์</th>
                                 <th>ลูกค้า</th>
                                 <th class="text-center">สถานะ</th>
-                                <th class="text-end">จำนวน</th>
-                                <th class="text-center" width="10%">ดู</th>
+                                <th class="text-center">จำนวน</th>
+                                <th class="text-center">ดู</th>
                             </tr>
                         </thead>
-                        <tbody id="holdsTableBody">
-                            </tbody>
+                        {{-- ID: holdTableBody ต้องมีอยู่ตรงนี้ (JS จะยัดข้อมูลลงตรงนี้) --}}
+                        <tbody id="holdTableBody">
+                            <tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>
+                        </tbody>
                         <tfoot>
-                            <tr class="table-info">
-                                <td colspan="4" class="text-end fw-bold">รวมกำลังจับทั้งหมด:</td>
-                                <td class="text-end fw-bold" id="totalHolds">0</td>
+                            <tr class="table-light fw-bold">
+                                <td colspan="4" class="text-end">รวมกำลังจับทั้งหมด:</td>
+                                {{-- ID: holdTotalSum ต้องมีอยู่ตรงนี้ --}}
+                                <td class="text-center text-danger" id="holdTotalSum">-</td>
                                 <td>ชิ้น</td>
                             </tr>
                         </tfoot>
@@ -289,51 +289,42 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // ฟังก์ชันเปิด Modal และดึงข้อมูล (เหมือนหน้า Sales)
-    async function openHoldModal(variantId, colorName, sizeName) {
-        
+    // ฟังก์ชันนี้ต้องหน้าตาประมาณนี้ครับ
+    async function openHoldModal(variantId, color, size) {
         // 1. ตั้งชื่อหัวข้อ Modal
-        document.getElementById('modalVariantTitle').textContent = `${colorName} / ${sizeName}`;
+        document.getElementById('holdModalTitle').textContent = `ออเดอร์ที่กำลังจับอยู่: {{ $product->name }} (${color} / ${size})`;
         
-        // 2. เตรียมตาราง (แสดง Loading)
-        const tbody = document.getElementById('holdsTableBody');
-        const sumEl = document.getElementById('totalHolds');
+        const tbody = document.getElementById('holdTableBody');
+        const sumEl = document.getElementById('holdTotalSum');
         
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border text-primary"></div> กำลังโหลดข้อมูล...</td></tr>';
-        sumEl.textContent = '...';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>';
+        sumEl.textContent = '-';
 
-        // 3. เปิด Modal
-        const modalElement = document.getElementById('holdsModal');
-        const modal = new bootstrap.Modal(modalElement);
-        modal.show();
+        // เปิด Modal
+        new bootstrap.Modal(document.getElementById('holdModal')).show();
 
         try {
-            // 4. เรียก API ดึงข้อมูล
-            const res = await fetch(`/stock/api/holds/${variantId}`);
-            
-            if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลได้');
-            
+            // 2. เรียก API ที่เราเพิ่งสร้างในขั้นตอนที่ 1-2
+            const res = await fetch(`/products/api/check-stock?variant_id=${variantId}`);
             const data = await res.json();
-            
-            tbody.innerHTML = '';
-            let sum = 0;
 
-            if (data.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูลออเดอร์ที่จองอยู่</td></tr>';
+            tbody.innerHTML = ''; // เคลียร์ของเก่า
+
+            if (!data.holds || data.holds.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">ไม่มีออเดอร์ที่จับสินค้านี้อยู่</td></tr>';
+                sumEl.textContent = '0';
             } else {
-                data.forEach(row => {
-                    sum += row.quantity;
+                let sum = 0;
+                // 3. วนลูปแสดงข้อมูล
+                data.holds.forEach(row => {
+                    sum += parseInt(row.quantity);
                     const tr = document.createElement('tr');
-                    
-                    const date = new Date(row.created_at).toLocaleDateString('th-TH', {
-                        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'
-                    });
-
                     tr.innerHTML = `
-                        <td>${date}</td>
-                        <td class="fw-bold text-primary">${row.order_number}</td>
+                        <td>${row.created_at}</td>
+                        <td><a href="/orders/${row.order_id}" target="_blank">${escapeHtml(row.order_number)}</a></td>
                         <td>${escapeHtml(row.customer_name)}</td>
                         <td class="text-center">${formatStatus(row.status)}</td>
-                        <td class="text-end fw-bold text-warning">${Number(row.quantity).toLocaleString()}</td>
+                        <td class="text-center fw-bold text-danger">${parseInt(row.quantity).toLocaleString()}</td>
                         <td class="text-center">
                             <a href="/orders/${row.order_id}" class="btn btn-sm btn-outline-info" target="_blank">
                                 <i class="fas fa-eye"></i>
@@ -342,14 +333,11 @@
                     `;
                     tbody.appendChild(tr);
                 });
+                sumEl.textContent = sum.toLocaleString();
             }
-            // 5. แสดงผลรวม
-            sumEl.textContent = sum.toLocaleString('th-TH');
-
         } catch (err) {
             console.error(err);
             tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">เกิดข้อผิดพลาด: ${err.message}</td></tr>`;
-            sumEl.textContent = '0';
         }
     }
 

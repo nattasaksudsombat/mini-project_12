@@ -1,5 +1,4 @@
 @extends('layouts.app')
-{{-- เลือก Navbar ตามที่คุณต้องการ --}}
 @include('layouts.navbarSalesPD')
 
 @section('content')
@@ -12,13 +11,10 @@
     .btn-hold:hover { background-color: #520dc2; color: white; }
     .btn-secondary { background-color: #6c757d; color: white; }
     .img-thumbnail { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
-    
-    /* Badge สถานะ */
     .badge { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; }
 </style>
 
 <main class="container py-4">
-    {{-- ส่วนหัว --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h3 class="mb-0">📦 รายละเอียดสินค้า (มุมมองฝ่ายขาย)</h3>
         <a href="{{ route('sales.products.index') }}" class="btn btn-secondary">
@@ -26,7 +22,6 @@
         </a>
     </div>
 
-    {{-- การ์ดแสดงรายละเอียดสินค้า --}}
     <div class="card shadow-sm mb-4">
         <div class="card-body">
             <table class="table table-bordered mb-0">
@@ -56,7 +51,6 @@
         </div>
     </div>
 
-    {{-- ส่วนแสดงรูปภาพ --}}
     @if($product->productImages->count() > 0)
     <div class="mb-4 p-3 bg-light rounded border">
         <h5 class="mb-3">🖼️ รูปภาพสินค้า</h5>
@@ -68,7 +62,6 @@
     </div>
     @endif
 
-    {{-- ตารางสต็อก --}}
     <div class="card shadow-sm">
         <div class="card-header bg-white py-3">
             <h5 class="mb-0 fw-bold">📊 รายการสต็อก (สี / ไซส์)</h5>
@@ -108,10 +101,8 @@
                             </span>
                         </td>
                         
-                        {{-- คำนวณยอดจอง --}}
                         <td class="text-center">
                             @php
-                                // เช็คว่ามี Class stockHold หรือไม่ (เผื่อเรื่อง Case Sensitive)
                                 $heldQty = 0;
                                 if (class_exists(\App\Models\stockHold::class)) {
                                     $heldQty = \App\Models\stockHold::where('product_color_size_id', $variant->id)
@@ -133,7 +124,6 @@
 
                         <td class="text-center">
                             <div class="btn-group" role="group">
-                                {{-- 1. ปุ่มดูประวัติ --}}
                                 <a href="{{ route('stock.variant.history', ['variant' => $variant->id, 'scope' => 'all']) }}" 
                                    class="btn btn-sm btn-history" 
                                    target="_blank" 
@@ -141,11 +131,12 @@
                                     <i class="fas fa-history"></i> ประวัติ
                                 </a>
 
-                                {{-- 2. ปุ่มดูรายการจอง (Hold) --}}
                                 @if($heldQty > 0)
-                                    <button type="button" class="btn btn-sm btn-hold" 
-                                            onclick="openHoldModal({{ $variant->id }}, '{{ $variant->color->name ?? '-' }}', '{{ $variant->size->size_name ?? '-' }}')">
-                                        <i class="fas fa-hand-holding"></i> กำลังจับ?
+                                    <button type="button" class="btn btn-sm btn-hold btn-show-holds" 
+                                            data-variant-id="{{ $variant->id }}"
+                                            data-color="{{ str_replace('"', '&quot;', $variant->color->name ?? '-') }}"
+                                            data-size="{{ str_replace('"', '&quot;', $variant->size->size_name ?? '-') }}">
+                                        <i class="fas fa-hand-holding"></i> กำลังจับ
                                     </button>
                                 @else
                                     <button type="button" class="btn btn-sm btn-secondary" disabled>
@@ -169,36 +160,35 @@
     </div>
 </main>
 
-{{-- Modal แสดงรายการออเดอร์ --}}
 <div class="modal fade" id="holdsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title">
-                    <i class="fas fa-clipboard-list"></i>
-                    ออเดอร์ที่กำลังจับอยู่: <span id="modalVariantTitle" class="fw-bold"></span>
+                    🛒 ออเดอร์ที่กำลังจอง: <span id="modalVariantTitle"></span>
                 </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="ปิด"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover align-middle">
+                    <table class="table table-bordered table-hover">
                         <thead class="table-light">
                             <tr>
                                 <th>วันที่</th>
                                 <th>เลขออเดอร์</th>
                                 <th>ลูกค้า</th>
                                 <th class="text-center">สถานะ</th>
-                                <th class="text-end">จำนวน</th>
-                                <th class="text-center" width="10%">ดู</th>
+                                <th class="text-center">จำนวน</th>
+                                <th class="text-center">ดู</th>
                             </tr>
                         </thead>
                         <tbody id="holdsTableBody">
-                            </tbody>
+                            <tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>
+                        </tbody>
                         <tfoot>
-                            <tr class="table-info">
-                                <td colspan="4" class="text-end fw-bold">รวมกำลังจับทั้งหมด:</td>
-                                <td class="text-end fw-bold" id="totalHolds">0</td>
+                            <tr class="table-light fw-bold">
+                                <td colspan="4" class="text-end">รวมกำลังจับทั้งหมด:</td>
+                                <td class="text-center text-danger" id="totalHolds">-</td>
                                 <td>ชิ้น</td>
                             </tr>
                         </tfoot>
@@ -212,76 +202,100 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 Page loaded - Initializing holds modal...');
+    
     // ฟังก์ชันเปิด Modal และดึงข้อมูล
-    async function openHoldModal(variantId, colorName, sizeName) {
+    window.openHoldModal = async function(variantId, colorName, sizeName) {
+        console.log('🔍 Opening modal for variant:', variantId);
         
-        // 1. ตั้งชื่อหัวข้อ Modal
-        document.getElementById('modalVariantTitle').textContent = `${colorName} / ${sizeName}`;
-        
-        // 2. เตรียมตาราง (แสดง Loading)
+        const modalElement = document.getElementById('holdsModal');
+        const titleEl = document.getElementById('modalVariantTitle');
         const tbody = document.getElementById('holdsTableBody');
         const sumEl = document.getElementById('totalHolds');
         
+        if (!modalElement || !tbody || !sumEl) {
+            console.error('❌ Required elements not found!');
+            return;
+        }
+        
+        // ตั้งชื่อหัวข้อ Modal
+        if (titleEl) {
+            titleEl.textContent = colorName + ' / ' + sizeName;
+        }
+        
+        // แสดง Loading
         tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border text-primary"></div> กำลังโหลดข้อมูล...</td></tr>';
         sumEl.textContent = '...';
 
-        // 3. เปิด Modal
-        const modalElement = document.getElementById('holdsModal');
+        // เปิด Modal
         const modal = new bootstrap.Modal(modalElement);
         modal.show();
 
         try {
-            // 4. เรียก API ดึงข้อมูล
-            const res = await fetch(`/stock/api/holds/${variantId}`);
+            const apiUrl = '/stock/api/holds/' + variantId;
+            console.log('📡 Fetching from:', apiUrl);
             
-            if (!res.ok) throw new Error('ไม่สามารถดึงข้อมูลได้');
+            const res = await fetch(apiUrl);
+            console.log('📥 Response status:', res.status);
+            
+            if (!res.ok) {
+                const errorText = await res.text();
+                console.error('❌ API Error:', errorText);
+                throw new Error('HTTP ' + res.status);
+            }
             
             const data = await res.json();
+            console.log('✅ Received data:', data);
             
             tbody.innerHTML = '';
             let sum = 0;
 
-            if (data.length === 0) {
+            if (!Array.isArray(data) || data.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4">ไม่พบข้อมูลออเดอร์ที่จองอยู่</td></tr>';
             } else {
-                data.forEach(row => {
-                    sum += row.quantity;
-                    const tr = document.createElement('tr');
+                data.forEach(function(row) {
+                    sum += parseInt(row.quantity) || 0;
                     
                     const date = new Date(row.created_at).toLocaleDateString('th-TH', {
                         year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'
                     });
 
-                    tr.innerHTML = `
-                        <td>${date}</td>
-                        <td class="fw-bold text-primary">${row.order_number}</td>
-                        <td>${escapeHtml(row.customer_name)}</td>
-                        <td class="text-center">${formatStatus(row.status)}</td>
-                        <td class="text-end fw-bold text-warning">${Number(row.quantity).toLocaleString()}</td>
-                        <td class="text-center">
-                            <a href="/orders/${row.order_id}" class="btn btn-sm btn-outline-info" target="_blank">
-                                <i class="fas fa-eye"></i>
-                            </a>
-                        </td>
-                    `;
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = 
+                        '<td>' + date + '</td>' +
+                        '<td class="fw-bold text-primary">' + escapeHtml(row.order_number) + '</td>' +
+                        '<td>' + escapeHtml(row.customer_name) + '</td>' +
+                        '<td class="text-center">' + formatStatus(row.status) + '</td>' +
+                        '<td class="text-end fw-bold text-warning">' + row.quantity.toLocaleString() + '</td>' +
+                        '<td class="text-center">' +
+                            '<a href="/orders/' + row.order_id + '" class="btn btn-sm btn-outline-info" target="_blank">' +
+                                '<i class="fas fa-eye"></i> ดู' +
+                            '</a>' +
+                        '</td>';
                     tbody.appendChild(tr);
                 });
             }
-            // 5. แสดงผลรวม
+            
             sumEl.textContent = sum.toLocaleString('th-TH');
 
         } catch (err) {
-            console.error(err);
-            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">เกิดข้อผิดพลาด: ${err.message}</td></tr>`;
+            console.error('💥 Error:', err);
+            tbody.innerHTML = 
+                '<tr><td colspan="6" class="text-center text-danger py-4">' +
+                    '<i class="fas fa-exclamation-triangle fa-2x mb-2"></i>' +
+                    '<p class="mb-0">เกิดข้อผิดพลาด: ' + err.message + '</p>' +
+                '</td></tr>';
             sumEl.textContent = '0';
         }
-    }
+    };
 
     function escapeHtml(text) {
         if (!text) return '-';
-        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     function formatStatus(status) {
@@ -290,9 +304,26 @@
             'processing': '<span class="badge bg-info text-dark">กำลังเตรียม</span>',
             'shipped': '<span class="badge bg-primary">จัดส่งแล้ว</span>',
             'delivered': '<span class="badge bg-success">สำเร็จ</span>',
-            'cancelled': '<span class="badge bg-danger">ยกเลิก</span>'
+            'cancelled': '<span class="badge bg-danger">ยกเลิก</span>',
+            'pending_payment': '<span class="badge bg-warning">รอชำระเงิน</span>'
         };
-        return map[status] || `<span class="badge bg-secondary">${status}</span>`;
+        return map[status] || '<span class="badge bg-secondary">' + escapeHtml(status) + '</span>';
     }
+
+    // ผูก Event Listeners
+    const holdButtons = document.querySelectorAll('.btn-show-holds');
+    console.log('📌 Found', holdButtons.length, 'hold buttons');
+    
+    holdButtons.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const variantId = this.getAttribute('data-variant-id');
+            const color = this.getAttribute('data-color');
+            const size = this.getAttribute('data-size');
+            openHoldModal(variantId, color, size);
+        });
+    });
+    
+    console.log('✅ Initialization complete!');
+});
 </script>
 @endsection

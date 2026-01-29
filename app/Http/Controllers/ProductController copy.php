@@ -826,49 +826,32 @@ public function searchApi(Request $request)
    public function getHoldsApi($variantId)
 {
     try {
-        // ดึงข้อมูล variant เพื่อหา product_id, color_id, size_id
-        $variant = \App\Models\ProductColorSize::findOrFail($variantId);
-        
-        // ค้นหา order_items ที่ตรงกับ product_id, color_id, size_id
-        $items = \App\Models\OrderItem::where('product_id', $variant->product_id)
-            ->where('color_id', $variant->color_id)
-            ->where('size_id', $variant->size_id)
-            ->whereHas('order', function ($query) {
-                $query->whereIn('status', ['pending', 'processing', 'pending_payment']);
-            })
-            ->with(['order.customer'])
-            ->orderByDesc('created_at')
+        // ดึงจาก order_items แทน stock_holds
+        $holds = DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
+            ->where('order_items.product_color_size_id', $variantId)
+            ->whereIn('orders.status', ['pending', 'processing', 'pending_payment'])
+            ->select([
+                'order_items.id as hold_id',
+                'order_items.quantity',
+                'order_items.created_at',
+                'orders.id as order_id',
+                'orders.order_number',
+                'orders.status',
+                DB::raw("COALESCE(customers.name, CONCAT_WS(' ', customers.first_name, customers.last_name), 'ไม่ระบุ') as customer_name")
+            ])
+            ->orderBy('order_items.created_at', 'desc')
             ->get();
-
-        // จัดรูปแบบข้อมูลให้ตรงกับที่ JavaScript ต้องการ
-        $holds = $items->map(function ($item) {
-            return [
-                'hold_id' => $item->id,
-                'quantity' => $item->quantity,
-                'created_at' => $item->created_at,
-                'order_id' => $item->order->id,
-                'order_number' => $item->order->order_number ?? ('#' . $item->order->id),
-                'status' => $item->order->status,
-                'customer_name' => $item->order->customer->name ?? 'ไม่ระบุ'
-            ];
-        });
-
-        \Log::info('getHoldsApi Success', [
-            'variant_id' => $variantId,
-            'product_id' => $variant->product_id,
-            'color_id' => $variant->color_id,
-            'size_id' => $variant->size_id,
-            'found_items' => $holds->count()
-        ]);
 
         return response()->json($holds);
 
     } catch (\Exception $e) {
-        \Log::error('getHoldsApi Error: ' . $e->getMessage());
-        \Log::error('Stack trace: ' . $e->getTraceAsString());
+        \Log::error('Error: ' . $e->getMessage());
         return response()->json(['error' => $e->getMessage()], 500);
     }
 }
+    // เพิ่มฟังก์ชันนี้ลงไปใน ProductController
     // ✅ ฟังก์ชันใหม่สำหรับดึงข้อมูลการจับจอง (แก้ปัญหา SQL Error)
     public function apiCheckStock(Request $request)
     {
@@ -878,41 +861,31 @@ public function searchApi(Request $request)
             return response()->json(['error' => 'No variant ID'], 400);
         }
 
-        try {
-            // ดึงข้อมูล variant เพื่อหา product_id, color_id, size_id
-            $variant = \App\Models\ProductColorSize::findOrFail($variantId);
-            
-            // ค้นหาออเดอร์ที่สถานะ "กำลังดำเนินการ"
-            $items = \App\Models\OrderItem::where('product_id', $variant->product_id)
-                ->where('color_id', $variant->color_id)
-                ->where('size_id', $variant->size_id)
-                ->whereHas('order', function ($query) {
-                    // สถานะที่ถือว่าตัดสต็อกแล้ว หรือกำลังจองอยู่
-                    $query->whereIn('status', ['pending', 'processing', 'pending_payment']); 
-                })
-                ->with(['order.customer']) // โหลดข้อมูลลูกค้า
-                ->orderByDesc('created_at')
-                ->get();
+        // ค้นหาออเดอร์ที่สถานะ "กำลังดำเนินการ"
+        $items = \App\Models\OrderItem::where('product_color_size_id', $variantId)
+            ->whereHas('order', function ($query) {
+                // สถานะที่ถือว่าตัดสต็อกแล้ว หรือกำลังจองอยู่
+                $query->whereIn('status', ['pending', 'processing', 'pending_payment']); 
+            })
+            ->with(['order.customer']) // โหลดข้อมูลลูกค้า
+            ->orderByDesc('created_at')
+            ->get();
 
-            // จัดรูปแบบข้อมูลส่งกลับ (ใช้ customer->name ตรงๆ)
-            $holds = $items->map(function ($item) {
-                return [
-                    'created_at' => $item->order->created_at->format('d/m/Y H:i'),
-                    'order_number' => $item->order->order_number ?? ('#' . $item->order->id),
-                    'customer_name' => $item->order->customer->name ?? 'ลูกค้าทั่วไป',
-                    'status' => $item->order->status,
-                    'quantity' => $item->quantity,
-                    'order_id' => $item->order->id,
-                ];
-            });
+        // จัดรูปแบบข้อมูลส่งกลับ (ใช้ customer->name ตรงๆ)
+        $holds = $items->map(function ($item) {
+            return [
+                'created_at' => $item->order->created_at->format('d/m/Y H:i'),
+                'order_number' => $item->order->order_number ?? ('#' . $item->order->id),
+                'customer_name' => $item->order->customer->name ?? 'ลูกค้าทั่วไป', // ✅ ใช้ name ตาม DB
+                'status' => $item->order->status,
+                'quantity' => $item->quantity,
+                'order_id' => $item->order->id,
+            ];
+        });
 
-            return response()->json([
-                'holds' => $holds,
-                'total_hold' => $holds->sum('quantity')
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('apiCheckStock Error: ' . $e->getMessage());
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        return response()->json([
+            'holds' => $holds,
+            'total_hold' => $holds->sum('quantity')
+        ]);
     }
 }

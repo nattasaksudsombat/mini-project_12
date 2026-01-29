@@ -68,39 +68,65 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th style="width: 15%">วัน/เวลา</th>
-                        <th style="width: 10%">ประเภท</th>
+                        <th style="width: 14%">วัน/เวลา</th>
+                        <th style="width: 8%">ประเภท</th>
                         <th class="text-end" style="width: 8%">
-                            <span data-bs-toggle="tooltip" title="จำนวนก่อนทำรายการ">ก่อน</span>
+                            <span data-bs-toggle="tooltip" title="จำนวนก่อนทำรายการ (On-Hand)">ก่อน</span>
                         </th>
                         <th class="text-end" style="width: 8%">
                             <span data-bs-toggle="tooltip" title="จำนวนที่เปลี่ยน (+/-)">เปลี่ยน</span>
                         </th>
                         <th class="text-end" style="width: 8%">
-                            <span data-bs-toggle="tooltip" title="จำนวนหลังทำรายการ">หลัง</span>
+                            <span data-bs-toggle="tooltip" title="จำนวนหลังทำรายการ (On-Hand)">หลัง</span>
                         </th>
-                        <th class="text-end" style="width: 8%">
-                            <span class="badge bg-success" data-bs-toggle="tooltip" title="จำนวนพร้อมขาย (On-Hand - Reserved)">พร้อมขาย</span>
+                        <th class="text-end" style="width: 9%">
+                            <span class="badge bg-success" data-bs-toggle="tooltip" title="จำนวนพร้อมขาย = On-Hand - Reserved">พร้อมขาย</span>
                         </th>
                         <th style="width: 20%">เหตุผล</th>
                         <th style="width: 10%">ผู้ทำรายการ</th>
-                        <th style="width: 13%">อ้างอิง</th>
+                        <th style="width: 15%">อ้างอิง</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($history as $row)
                     @php
-                        // ✅ คำนวณ Available (พร้อมขาย) หลังทำรายการ
-                        $availableAfter = $row->after;
+                        // ✅ เริ่มต้นจาก Summary ปัจจุบัน
+                        $currentOnHand = $summary->current;
+                        $currentReserved = $summary->reserved;
+                        $currentAvailable = $summary->available;
+                    @endphp
+                    
+                    @forelse($history as $index => $row)
+                    @php
+                        // ✅ คำนวณ Available ณ เวลานั้น (ย้อนกลับ)
+                        // เริ่มจากปัจจุบัน แล้วย้อนกลับตาม transaction
                         
-                        // ถ้าเป็นการจอง (reserve) ให้ลด Available ลง
-                        if ($row->type === 'reserve') {
-                            $availableAfter = $row->after - abs($row->delta);
+                        if ($index === 0) {
+                            // รายการแรก (ล่าสุด) = สถานะปัจจุบัน
+                            $availableAtTime = $currentAvailable;
+                        } else {
+                            // คำนวณจากรายการก่อนหน้า
+                            $prevRow = $history[$index - 1];
+                            
+                            // ย้อนกลับตาม type
+                            if ($row->type === 'reserve') {
+                                // ก่อนจอง Available มากกว่า (ย้อนกลับ = เพิ่ม)
+                                $availableAtTime = $prevAvailable + abs($row->delta);
+                            } elseif ($row->type === 'release') {
+                                // ก่อนปล่อย Available น้อยกว่า (ย้อนกลับ = ลด)
+                                $availableAtTime = $prevAvailable - abs($row->delta);
+                            } elseif ($row->type === 'in') {
+                                // ก่อนเข้า Available น้อยกว่า (ย้อนกลับ = ลด)
+                                $availableAtTime = $prevAvailable - abs($row->delta);
+                            } elseif ($row->type === 'out') {
+                                // ก่อนออก Available มากกว่า (ย้อนกลับ = เพิ่ม)
+                                $availableAtTime = $prevAvailable + abs($row->delta);
+                            } else {
+                                $availableAtTime = $prevAvailable;
+                            }
                         }
-                        // ถ้าเป็นการปล่อย (release) ให้เพิ่ม Available ขึ้น
-                        elseif ($row->type === 'release') {
-                            $availableAfter = $row->after + abs($row->delta);
-                        }
+                        
+                        // เก็บไว้ใช้รายการถัดไป
+                        $prevAvailable = $availableAtTime;
                     @endphp
                     <tr>
                         <td><small>{{ $row->created_at }}</small></td>
@@ -122,7 +148,7 @@
                         </td>
                         <td class="text-end fw-bold">{{ number_format($row->after) }}</td>
                         <td class="text-end">
-                            <span class="badge bg-success">{{ number_format($availableAfter) }}</span>
+                            <span class="badge bg-success">{{ number_format($availableAtTime) }}</span>
                         </td>
                         <td>
                             <small>

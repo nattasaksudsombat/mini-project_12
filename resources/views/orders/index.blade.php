@@ -8,11 +8,12 @@
             <p class="text-muted mb-0">ระบบจัดการคำสั่งซื้อทั้งหมด</p>
         </div>
         <div class="d-flex gap-2">
+            @if(auth()->user()->role !== 'stock')
             <a href="{{ route('customers.index') }}" class="btn btn-outline-primary">
                 <i class="fas fa-users"></i> จัดการลูกค้า
             </a>
             {{-- ซ่อนปุ่มสร้างออเดอร์สำหรับยศ Stock --}}
-            @if(auth()->user()->role !== 'stock')
+            
             <a href="{{ route('orders.create') }}" class="btn btn-success">
                 <i class="fas fa-plus"></i> สร้างออเดอร์ใหม่
             </a>
