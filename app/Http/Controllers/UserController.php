@@ -82,9 +82,9 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
-        // ✅ ถ้าไม่ใช่ Admin ต้องแก้ไขแค่ตัวเองเท่านั้น
+        // ✅ ป้องกัน: ถ้าไม่ใช่ Admin และพยายามแก้ไขคนอื่น ให้ดีดออก
         if (auth()->user()->role !== 'admin' && auth()->id() !== $user->id) {
-            abort(403, 'คุณสามารถแก้ไขได้เฉพาะข้อมูลของตัวเองเท่านั้น');
+            abort(403, 'คุณไม่มีสิทธิ์แก้ไขข้อมูลผู้อื่น');
         }
 
         return view('users.edit', compact('user'));
@@ -95,9 +95,9 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
-        // ✅ ถ้าไม่ใช่ Admin ต้องแก้ไขแค่ตัวเองเท่านั้น
+        // ✅ ป้องกัน: ถ้าไม่ใช่ Admin และพยายามแก้ไขคนอื่น
         if (auth()->user()->role !== 'admin' && auth()->id() !== $user->id) {
-            abort(403, 'คุณสามารถแก้ไขได้เฉพาะข้อมูลของตัวเองเท่านั้น');
+            abort(403, 'คุณไม่มีสิทธิ์แก้ไขข้อมูลผู้อื่น');
         }
 
         $rules = [
@@ -106,7 +106,7 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8|confirmed',
         ];
 
-        // ✅ เฉพาะ Admin ถึงจะเปลี่ยน Role ได้
+        // ✅ เฉพาะ Admin เท่านั้นที่ตรวจสอบ/เปลี่ยน Role ได้
         if (auth()->user()->role === 'admin') {
             $rules['role'] = 'required|in:admin,stock,sales';
         }
@@ -116,16 +116,22 @@ class UserController extends Controller
         $user->username = $validated['username'];
         $user->email = $validated['email'];
 
-        // ✅ เฉพาะ Admin ถึงจะเปลี่ยน Role ได้
+        // ✅ เฉพาะ Admin เท่านั้นที่เปลี่ยน Role ได้
         if (auth()->user()->role === 'admin' && isset($validated['role'])) {
             $user->role = $validated['role'];
         }
+        // ❌ ถ้าไม่ใช่ Admin ระบบจะไม่บันทึก Role (ใช้ค่าเดิม)
 
         if ($request->filled('password')) {
             $user->password = Hash::make($validated['password']);
         }
 
         $user->save();
+
+        // ถ้าแก้ไขตัวเอง ให้กลับไปหน้า Dashboard หรือหน้าเดิม
+        if (auth()->id() === $user->id && auth()->user()->role !== 'admin') {
+            return redirect()->back()->with('success', 'อัปเดตข้อมูลส่วนตัวเรียบร้อย');
+        }
 
         return redirect()->route('users.index')->with('success', 'อัปเดตข้อมูลเรียบร้อย');
     }

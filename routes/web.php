@@ -52,6 +52,8 @@ Route::middleware(['auth'])->group(function () {
     // ✅ Dashboard (ทุกคน)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
+    Route::resource('users', UserController::class);
+
     // API สำหรับตรวจสอบสต็อก (ทุกคนใช้ได้)
     Route::get('/stock/api/holds/{variantId}', [ProductController::class, 'getHoldsApi'])->name('stock.api.holds');
     Route::get('/products/api/check-stock', [ProductController::class, 'apiCheckStock'])->name('products.api.check_stock');
@@ -91,6 +93,7 @@ Route::middleware(['auth'])->group(function () {
     // 👤 แก้ไขข้อมูลผู้ใช้ (ทุกคน แต่มีเงื่อนไข)
     // =========================================================
     // ✅ ใช้ middleware แบบกำหนดเอง
+    /*
     Route::get('/users/{user}/edit', [UserController::class, 'edit'])
         ->name('users.edit')
         ->middleware('check.user.edit');
@@ -98,7 +101,7 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/users/{user}', [UserController::class, 'update'])
         ->name('users.update')
         ->middleware('check.user.edit');
-
+*/
     // =========================================================
     // 🛒 Sales Management (Admin + Sales)
     // =========================================================

@@ -18,6 +18,10 @@ class CheckUserEditPermission
     {
         $user = $request->route('user');
         
+        if (auth()->user()->role !== 'admin' && auth()->id() !== $user->id) {
+        abort(403, 'คุณไม่มีสิทธิ์แก้ไขข้อมูลผู้อื่น');
+        }
+        
         // Admin แก้ไขใครก็ได้
         if (auth()->user()->role === 'admin') {
             return $next($request);
@@ -28,6 +32,7 @@ class CheckUserEditPermission
             abort(403, 'คุณสามารถแก้ไขได้เฉพาะข้อมูลของตัวเองเท่านั้น');
         }
         
+    
         return $next($request);
     }
 }
