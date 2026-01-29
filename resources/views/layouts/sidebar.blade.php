@@ -2,9 +2,12 @@
 <div class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse" id="sidebarMenu">
     <div class="position-sticky pt-3">
         <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link {{ Route::is('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
-                    <i class="fas fa-chart-line me-2"></i> แดชบอร์ด
+
+                        <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}"
+                    href="{{ route('reports.index') }}">
+                    <i class="fas fa-chart-line bi bi-graph-up"></i>
+                    <span>รายงาน & วิเคราะห์</span>
                 </a>
             </li>
             <li class="nav-item">
@@ -27,17 +30,11 @@
                 </a>
             </li>
            
-            @if(auth()->check() && auth()->user()->role === 'admin')
+         
 
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}"
-                    href="{{ route('reports.index') }}">
-                    <i class="bi bi-graph-up"></i>
-                    <span>รายงาน & วิเคราะห์</span>
-                </a>
-            </li>
 
-            @endif
+
+     
 
 
             <!-- ====================================== -->

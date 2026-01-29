@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'แก้ไขผู้ใช้')
+@section('title', 'แก้ไขข้อมูลผู้ใช้')
 
 @section('content')
 <div class="container py-4">
@@ -8,7 +8,9 @@
         <div class="col-md-8">
             {{-- Header --}}
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h2 class="mb-0">✏️ แก้ไขผู้ใช้: {{ $user->username }}</h2>
+                <h2 class="mb-0">
+                    ✏️ {{ auth()->user()->role === 'admin' ? 'แก้ไขผู้ใช้' : 'แก้ไขข้อมูลส่วนตัว' }}: {{ $user->username }}
+                </h2>
                 <a href="{{ route('users.index') }}" class="btn btn-outline-secondary">
                     ← กลับ
                 </a>
@@ -63,7 +65,7 @@
                             @error('password')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
-                            <small class="text-muted">รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร</small>
+                            <small class="text-muted">รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร</small>
                         </div>
 
                         {{-- ยืนยันรหัสผ่าน --}}
@@ -72,24 +74,35 @@
                             <input type="password" name="password_confirmation" class="form-control">
                         </div>
 
-                        {{-- บทบาท --}}
-                        <div class="mb-3">
-                            <label class="form-label">บทบาท (Role) <span class="text-danger">*</span></label>
-                            <select name="role" class="form-select @error('role') is-invalid @enderror" required>
-                                <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>
-                                    ผู้ดูแลระบบ (Admin)
-                                </option>
-                                <option value="stock" {{ old('role', $user->role) == 'stock' ? 'selected' : '' }}>
-                                    คลังสินค้า (Stock)
-                                </option>
-                                <option value="sales" {{ old('role', $user->role) == 'sales' ? 'selected' : '' }}>
-                                    ฝ่ายขาย (Sales)
-                                </option>
-                            </select>
-                            @error('role')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
+                        {{-- บทบาท (เฉพาะ Admin เท่านั้นที่เห็นและแก้ไขได้) --}}
+                        @if(auth()->user()->role === 'admin')
+                            <div class="mb-3">
+                                <label class="form-label">บทบาท (Role) <span class="text-danger">*</span></label>
+                                <select name="role" class="form-select @error('role') is-invalid @enderror" required>
+                                    <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>
+                                        ผู้ดูแลระบบ (Admin)
+                                    </option>
+                                    <option value="stock" {{ old('role', $user->role) == 'stock' ? 'selected' : '' }}>
+                                        คลังสินค้า (Stock)
+                                    </option>
+                                    <option value="sales" {{ old('role', $user->role) == 'sales' ? 'selected' : '' }}>
+                                        ฝ่ายขาย (Sales)
+                                    </option>
+                                </select>
+                                @error('role')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        @else
+                            {{-- แสดงบทบาทปัจจุบัน (อ่านอย่างเดียว) --}}
+                            <div class="mb-3">
+                                <label class="form-label">บทบาท (Role)</label>
+                                <input type="text" class="form-control" 
+                                       value="{{ $user->role === 'admin' ? 'ผู้ดูแลระบบ' : ($user->role === 'stock' ? 'คลังสินค้า' : 'ฝ่ายขาย') }}" 
+                                       readonly>
+                                <small class="text-muted">คุณไม่สามารถเปลี่ยนบทบาทของตัวเองได้</small>
+                            </div>
+                        @endif
 
                         {{-- ปุ่มบันทึก --}}
                         <div class="d-grid gap-2">

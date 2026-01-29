@@ -1,4 +1,5 @@
 @extends('layouts.app')
+@include('layouts.navbarDB')
 
 @section('title', 'รายงาน & วิเคราะห์ - Dashboard')
 

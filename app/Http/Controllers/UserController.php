@@ -16,14 +16,19 @@ class UserController extends Controller
     {
         $query = User::query();
 
-        // ค้นหา
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%')
+        // ✅ ถ้าเป็น Sales หรือ Stock จะเห็นแค่ตัวเองเท่านั้น
+        if (auth()->user()->role !== 'admin') {
+            $query->where('id', auth()->id());
+        }
+
+        // ค้นหา (สำหรับ Admin)
+        if ($request->filled('search') && auth()->user()->role === 'admin') {
+            $query->where('username', 'like', '%' . $request->search . '%')
                   ->orWhere('email', 'like', '%' . $request->search . '%');
         }
 
-        // กรอง Role
-        if ($request->filled('role')) {
+        // กรอง Role (สำหรับ Admin)
+        if ($request->filled('role') && auth()->user()->role === 'admin') {
             $query->where('role', $request->role);
         }
 
@@ -33,27 +38,37 @@ class UserController extends Controller
     }
 
     /**
-     * แสดงฟอร์มเพิ่มผู้ใช้
+     * แสดงฟอร์มเพิ่มผู้ใช้ (เฉพาะ Admin)
      */
     public function create()
     {
+        // ✅ ห้าม Sales และ Stock เข้าถึง
+        if (auth()->user()->role !== 'admin') {
+            abort(403, 'คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
+        }
+
         return view('users.create');
     }
 
     /**
-     * บันทึกผู้ใช้ใหม่
+     * บันทึกผู้ใช้ใหม่ (เฉพาะ Admin)
      */
     public function store(Request $request)
     {
+        // ✅ ห้าม Sales และ Stock เข้าถึง
+        if (auth()->user()->role !== 'admin') {
+            abort(403, 'คุณไม่มีสิทธิ์ทำรายการนี้');
+        }
+
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'username' => 'required|string|max:255|unique:users,username',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:admin,stock,sales', // กำหนด Role ที่อนุญาต
+            'role' => 'required|in:admin,stock,sales',
         ]);
 
         User::create([
-            'name' => $validated['name'],
+            'username' => $validated['username'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
@@ -67,6 +82,11 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
+        // ✅ ถ้าไม่ใช่ Admin ต้องแก้ไขแค่ตัวเองเท่านั้น
+        if (auth()->user()->role !== 'admin' && auth()->id() !== $user->id) {
+            abort(403, 'คุณสามารถแก้ไขได้เฉพาะข้อมูลของตัวเองเท่านั้น');
+        }
+
         return view('users.edit', compact('user'));
     }
 
@@ -75,16 +95,31 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'role' => 'required|in:admin,stock,sales',
-            'password' => 'nullable|string|min:8|confirmed', // Password เป็น Optional
-        ]);
+        // ✅ ถ้าไม่ใช่ Admin ต้องแก้ไขแค่ตัวเองเท่านั้น
+        if (auth()->user()->role !== 'admin' && auth()->id() !== $user->id) {
+            abort(403, 'คุณสามารถแก้ไขได้เฉพาะข้อมูลของตัวเองเท่านั้น');
+        }
 
-        $user->name = $validated['name'];
+        $rules = [
+            'username' => 'required|string|max:255|unique:users,username,' . $user->id,
+            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
+            'password' => 'nullable|string|min:8|confirmed',
+        ];
+
+        // ✅ เฉพาะ Admin ถึงจะเปลี่ยน Role ได้
+        if (auth()->user()->role === 'admin') {
+            $rules['role'] = 'required|in:admin,stock,sales';
+        }
+
+        $validated = $request->validate($rules);
+
+        $user->username = $validated['username'];
         $user->email = $validated['email'];
-        $user->role = $validated['role'];
+
+        // ✅ เฉพาะ Admin ถึงจะเปลี่ยน Role ได้
+        if (auth()->user()->role === 'admin' && isset($validated['role'])) {
+            $user->role = $validated['role'];
+        }
 
         if ($request->filled('password')) {
             $user->password = Hash::make($validated['password']);
@@ -92,14 +127,19 @@ class UserController extends Controller
 
         $user->save();
 
-        return redirect()->route('users.index')->with('success', 'อัปเดตข้อมูลผู้ใช้เรียบร้อย');
+        return redirect()->route('users.index')->with('success', 'อัปเดตข้อมูลเรียบร้อย');
     }
 
     /**
-     * ลบผู้ใช้
+     * ลบผู้ใช้ (เฉพาะ Admin)
      */
     public function destroy(User $user)
     {
+        // ✅ ห้าม Sales และ Stock ลบผู้ใช้
+        if (auth()->user()->role !== 'admin') {
+            abort(403, 'คุณไม่มีสิทธิ์ลบผู้ใช้');
+        }
+
         // ป้องกันไม่ให้ลบตัวเอง
         if (auth()->id() === $user->id) {
             return back()->with('error', 'ไม่สามารถลบบัญชีของตัวเองได้');

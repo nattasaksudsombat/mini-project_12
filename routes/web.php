@@ -49,24 +49,14 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 */
 Route::middleware(['auth'])->group(function () {
 
-    // ✅ 1. Dashboard (ทุกคน)
+    // ✅ Dashboard (ทุกคน)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/stock/api/holds/{variantId}', [ProductController::class, 'getHoldsApi'])
-    ->name('stock.api.holds');
-    // เพิ่มใน web.php (เอาไว้นอกกลุ่ม sales ก็ได้ หรือในกลุ่ม admin ก็ได้)
-Route::get('/products/api/check-stock', [App\Http\Controllers\ProductController::class, 'apiCheckStock'])->name('products.api.check_stock');
-
-    // =========================================================
-    // 👑 Admin ONLY (เอาไว้บนสุดเพื่อความปลอดภัย)
-    // =========================================================
-    Route::middleware(['role:admin'])->group(function () {
-        Route::resource('incomes', IncomeController::class);
-        Route::resource('expenses', ExpenseController::class);
-        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
-        Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
-
-        Route::resource('users', UserController::class);
-        Route::prefix('reports')->name('reports.')->group(function () {
+    
+    // API สำหรับตรวจสอบสต็อก (ทุกคนใช้ได้)
+    Route::get('/stock/api/holds/{variantId}', [ProductController::class, 'getHoldsApi'])->name('stock.api.holds');
+    Route::get('/products/api/check-stock', [ProductController::class, 'apiCheckStock'])->name('products.api.check_stock');
+    Route::get('/products/api/search-order', [ProductController::class, 'searchApi'])->name('products.api.search');
+    Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('/', [ReportController::class, 'index'])->name('index');
             Route::get('/charts', [ReportController::class, 'charts'])->name('charts');
             Route::get('/financial', [ReportController::class, 'financial'])->name('financial');
@@ -75,40 +65,59 @@ Route::get('/products/api/check-stock', [App\Http\Controllers\ProductController:
                 return response()->json($customer->addresses);
             })->name('api.customer.addresses');
         });
+
+    // =========================================================
+    // 👑 Admin ONLY
+    // =========================================================
+    Route::middleware(['role:admin'])->group(function () {
+        Route::resource('incomes', IncomeController::class);
+        Route::resource('expenses', ExpenseController::class);
+        Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+        Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
+
+        // ✅ Admin เท่านั้นที่สามารถ: สร้าง, ดูทั้งหมด, ลบ
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+        Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+        
         Route::get('/api/product/{id}/colors', [ProductColorSizeController::class, 'getColors'])->name('api.product.colors');
         Route::get('/api/product/{id}/sizes', [ProductColorSizeController::class, 'getSizes'])->name('api.product.sizes');
         Route::post('/api/check-stock', [ProductColorSizeController::class, 'checkStock'])->name('api.check.stock');
-
-        // 3. Global Search API
         Route::get('/api/global-search', [ProductController::class, 'globalSearch'])->name('api.global.search');
     });
 
     // =========================================================
-    // 🛒 Sales Management (Admin + Sales) 
-    // ⚠️ ต้องประกาศก่อน Wildcard Route ของ Order
+    // 👤 แก้ไขข้อมูลผู้ใช้ (ทุกคน แต่มีเงื่อนไข)
+    // =========================================================
+    // ✅ ใช้ middleware แบบกำหนดเอง
+    Route::get('/users/{user}/edit', [UserController::class, 'edit'])
+        ->name('users.edit')
+        ->middleware('check.user.edit');
+        
+    Route::put('/users/{user}', [UserController::class, 'update'])
+        ->name('users.update')
+        ->middleware('check.user.edit');
+
+    // =========================================================
+    // 🛒 Sales Management (Admin + Sales)
     // =========================================================
     Route::middleware(['role:admin,sales'])->group(function () {
 
-        // ✅ เพิ่ม prefix 'sales' สำหรับ Sales
+        // Sales Products View
         Route::prefix('sales')->name('sales.')->group(function () {
-            // รายการสินค้า (มุมมอง Sales)
             Route::get('/products', [ProductController::class, 'salesIndex'])->name('products.index');
             Route::get('/products/{product}', [ProductController::class, 'salesShow'])->name('products.show');
         });
 
         // Orders Management
         Route::prefix('orders')->name('orders.')->group(function () {
-            // Helpers
             Route::get('customers/search', [OrderController::class, 'searchCustomers'])->name('customers.search');
             Route::get('customers/{customer}/addresses', [OrderController::class, 'getCustomerAddresses'])->name('customers.addresses');
-
-            // Actions
             Route::post('{order}/cancel', [OrderController::class, 'cancel'])->name('cancel');
             Route::post('{order}/ship',   [OrderController::class, 'ship'])->name('ship');
             Route::patch('{order}/pay',   [OrderController::class, 'pay'])->name('pay');
             Route::patch('{order}/tracking', [OrderController::class, 'updateTracking'])->name('updateTracking');
-
-            // CRUD Order
             Route::get('/create', [OrderController::class, 'create'])->name('create');
             Route::post('/', [OrderController::class, 'store'])->name('store');
             Route::get('/{order}/edit', [OrderController::class, 'edit'])->name('edit');
@@ -116,7 +125,7 @@ Route::get('/products/api/check-stock', [App\Http\Controllers\ProductController:
             Route::delete('/{order}', [OrderController::class, 'destroy'])->name('destroy');
         });
 
-        // API สำหรับค้นหาสินค้าและดึง variants (สำหรับสร้าง Order)
+        // Product Search API for Orders
         Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
         Route::get('/products/{product}/variants', [ProductController::class, 'getVariantsApi'])->name('products.variants.api');
 
@@ -125,35 +134,23 @@ Route::get('/products/api/check-stock', [App\Http\Controllers\ProductController:
     });
 
     // =========================================================
-    // 🌐 Products (ทุกคนที่ Login แล้วดูได้)
-    // ⚠️ ต้องอยู่ก่อน Stock Management เพื่อไม่โดน override
-    // =========================================================
-    Route::controller(ProductController::class)->group(function () {
-        Route::get('/products', 'index')->name('products.index');
-        Route::get('/products/{product}', 'show')->name('products.show');
-    });
-
-    // =========================================================
     // 📦 Stock Management (Admin + Stock)
+    // ⚠️ ต้องอยู่ก่อน Public Products Routes
     // =========================================================
     Route::middleware(['role:admin,stock'])->group(function () {
 
-        // CRUD สินค้า
-        Route::controller(ProductController::class)->group(function () {
-            Route::get('/products/create', 'create')->name('products.create');
-            Route::post('/products', 'store')->name('products.store');
-            Route::get('/products/{product}/edit', 'edit')->name('products.edit');
-            Route::put('/products/{product}', 'update')->name('products.update');
-            Route::delete('/products/{product}', 'destroy')->name('products.destroy');
+        // ✅ CRUD สินค้า - ใช้ resource แต่ exclude index และ show
+        Route::resource('products', ProductController::class)->except(['index', 'show']);
 
-            // ฟังก์ชันเสริม
+        // ฟังก์ชันเสริมสินค้า
+        Route::controller(ProductController::class)->group(function () {
             Route::get('/export-products', 'export')->name('export.products');
             Route::post('/import-products', 'import')->name('products.import');
             Route::post('/products/{product}/toggle', 'toggleStatus')->name('products.toggle');
             Route::post('/products/print-barcode', 'printBarcode')->name('products.printBarcode');
         });
 
-        // รูปภาพ
+        // รูปภาพสินค้า
         Route::prefix('products/{product}/images')->name('product_images.')->group(function () {
             Route::get('/', [ProductImageController::class, 'index'])->name('index');
             Route::post('/', [ProductImageController::class, 'store'])->name('store');
@@ -168,7 +165,7 @@ Route::get('/products/api/check-stock', [App\Http\Controllers\ProductController:
             Route::post('/', [ProductColorSizeController::class, 'store'])->name('store');
         });
 
-        // ปรับสต๊อก (เฉพาะ Stock/Admin)
+        // ปรับสต็อก (เฉพาะ Stock/Admin)
         Route::get('/stock/adjust/{variant}', [StockController::class, 'adjustForm'])->name('stock.adjust.form');
         Route::post('/stock/adjust/{variant}', [StockController::class, 'adjustSave'])->name('stock.adjust.save');
         Route::get('/stock/report', [StockController::class, 'report'])->name('stock.report');
@@ -185,20 +182,23 @@ Route::get('/products/api/check-stock', [App\Http\Controllers\ProductController:
     });
 
     // =========================================================
-    // 📊 Stock History (Admin + Sales + Stock) - ทุกคนดูได้
+    // 📊 Stock History (Admin + Sales + Stock)
     // =========================================================
     Route::middleware(['role:admin,sales,stock'])->group(function () {
-        // ✅ ประวัติสต็อกรวม (ทั้งหมด)
         Route::get('/stock/history', [StockController::class, 'history'])->name('stock.history');
-        
-        // ✅ ประวัติของ Variant เฉพาะ (ดูได้ + จับออเดอร์)
         Route::get('/stock/history/{variant}', [StockController::class, 'variantHistory'])->name('stock.variant.history');
     });
 
     // =========================================================
     // 🌐 Public Read-Only (ทุกคนที่ Login แล้ว)
-    // ⚠️ Wildcard Routes ควรอยู่ล่างสุดเสมอ
+    // ⚠️ Wildcard Routes ต้องอยู่ล่างสุดเสมอ
     // =========================================================
+    
+    // Products - ดูรายละเอียดได้ทุกคน
+    Route::controller(ProductController::class)->group(function () {
+        Route::get('/products', 'index')->name('products.index');
+        Route::get('/products/{product}', 'show')->name('products.show');
+    });
 
     // Orders - ดูรายละเอียดได้ทุกคน
     Route::controller(OrderController::class)->group(function () {
