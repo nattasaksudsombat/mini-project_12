@@ -43,9 +43,9 @@
         <div class="col-md-3">
             <div class="card border-primary">
                 <div class="card-body text-center">
-                    <h6 class="text-muted mb-2">💵 ยอดขายวันนี้</h6>
+                    <h6 class=" mb-2">💵 ยอดขายวันนี้</h6>
                     <h3 class="text-primary mb-0">{{ number_format($salesToday, 2) }}</h3>
-                    <small class="text-muted">บาท</small>
+                    <small class="">บาท</small>
                 </div>
             </div>
         </div>
@@ -54,9 +54,9 @@
         <div class="col-md-3">
             <div class="card border-success">
                 <div class="card-body text-center">
-                    <h6 class="text-muted mb-2">📆 ยอดขายเดือนนี้</h6>
+                    <h6 class=" mb-2">📆 ยอดขายเดือนนี้</h6>
                     <h3 class="text-success mb-0">{{ number_format($salesThisMonth, 2) }}</h3>
-                    <small class="text-muted">บาท</small>
+                    <small class="">บาท</small>
                 </div>
             </div>
         </div>
@@ -65,9 +65,9 @@
         <div class="col-md-3">
             <div class="card border-info">
                 <div class="card-body text-center">
-                    <h6 class="text-muted mb-2">📅 ยอดขายปีนี้</h6>
+                    <h6 class=" mb-2">📅 ยอดขายปีนี้</h6>
                     <h3 class="text-info mb-0">{{ number_format($salesThisYear, 2) }}</h3>
-                    <small class="text-muted">บาท</small>
+                    <small class="">บาท</small>
                 </div>
             </div>
         </div>
@@ -76,11 +76,11 @@
         <div class="col-md-3">
             <div class="card border-{{ $netProfit >= 0 ? 'success' : 'danger' }}">
                 <div class="card-body text-center">
-                    <h6 class="text-muted mb-2">💰 กำไรสุทธิ (ช่วงที่เลือก)</h6>
+                    <h6 class=" mb-2">💰 กำไรสุทธิ (ช่วงที่เลือก)</h6>
                     <h3 class="text-{{ $netProfit >= 0 ? 'success' : 'danger' }} mb-0">
                         {{ number_format($netProfit, 2) }}
                     </h3>
-                    <small class="text-muted">บาท</small>
+                    <small class="">บาท</small>
                 </div>
             </div>
         </div>
@@ -88,7 +88,7 @@
 
     {{-- รายละเอียดการคำนวณกำไร --}}
     <div class="card mb-4">
-        <div class="card-header bg-light">
+        <div class="card-header ">
             <h5 class="mb-0">📋 รายละเอียดการคำนวณกำไรสุทธิ ({{ $startDate }} ถึง {{ $endDate }})</h5>
         </div>
         <div class="card-body">

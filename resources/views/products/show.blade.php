@@ -3,120 +3,558 @@
 
 @section('content')
 <style>
-    .btn { padding: 6px 12px; font-size: 14px; text-decoration: none; border-radius: 4px; color: white; }
-    .btn-edit { background-color: #007bff; }
-    .btn-delete { background-color: #dc3545; }
-    .btn-toggle { background-color: #6c757d; }
-    .btn-image { background-color: #17a2b8; }
-    .btn-add { background-color: #28a745; }
-    .btn-bar { background-color: #0d6efd; }
+    /* Product ID Header - เด่นๆ กลางบนสุด */
+    .product-id-header {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.05));
+        border: 2px solid var(--gold);
+        border-radius: 15px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        box-shadow: 0 10px 40px rgba(255, 215, 0, 0.3);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .product-id-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255, 215, 0, 0.1), transparent);
+        animation: rotate 10s linear infinite;
+    }
+    
+    @keyframes rotate {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .product-id-label {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .product-id-value {
+        color: var(--gold);
+        font-size: 3rem;
+        font-weight: 700;
+        text-shadow: 0 0 30px rgba(255, 215, 0, 0.6),
+                     0 0 50px rgba(255, 215, 0, 0.4),
+                     0 0 70px rgba(255, 215, 0, 0.2);
+        letter-spacing: 3px;
+        position: relative;
+        z-index: 1;
+        animation: glow-pulse 3s infinite;
+    }
+    
+    @keyframes glow-pulse {
+        0%, 100% { 
+            text-shadow: 0 0 30px rgba(255, 215, 0, 0.6),
+                         0 0 50px rgba(255, 215, 0, 0.4),
+                         0 0 70px rgba(255, 215, 0, 0.2);
+        }
+        50% { 
+            text-shadow: 0 0 40px rgba(255, 215, 0, 0.8),
+                         0 0 60px rgba(255, 215, 0, 0.6),
+                         0 0 80px rgba(255, 215, 0, 0.4);
+        }
+    }
+    
+    /* Container with Action Buttons on Top Right */
+    .product-info-container {
+        position: relative;
+        background: linear-gradient(145deg, var(--dark-secondary), var(--dark-tertiary));
+        border-radius: 12px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        border: 1px solid rgba(255, 215, 0, 0.2);
+    }
+    
+    /* Action Buttons - มุมขวาบน */
+    .action-buttons-top {
+        position: absolute;
+        top: 1.5rem;
+        right: 1.5rem;
+        display: flex;
+        gap: 0.5rem;
+        z-index: 10;
+    }
+    
+    .btn-custom {
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+    
+    .btn-toggle-active {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
+        color: var(--gold);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+    }
+    
+    .btn-toggle-active:hover {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.2));
+        box-shadow: 0 3px 15px rgba(255, 215, 0, 0.3);
+        color: var(--gold);
+    }
+    
+    .btn-toggle-inactive {
+        background: linear-gradient(135deg, rgba(75, 181, 67, 0.2), rgba(75, 181, 67, 0.1));
+        color: #4bb543;
+        border: 1px solid rgba(75, 181, 67, 0.3);
+    }
+    
+    .btn-toggle-inactive:hover {
+        background: linear-gradient(135deg, rgba(75, 181, 67, 0.3), rgba(75, 181, 67, 0.2));
+        box-shadow: 0 3px 15px rgba(75, 181, 67, 0.3);
+        color: #4bb543;
+    }
+    
+    .btn-delete {
+        background: linear-gradient(135deg, rgba(255, 54, 196, 0.2), rgba(255, 54, 196, 0.1));
+        color: var(--neon-pink);
+        border: 1px solid rgba(255, 54, 196, 0.3);
+    }
+    
+    .btn-delete:hover:not(:disabled) {
+        background: linear-gradient(135deg, rgba(255, 54, 196, 0.3), rgba(255, 54, 196, 0.2));
+        box-shadow: 0 3px 15px rgba(255, 54, 196, 0.3);
+        color: var(--neon-pink);
+    }
+    
+    .btn-delete:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: rgba(50, 50, 50, 0.3);
+        color: rgba(204, 204, 204, 0.5);
+        border-color: rgba(100, 100, 100, 0.3);
+    }
+    
+    /* Product Info Table */
+    .product-info-table {
+        width: 100%;
+        margin-top: 0;
+        border-collapse: collapse;
+        color: var(--text-primary);
+    }
+    
+    .product-info-table th {
+        background: rgba(255, 215, 0, 0.1);
+        color: var(--gold);
+        font-weight: 600;
+        padding: 1rem;
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        text-align: left;
+        width: 200px;
+        vertical-align: top;
+    }
+    
+    .product-info-table td {
+        padding: 1rem;
+        border: 1px solid rgba(255, 215, 0, 0.2);
+        color: var(--text-primary);
+        vertical-align: top;
+    }
+    
+    .product-info-table th i {
+        margin-right: 0.5rem;
+        width: 20px;
+        text-align: center;
+    }
+    
+    /* Product Image */
+    .product-main-image {
+        border-radius: 12px;
+        border: 3px solid rgba(255, 215, 0, 0.3);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    .no-image-placeholder {
+        width: 300px;
+        height: 250px;
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05));
+        border: 2px dashed rgba(255, 215, 0, 0.3);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 1rem;
+        color: var(--text-secondary);
+    }
+    
+    .no-image-placeholder i {
+        font-size: 3rem;
+        color: var(--gold);
+        opacity: 0.5;
+    }
+    
+    /* Buttons in Table */
+    .btn-edit-info {
+        background: linear-gradient(135deg, rgba(95, 237, 255, 0.2), rgba(95, 237, 255, 0.1));
+        color: var(--neon-blue);
+        border: 1px solid rgba(95, 237, 255, 0.3);
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+    }
+    
+    .btn-edit-info:hover {
+        background: linear-gradient(135deg, rgba(95, 237, 255, 0.3), rgba(95, 237, 255, 0.2));
+        box-shadow: 0 3px 15px rgba(95, 237, 255, 0.3);
+        color: var(--neon-blue);
+    }
+    
+    .btn-edit-image {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
+        color: var(--gold);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+        margin-top: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-edit-image:hover {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.2));
+        box-shadow: 0 3px 15px rgba(255, 215, 0, 0.3);
+        color: var(--gold);
+    }
+    
+    /* Tags */
+    .tag-badge {
+        display: inline-block;
+        padding: 0.4rem 0.9rem;
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05));
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        border-radius: 20px;
+        color: var(--gold);
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* Price & Stock Badge */
+    .price-badge {
+        display: inline-block;
+        padding: 0.5rem 1rem;
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
+        border: 1px solid rgba(255, 215, 0, 0.4);
+        border-radius: 20px;
+        color: var(--gold);
+        font-weight: 600;
+        font-size: 1rem;
+        box-shadow: 0 3px 10px rgba(255, 215, 0, 0.2);
+    }
+    
+    .stock-badge {
+        display: inline-block;
+        padding: 0.4rem 0.9rem;
+        background: linear-gradient(135deg, rgba(95, 237, 255, 0.2), rgba(95, 237, 255, 0.1));
+        border: 1px solid rgba(95, 237, 255, 0.4);
+        border-radius: 20px;
+        color: var(--neon-blue);
+        font-weight: 600;
+        box-shadow: 0 3px 10px rgba(95, 237, 255, 0.2);
+    }
+    
+    /* Section Header */
+    .section-header {
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent);
+        border-left: 4px solid var(--gold);
+        padding: 1rem 1.5rem;
+        margin: 2rem 0 1.5rem 0;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .section-header h3 {
+        color: var(--gold);
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+    }
+    
+    /* Alert Info */
+    .stock-info-alert {
+        background: linear-gradient(90deg, rgba(95, 237, 255, 0.1), transparent);
+        border-left: 4px solid var(--neon-blue);
+        color: var(--neon-blue);
+        padding: 1rem 1.5rem;
+        border-radius: 6px;
+        margin-bottom: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    /* Warning for orders */
+    .delete-warning {
+        background: linear-gradient(90deg, rgba(255, 54, 196, 0.1), transparent);
+        border-left: 4px solid var(--neon-pink);
+        color: var(--neon-pink);
+        padding: 1rem 1.5rem;
+        border-radius: 6px;
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Modal Styling */
+    .modal-content {
+        background: var(--dark-secondary);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        color: var(--text-primary);
+    }
+    
+    .modal-header {
+        border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+        background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent);
+    }
+    
+    .modal-title {
+        color: var(--gold);
+    }
+    
+    .modal-footer {
+        border-top: 1px solid rgba(255, 215, 0, 0.2);
+    }
+    
+    .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .product-id-value {
+            font-size: 2rem;
+        }
+        
+        .action-buttons-top {
+            position: relative;
+            top: auto;
+            right: auto;
+            flex-direction: column;
+            margin-bottom: 1rem;
+        }
+        
+        .product-info-table th,
+        .product-info-table td {
+            display: block;
+            width: 100%;
+        }
+    }
 </style>
 
-<main class="container">
-    <table>
-        <thead>
-            <tr>
-                <th>รหัสสินค้า</th>
-                <td colspan="4">{{ $product->id_stock }}</td>
-                <td>
-                    <div class="action-buttons">
-                        <form action="{{ route('products.toggle', $product->id) }}" method="POST" style="display: inline-block;">
-                            @csrf
-                            <button type="submit" class="btn btn-sm {{ $product->is_active ? 'btn-warning' : 'btn-success' }}">
-                                {{ $product->is_active ? 'ปิดการแสดง' : 'เปิดการแสดง' }}
-                            </button>
-                        </form>
-                        <form action="{{ route('products.destroy', $product->id) }}" method="POST" onsubmit="return confirm('ต้องการลบใช่ไหม?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger">ลบ</button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <th>รูป</th>
-                <td colspan="5">
-    @php
-        // ดึงรูปหลัก หรือรูปแรกถ้าไม่มีรูปหลัก
-        $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
-    @endphp
-
-    @if ($mainImage)
-        <img src="{{ asset('storage/' . $mainImage->image_url) }}" alt="{{ $product->name }}" width="300" height="250" style="object-fit: cover; border-radius: 8px;">
-    @else
-        <div class="text-muted p-4 border rounded bg-light text-center" style="width: 300px; height: 250px; display: flex; align-items: center; justify-content: center;">
-            <p class="mb-0">ไม่มีรูปภาพสินค้า</p>
+<div class="container-fluid fade-in">
+    <!-- Product ID Header - เด่นๆ กลางบนสุด -->
+    <div class="product-id-header">
+        <div class="product-id-label">
+            <i class="fas fa-barcode"></i> รหัสสินค้า
         </div>
-    @endif
-
-    <div class="mt-3">
-        {{-- ✅ แก้ไขตรงนี้: เปลี่ยนจาก .edit เป็น .index --}}
-        <a href="{{ route('product_images.index', $product->id) }}" class="btn btn-info text-white">
-            <i class="fas fa-images"></i> แก้ไขรูปภาพ
-        </a>
+        <div class="product-id-value">{{ $product->id_stock }}</div>
     </div>
-</td>
-            </tr>
-            <tr>
-                <th>ชื่อสินค้า</th>
-                <td colspan="5">
-                    {{ $product->name }}
-                    <a href="{{ route('products.edit', $product->id) }}" class="btn btn-edit">แก้ไขข้อความ</a>
-                </td>
-            </tr>
-            <tr>
-                <th>หมวดสินค้า</th>
-                <td colspan="5">{{ $product->category->category_name ?: 'ไม่ระบุ' }}</td>
-            </tr>
-            <tr>
-                <th>คำอธิบาย</th>
-                <td colspan="5">{!! nl2br(e($product->description)) !!}</td>
-            </tr>
-            <tr>
-                <th>แท็กสินค้า</th>
-                <td>
-                    @foreach ($product->tags as $tag)
-                        <span class="badge">{{ $tag->tag_name }}</span>
-                    @endforeach
-                </td>
-            </tr>
-            <tr>
-                <th>ราคา</th>
-                <td colspan="5">{{ number_format($product->price) }} ฿</td>
-            </tr>
-            <tr>
-                <th>ต้นทุน</th>
-                <td colspan="5">{{ number_format($product->cost) }} ฿</td>
-            </tr>
-            <tr>
-                <th>จำนวนสินค้า</th>
-                <td colspan="5">{{ number_format($product->colorSizes->sum('quantity')) }} ตัว</td>
-            </tr>
-        </tbody>
-    </table>
 
-    <div class="container">
-        <h3>สินค้าตามสีและขนาด</h3>
-
-        <div class="alert alert-info d-flex justify-content-between align-items-center">
-            <div>
-                <i class="fas fa-info-circle"></i>
-                สถานะที่จะนับเป็น "กำลังจับสต๊อค": <strong>{{ implode(', ', $openStatuses) }}</strong>
-            </div>
-            <div class="d-flex gap-2">
-                <a href="{{ route('product.colorSize.create', ['product' => $product->id]) }}" class="btn btn-add">
-                    <i class="fas fa-plus"></i> เพิ่มสี/ขนาดใหม่
-                </a>
-                <button type="button" class="btn btn-bar" data-bs-toggle="modal" data-bs-target="#barcodeModal">
-                    <i class="fas fa-barcode"></i> พิมพ์บาร์โค้ด
+    <!-- Product Information with Action Buttons on Top Right -->
+    <div class="product-info-container fade-in delay-1">
+        <!-- Action Buttons - มุมขวาบน -->
+        <div class="action-buttons-top">
+            <!-- ปิด/เปิดการแสดง -->
+            <form action="{{ route('products.toggle', $product->id) }}" method="POST">
+                @csrf
+                <button type="submit" class="btn btn-custom {{ $product->is_active ? 'btn-toggle-active' : 'btn-toggle-inactive' }}">
+                    <i class="fas {{ $product->is_active ? 'fa-eye-slash' : 'fa-eye' }}"></i>
+                    {{ $product->is_active ? 'ปิด' : 'เปิด' }}
                 </button>
-            </div>
+            </form>
+
+            <!-- ลบสินค้า -->
+            @php
+                $hasActiveOrders = isset($holdsRows) && collect($holdsRows)->whereIn('status', ['pending', 'processing'])->isNotEmpty();
+            @endphp
+            
+            <form action="{{ route('products.destroy', $product->id) }}" 
+                  method="POST" 
+                  onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้? การกระทำนี้ไม่สามารถย้อนกลับได้!')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" 
+                        class="btn btn-custom btn-delete" 
+                        {{ $hasActiveOrders ? 'disabled' : '' }}>
+                    <i class="fas fa-trash-alt"></i> ลบ
+                </button>
+            </form>
         </div>
 
-        @foreach($variantsByColor as $colorName => $rows)
+        <!-- Product Info Table -->
+        <table class="product-info-table">
+            <tbody>
+                <!-- รูปภาพ -->
+                <tr>
+                    <th>
+                        <i class="fas fa-image"></i>
+                        รูปภาพสินค้า
+                    </th>
+                    <td>
+                        @php
+                            $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
+                        @endphp
+
+                        @if ($mainImage)
+                            <img src="{{ asset('storage/' . $mainImage->image_url) }}" 
+                                 alt="{{ $product->name }}" 
+                                 width="300" 
+                                 height="250" 
+                                 class="product-main-image">
+                        @else
+                            <div class="no-image-placeholder">
+                                <i class="fas fa-image"></i>
+                                <p class="mb-0">ไม่มีรูปภาพสินค้า</p>
+                            </div>
+                        @endif
+                        
+                        <div>
+                            <a href="{{ route('product_images.index', $product->id) }}" class="btn btn-custom btn-edit-image">
+                                <i class="fas fa-images"></i> แก้ไขรูปภาพ
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+
+                <!-- ชื่อสินค้า -->
+                <tr>
+                    <th>
+                        <i class="fas fa-tag"></i>
+                        ชื่อสินค้า
+                    </th>
+                    <td>
+                        {{ $product->name }}
+                        <a href="{{ route('products.edit', $product->id) }}" class="btn btn-custom btn-edit-info ms-2">
+                            <i class="fas fa-edit"></i> แก้ไข
+                        </a>
+                    </td>
+                </tr>
+
+                <!-- หมวดสินค้า -->
+                <tr>
+                    <th>
+                        <i class="fas fa-folder"></i>
+                        หมวดสินค้า
+                    </th>
+                    <td>
+                        {{ $product->category->category_name ?: 'ไม่ระบุ' }}
+                    </td>
+                </tr>
+
+                <!-- คำอธิบาย -->
+                <tr>
+                    <th>
+                        <i class="fas fa-align-left"></i>
+                        คำอธิบาย
+                    </th>
+                    <td>
+                        {!! nl2br(e($product->description)) !!}
+                    </td>
+                </tr>
+
+                <!-- แท็กสินค้า -->
+                <tr>
+                    <th>
+                        <i class="fas fa-tags"></i>
+                        แท็กสินค้า
+                    </th>
+                    <td>
+                        @forelse ($product->tags as $tag)
+                            <span class="tag-badge">{{ $tag->tag_name }}</span>
+                        @empty
+                            <span class="">ไม่มีแท็ก</span>
+                        @endforelse
+                    </td>
+                </tr>
+
+                <!-- ราคา -->
+                <tr>
+                    <th>
+                        <i class="fas fa-money-bill-wave"></i>
+                        ราคา
+                    </th>
+                    <td>
+                        <span class="price-badge">{{ number_format($product->price, 2) }} ฿</span>
+                    </td>
+                </tr>
+
+                <!-- ต้นทุน -->
+                <tr>
+                    <th>
+                        <i class="fas fa-calculator"></i>
+                        ต้นทุน
+                    </th>
+                    <td>
+                        <span class="price-badge">{{ number_format($product->cost, 2) }} ฿</span>
+                    </td>
+                </tr>
+
+                <!-- จำนวนสินค้า -->
+                <tr>
+                    <th>
+                        <i class="fas fa-boxes"></i>
+                        จำนวนสินค้าทั้งหมด
+                    </th>
+                    <td>
+                        <span class="stock-badge">{{ number_format($product->colorSizes->sum('quantity')) }} ตัว</span>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        @if($hasActiveOrders)
+        <div class="delete-warning">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>ไม่สามารถลบสินค้าได้ เนื่องจากมีออเดอร์ที่กำลังดำเนินการอยู่ (pending, processing)</span>
+        </div>
+        @endif
+    </div>
+
+    <!-- Color & Size Section -->
+    <div class="section-header fade-in delay-2">
+        <h3><i class="fas fa-palette me-2"></i>สินค้าตามสีและขนาด</h3>
+    </div>
+
+    <div class="stock-info-alert fade-in delay-3">
+        <div>
+            <i class="fas fa-info-circle me-2"></i>
+            สถานะที่จะนับเป็น "กำลังจับสต๊อค": <strong>{{ implode(', ', $openStatuses) }}</strong>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ route('product.colorSize.create', ['product' => $product->id]) }}" class="btn btn-custom btn-edit-image">
+                <i class="fas fa-plus"></i> เพิ่มสี/ขนาดใหม่
+            </a>
+            <button type="button" class="btn btn-custom btn-edit-info" data-bs-toggle="modal" data-bs-target="#barcodeModal">
+                <i class="fas fa-barcode"></i> พิมพ์บาร์โค้ด
+            </button>
+        </div>
+    </div>
+
+     @foreach($variantsByColor as $colorName => $rows)
         <div class="card mb-3">
             <div class="card-header">
                 <strong>สี: {{ $colorName ?: 'ไม่ระบุสี' }}</strong>
@@ -186,7 +624,7 @@
 
                             @if($rows->isEmpty())
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted">ไม่มีข้อมูลสี/ไซส์</td>
+                                    <td colspan="5" class="text-center ">ไม่มีข้อมูลสี/ไซส์</td>
                                 </tr>
                             @endif
                         </tbody>
@@ -195,18 +633,21 @@
             </div>
         </div>
         @endforeach
+   
+</div>
 
- <div class="modal fade" id="holdModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg"> <div class="modal-content">
+<!-- Modal: ตรวจสอบออเดอร์ -->
+<div class="modal fade" id="holdModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
             <div class="modal-header">
-                {{-- ID: holdModalTitle ต้องมีอยู่ตรงนี้ --}}
                 <h5 class="modal-title" id="holdModalTitle">ตรวจสอบออเดอร์</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="table-light">
+                    <table class="table table-hover">
+                        <thead>
                             <tr>
                                 <th>วันที่</th>
                                 <th>เลขออเดอร์</th>
@@ -216,14 +657,12 @@
                                 <th class="text-center">ดู</th>
                             </tr>
                         </thead>
-                        {{-- ID: holdTableBody ต้องมีอยู่ตรงนี้ (JS จะยัดข้อมูลลงตรงนี้) --}}
                         <tbody id="holdTableBody">
                             <tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>
                         </tbody>
                         <tfoot>
-                            <tr class="table-light fw-bold">
+                            <tr class="fw-bold">
                                 <td colspan="4" class="text-end">รวมกำลังจับทั้งหมด:</td>
-                                {{-- ID: holdTotalSum ต้องมีอยู่ตรงนี้ --}}
                                 <td class="text-center text-danger" id="holdTotalSum">-</td>
                                 <td>ชิ้น</td>
                             </tr>
@@ -238,60 +677,54 @@
     </div>
 </div>
 
-        {{-- Modal: พิมพ์บาร์โค้ด --}}
-        <div class="modal fade" id="barcodeModal" tabindex="-1" aria-labelledby="barcodeModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form action="{{ route('products.printBarcode') }}" method="POST" target="_blank">
-                        @csrf
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="barcodeModalLabel">พิมพ์บาร์โค้ดสินค้า</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
-                        </div>
-                        <div class="modal-body">
-                            <input type="hidden" name="product_id" value="{{ $product->id }}">
-                            <div class="mb-2">
-                                <select name="variant_id" class="form-select" required>
-                                    <option value="">-- เลือกสี-ไซส์ --</option>
-                                    @foreach($variantsByColor as $cName => $rows)
-                                        @foreach($rows as $v)
-                                            @php
-                                                $variantId = (int)($v->variant_id ?? $v->id);
-                                                $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
-                                            @endphp
-                                            <option value="{{ $variantId }}">
-                                                {{ ($cName ?: 'ไม่ระบุสี') }} - {{ $sizeLabel }}
-                                            </option>
-                                        @endforeach
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="mb-2">
-                                <input type="number" name="quantity" class="form-control" min="1" value="1" required placeholder="จำนวนที่ต้องการพิมพ์">
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-barcode"></i> พิมพ์บาร์โค้ด
-                            </button>
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
-                        </div>
-                    </form>
+<!-- Modal: พิมพ์บาร์โค้ด -->
+<div class="modal fade" id="barcodeModal" tabindex="-1" aria-labelledby="barcodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('products.printBarcode') }}" method="POST" target="_blank">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="barcodeModalLabel">พิมพ์บาร์โค้ดสินค้า</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
                 </div>
-            </div>
+                <div class="modal-body">
+                    <input type="hidden" name="product_id" value="{{ $product->id }}">
+                    <div class="mb-3">
+                        <label class="form-label">เลือกสี-ไซส์</label>
+                        <select name="variant_id" class="form-select" required>
+                            <option value="">-- เลือกสี-ไซส์ --</option>
+                            @foreach($variantsByColor as $cName => $rows)
+                                @foreach($rows as $v)
+                                    @php
+                                        $variantId = (int)($v->variant_id ?? $v->id);
+                                        $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
+                                    @endphp
+                                    <option value="{{ $variantId }}">
+                                        {{ ($cName ?: 'ไม่ระบุสี') }} - {{ $sizeLabel }}
+                                    </option>
+                                @endforeach
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">จำนวนที่ต้องการพิมพ์</label>
+                        <input type="number" name="quantity" class="form-control" min="1" value="1" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-barcode"></i> พิมพ์บาร์โค้ด
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+                </div>
+            </form>
         </div>
     </div>
+</div>
 
-    {{-- holds data for modal --}}
-    <script type="application/json" id="holds-json">
-        @json($holdsRows, JSON_UNESCAPED_UNICODE)
-    </script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // ฟังก์ชันเปิด Modal และดึงข้อมูล (เหมือนหน้า Sales)
-    // ฟังก์ชันนี้ต้องหน้าตาประมาณนี้ครับ
+    // ฟังก์ชันเปิด Modal และดึงข้อมูล
     async function openHoldModal(variantId, color, size) {
-        // 1. ตั้งชื่อหัวข้อ Modal
         document.getElementById('holdModalTitle').textContent = `ออเดอร์ที่กำลังจับอยู่: {{ $product->name }} (${color} / ${size})`;
         
         const tbody = document.getElementById('holdTableBody');
@@ -300,22 +733,19 @@
         tbody.innerHTML = '<tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>';
         sumEl.textContent = '-';
 
-        // เปิด Modal
         new bootstrap.Modal(document.getElementById('holdModal')).show();
 
         try {
-            // 2. เรียก API ที่เราเพิ่งสร้างในขั้นตอนที่ 1-2
             const res = await fetch(`/products/api/check-stock?variant_id=${variantId}`);
             const data = await res.json();
 
-            tbody.innerHTML = ''; // เคลียร์ของเก่า
+            tbody.innerHTML = '';
 
             if (!data.holds || data.holds.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">ไม่มีออเดอร์ที่จับสินค้านี้อยู่</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center ">ไม่มีออเดอร์ที่จับสินค้านี้อยู่</td></tr>';
                 sumEl.textContent = '0';
             } else {
                 let sum = 0;
-                // 3. วนลูปแสดงข้อมูล
                 data.holds.forEach(row => {
                     sum += parseInt(row.quantity);
                     const tr = document.createElement('tr');

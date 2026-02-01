@@ -50,8 +50,13 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware(['auth'])->group(function () {
 
     // ✅ Dashboard (ทุกคน)
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    
+   Route::prefix('reports')->name('reports.')->group(function () {
+    Route::get('/', [ReportController::class, 'index'])->name('index');
+});
+    // ✅ Dashboard (ทุกคน)
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::resource('users', UserController::class);
+
     // API สำหรับตรวจสอบสต็อก (ทุกคนใช้ได้)
     Route::get('/stock/api/holds/{variantId}', [ProductController::class, 'getHoldsApi'])->name('stock.api.holds');
     Route::get('/products/api/check-stock', [ProductController::class, 'apiCheckStock'])->name('products.api.check_stock');
@@ -75,7 +80,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
         Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 
-        Route::resource('users', UserController::class);
+        // ✅ Admin เท่านั้นที่สามารถ: สร้าง, ดูทั้งหมด, ลบ
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+        Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         
         Route::get('/api/product/{id}/colors', [ProductColorSizeController::class, 'getColors'])->name('api.product.colors');
         Route::get('/api/product/{id}/sizes', [ProductColorSizeController::class, 'getSizes'])->name('api.product.sizes');
@@ -83,6 +92,19 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/api/global-search', [ProductController::class, 'globalSearch'])->name('api.global.search');
     });
 
+    // =========================================================
+    // 👤 แก้ไขข้อมูลผู้ใช้ (ทุกคน แต่มีเงื่อนไข)
+    // =========================================================
+    // ✅ ใช้ middleware แบบกำหนดเอง
+    /*
+    Route::get('/users/{user}/edit', [UserController::class, 'edit'])
+        ->name('users.edit')
+        ->middleware('check.user.edit');
+        
+    Route::put('/users/{user}', [UserController::class, 'update'])
+        ->name('users.update')
+        ->middleware('check.user.edit');
+*/
     // =========================================================
     // 🛒 Sales Management (Admin + Sales)
     // =========================================================

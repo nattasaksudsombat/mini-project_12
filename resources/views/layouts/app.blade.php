@@ -642,27 +642,74 @@
                 padding: 20px 15px;
             }
         }
+        :root {
+            --bg-dark: #121212;         /* พื้นหลังหลัก */
+            --bg-card: #1e1e1e;         /* พื้นหลังการ์ด */
+            --border-gold: #d4af37;     /* สีทองหลัก */
+            --text-primary: #e0e0e0;    /* สีข้อความหลัก */
+            --text-secondary: #aaaaaa;  /* สีข้อความรอง */
+            --gold-glow: 0 0 10px rgba(212, 175, 55, 0.3); /* แสงสีทอง */
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Kanit', sans-serif;
+        }
+
+        /* ปรับแต่ง Card ทุกใบในเว็บ */
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-gold);
+            color: var(--text-primary);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header {
+            background-color: rgba(212, 175, 55, 0.1); /* สีทองจางๆ */
+            border-bottom: 1px solid var(--border-gold);
+            color: var(--border-gold);
+            font-weight: bold;
+        }
+
+        /* ปรับแต่ง Navbar */
+        .navbar-dark.bg-dark {
+            background-color: #000000 !important;
+            border-bottom: 2px solid var(--border-gold);
+        }
+
+        /* ปรับแต่ง Table */
+        .table {
+            color: var(--text-primary);
+            border-color: #444;
+        }
+        .table thead th {
+            color: var(--border-gold);
+            border-bottom: 2px solid var(--border-gold);
+        }
     </style>
 
 
 <body>
 
     {{-- Navbar --}}
-    
+    {{-- (ถ้ามี Navbar กลาง ใส่ตรงนี้ได้ แต่ถ้าแยกไปใส่แต่ละหน้าแล้วก็ปล่อยว่างไว้) --}}
 
     <div class="container-fluid">
         <div class="row">
-            {{-- Sidebar --}}
-            @include('layouts.sidebar')
+            {{-- ✅ แก้ไข 1: ครอบ Sidebar ด้วย @auth เพื่อให้แสดงเฉพาะตอนล็อกอินแล้ว --}}
+            @auth
+                @include('layouts.sidebar')
+            @endauth
 
-            {{-- Main Content --}}
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            {{-- ✅ แก้ไข 2: ปรับความกว้างอัตโนมัติ --}}
+            {{-- ถ้าล็อกอินแล้ว (มี sidebar) ให้ใช้ col-md-9 --}}
+            {{-- ถ้าเป็น Guest (หน้า Login) ให้ใช้ col-12 เต็มจอ --}}
+            <main class="{{ auth()->check() ? 'col-md-9 ms-sm-auto col-lg-10' : 'col-12' }} px-md-4 py-4">
                 @yield('content')
             </main>
         </div>
     </div>
-
-
 
     <footer class="footer mt-auto">
         <div class="container">
@@ -672,12 +719,10 @@
             </span>
         </div>
     </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 

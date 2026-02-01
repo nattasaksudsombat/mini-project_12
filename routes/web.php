@@ -50,8 +50,11 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware(['auth'])->group(function () {
 
     // ✅ Dashboard (ทุกคน)
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    
+   Route::prefix('reports')->name('reports.')->group(function () {
+    Route::get('/', [ReportController::class, 'index'])->name('index');
+});
+    // ✅ Dashboard (ทุกคน)
+Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::resource('users', UserController::class);
 
     // API สำหรับตรวจสอบสต็อก (ทุกคนใช้ได้)
@@ -166,6 +169,9 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('products/{product}/color-size')->name('product.colorSize.')->group(function () {
             Route::get('/create', [ProductColorSizeController::class, 'create'])->name('create');
             Route::post('/', [ProductColorSizeController::class, 'store'])->name('store');
+            Route::get('/{variant}/edit', [ProductColorSizeController::class, 'edit'])->name('edit');
+            Route::put('/{variant}', [ProductColorSizeController::class, 'update'])->name('update');
+            Route::delete('/{variant}', [ProductColorSizeController::class, 'destroy'])->name('destroy');
         });
 
         // ปรับสต็อก (เฉพาะ Stock/Admin)

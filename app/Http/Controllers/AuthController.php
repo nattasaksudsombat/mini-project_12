@@ -26,15 +26,15 @@ class AuthController extends Controller
 
         $credentials = $request->only('username', 'password');
 
-        if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
+       if (Auth::attempt($credentials, $request->filled('remember'))) {
+        $request->session()->regenerate();
 
             // เช็คสิทธิ์เพื่อส่งไปหน้าต่างกัน (Option)
             if (Auth::user()->role === 'admin') {
-                return redirect()->intended('dashboard');
+                return redirect()->route('reports.index');
             }
 
-            return redirect()->intended('dashboard');
+            return redirect()->route('reports.index');
         }
 
         return back()->withErrors([

@@ -3,33 +3,13 @@
 
 @section('content')
 <style>
-    .btn {
-        padding: 6px 12px;
-        font-size: 14px;
-        text-decoration: none;
-        border-radius: 4px;
-        color: white;
-    }
-
-    .btn-edit {
-        background-color: #007bff;
-    }
-
-    .btn-delete {
-        background-color: #dc3545;
-    }
-
-    .btn-toggle {
-        background-color: #6c757d;
-    }
-
-    .btn-image {
-        background-color: #17a2b8;
-    }
-
-    .btn-add {
-        background-color: #28a745;
-    }
+    .btn { padding: 6px 12px; font-size: 14px; text-decoration: none; border-radius: 4px; color: white; }
+    .btn-edit { background-color: #007bff; }
+    .btn-delete { background-color: #dc3545; }
+    .btn-toggle { background-color: #6c757d; }
+    .btn-image { background-color: #17a2b8; }
+    .btn-add { background-color: #28a745; }
+    .btn-bar { background-color: #0d6efd; }
 </style>
 
 <main class="container">
@@ -59,16 +39,26 @@
             <tr>
                 <th>รูป</th>
                 <td colspan="5">
-                    @php
-                    $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
-                    @endphp
-                    @if ($mainImage)
-                    <img src="{{ asset('storage/' . $mainImage->image_url) }}" alt="{{ $product->name }}" width="300" height="250">
-                    @else
-                    <p>ไม่มีรูปภาพสินค้า</p>
-                    @endif
-                    <a href="{{ route('products.images.edit', $product->id) }}" class="btn btn-image">แก้ไขรูปภาพ</a>
-                </td>
+    @php
+        // ดึงรูปหลัก หรือรูปแรกถ้าไม่มีรูปหลัก
+        $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
+    @endphp
+
+    @if ($mainImage)
+        <img src="{{ asset('storage/' . $mainImage->image_url) }}" alt="{{ $product->name }}" width="300" height="250" style="object-fit: cover; border-radius: 8px;">
+    @else
+        <div class="text-muted p-4 border rounded bg-light text-center" style="width: 300px; height: 250px; display: flex; align-items: center; justify-content: center;">
+            <p class="mb-0">ไม่มีรูปภาพสินค้า</p>
+        </div>
+    @endif
+
+    <div class="mt-3">
+        {{-- ✅ แก้ไขตรงนี้: เปลี่ยนจาก .edit เป็น .index --}}
+        <a href="{{ route('product_images.index', $product->id) }}" class="btn btn-info text-white">
+            <i class="fas fa-images"></i> แก้ไขรูปภาพ
+        </a>
+    </div>
+</td>
             </tr>
             <tr>
                 <th>ชื่อสินค้า</th>
@@ -79,7 +69,7 @@
             </tr>
             <tr>
                 <th>หมวดสินค้า</th>
-                <td colspan="5">{{ $product->category->category_name?: 'ไม่ระบุ' }}</td>
+                <td colspan="5">{{ $product->category->category_name ?: 'ไม่ระบุ' }}</td>
             </tr>
             <tr>
                 <th>คำอธิบาย</th>
@@ -89,7 +79,7 @@
                 <th>แท็กสินค้า</th>
                 <td>
                     @foreach ($product->tags as $tag)
-                    <span class="badge">{{ $tag->tag_name }}</span>
+                        <span class="badge">{{ $tag->tag_name }}</span>
                     @endforeach
                 </td>
             </tr>
@@ -114,10 +104,10 @@
         <div class="alert alert-info d-flex justify-content-between align-items-center">
             <div>
                 <i class="fas fa-info-circle"></i>
-                สถานะที่จะนับเป็น "กำลังจับสต๊อก": <strong>{{ implode(', ', $openStatuses) }}</strong>
+                สถานะที่จะนับเป็น "กำลังจับสต๊อค": <strong>{{ implode(', ', $openStatuses) }}</strong>
             </div>
             <div class="d-flex gap-2">
-                <a href="{{ route('product.colorSize.create', ['product_id' => $product->id]) }}" class="btn btn-add">
+                <a href="{{ route('product.colorSize.create', ['product' => $product->id]) }}" class="btn btn-add">
                     <i class="fas fa-plus"></i> เพิ่มสี/ขนาดใหม่
                 </a>
                 <button type="button" class="btn btn-bar" data-bs-toggle="modal" data-bs-target="#barcodeModal">
@@ -137,7 +127,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th width="15%">ขนาด</th>
-                                <th width="12%" class="text-end">จำนวน (สต๊อก)</th>
+                                <th width="12%" class="text-end">จำนวน (สต๊อค)</th>
                                 <th width="12%" class="text-end">กำลังถูกจับ</th>
                                 <th width="12%" class="text-end">คงเหลือ</th>
                                 <th width="49%">จัดการ</th>
@@ -145,47 +135,59 @@
                         </thead>
                         <tbody>
                             @foreach($rows as $v)
-                            @php
-                            $currentStock = (int)$v->quantity;
-                            $reserved = (int)($reservedByVariantId[$v->id] ?? 0);
-                            $totalInWarehouse = (int)($totalInWarehouse[$v->id] ?? $currentStock);
-                            $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
-                            @endphp
-                            <tr>
-                                <td>{{ $sizeLabel }}</td>
-                                <td class="text-end">{{ number_format($currentStock) }}</td>
-                                <td class="text-end">
-                                    <span class="{{ $reserved > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">
-                                        {{ number_format($reserved) }}
-                                    </span>
-                                </td>
-                                <td class="text-end {{ $totalInWarehouse > 0 ? 'text-success fw-semibold' : 'text-muted' }}">
-                                    {{ number_format($totalInWarehouse) }}
-                                </td>
-                                <td>
-                                    <div class="d-flex flex-wrap gap-2">
-                                        <!-- {{-- เพิ่ม/แก้ไขจำนวน --}}
-                                        <a href="{{ route('product.colorSize.edit', (int)$v->id) }}" class="btn btn-sm btn-edit">
-                                            <i class="fas fa-plus-square"></i> เพิ่ม/แก้ไข
-                                        </a> -->
+                                @php
+                                    // รองรับได้ทั้ง 2 แหล่งข้อมูล:
+                                    // - มาจาก v_current_stock: มี current_stock, reserved_stock, available_stock, variant_id
+                                    // - มาจาก product_color_size เดิม: มี quantity และต้องอิง $reservedByVariantId
+                                    $variantId    = (int)($v->variant_id ?? $v->id);
+                                    $sizeLabel    = $v->size_name ?: 'ไม่ระบุไซส์';
 
-                                        {{-- ปรับสต็อก (ใช้ StockService) --}}
-                                        <a href="{{ route('stock.adjust.form', (int)$v->id) }}" class="btn btn-sm btn-warning" title="ปรับสต็อก">
-                                            <i class="fas fa-edit"></i> ปรับสต็อก
-                                        </a>
+                                    $currentStock = isset($v->current_stock) ? (int)$v->current_stock
+                                                   : (int)($v->quantity ?? 0);
 
-                                        {{-- ดูประวัติ --}}
-                                        <a href="{{ route('stock.variant.history', (int)$v->id) }}" class="btn btn-sm btn-info" title="ประวัติ">
-                                            <i class="fas fa-history"></i> ประวัติ
-                                        </a>
-                                    </div>
-                                </td>
-                            </tr>
+                                    $reserved     = isset($v->reserved_stock) ? (int)$v->reserved_stock
+                                                   : (int)($reservedByVariantId[$variantId] ?? 0);
+
+                                    // Golden Rule: available = current - reserved (fallback ป้องกันติดลบ)
+                                    $available    = isset($v->available_stock) ? (int)$v->available_stock
+                                                   : max(0, $currentStock - $reserved);
+                                @endphp
+                                <tr>
+                                    <td>{{ $sizeLabel }}</td>
+                                    <td class="text-end">{{ number_format($currentStock) }}</td>
+                                    <td class="text-end">
+                                        <span class="{{ $reserved > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">
+                                            {{ number_format($reserved) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">{{ number_format($available) }}</td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            {{-- ปรับสต็อค (ใช้ StockService) --}}
+                                            <a href="{{ route('stock.adjust.form', $variantId) }}" class="btn btn-sm btn-warning" title="ปรับสต็อค">
+                                                <i class="fas fa-edit"></i> ปรับสต็อค
+                                            </a>
+
+                                            {{-- ดูประวัติ --}}
+                                            <a href="{{ route('stock.variant.history', $variantId) }}" class="btn btn-sm btn-info" title="ประวัติ">
+                                                <i class="fas fa-history"></i> ประวัติ
+                                            </a>
+
+                                            {{-- ดูออเดอร์ที่กำลังจับ (Modal) --}}
+                                            <button type="button"
+                                                    class="btn btn-sm btn-toggle"
+                                                    onclick="openHoldModal({{ $variantId }}, '{{ e($colorName ?: '-') }}', '{{ e($sizeLabel) }}')">
+                                                กำลังจับ?
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
                             @endforeach
+
                             @if($rows->isEmpty())
-                            <tr>
-                                <td colspan="5" class="text-center text-muted">ไม่มีข้อมูลสี/ไซส์</td>
-                            </tr>
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">ไม่มีข้อมูลสี/ไซส์</td>
+                                </tr>
                             @endif
                         </tbody>
                     </table>
@@ -194,49 +196,47 @@
         </div>
         @endforeach
 
-        {{-- Modal: รายการออเดอร์ที่กำลังจับ --}}
-        <div class="modal fade" id="holdsModal" tabindex="-1" aria-labelledby="holdsModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="fas fa-clipboard-list"></i>
-                            ออเดอร์ที่กำลังจับอยู่: <span id="hold-title"></span>
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="ปิด"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="hold-empty" class="alert alert-info d-none">
-                            ไม่มีออเดอร์ที่กำลังจับอยู่สำหรับรายการนี้
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-striped" id="holds-table">
-                                <thead>
-                                    <tr>
-                                        <th>เลขออเดอร์</th>
-                                        <th>ลูกค้า</th>
-                                        <th>สถานะ</th>
-                                        <th class="text-end">จำนวน</th>
-                                        <th width="12%"></th>
-                                    </tr>
-                                </thead>
-                                <tbody></tbody>
-                                <tfoot>
-                                    <tr>
-                                        <th colspan="3" class="text-end">รวมกำลังจับ</th>
-                                        <th class="text-end" id="hold-total">0</th>
-                                        <th></th>
-                                    </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
-                    </div>
+ <div class="modal fade" id="holdModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg"> <div class="modal-content">
+            <div class="modal-header">
+                {{-- ID: holdModalTitle ต้องมีอยู่ตรงนี้ --}}
+                <h5 class="modal-title" id="holdModalTitle">ตรวจสอบออเดอร์</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>วันที่</th>
+                                <th>เลขออเดอร์</th>
+                                <th>ลูกค้า</th>
+                                <th class="text-center">สถานะ</th>
+                                <th class="text-center">จำนวน</th>
+                                <th class="text-center">ดู</th>
+                            </tr>
+                        </thead>
+                        {{-- ID: holdTableBody ต้องมีอยู่ตรงนี้ (JS จะยัดข้อมูลลงตรงนี้) --}}
+                        <tbody id="holdTableBody">
+                            <tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>
+                        </tbody>
+                        <tfoot>
+                            <tr class="table-light fw-bold">
+                                <td colspan="4" class="text-end">รวมกำลังจับทั้งหมด:</td>
+                                {{-- ID: holdTotalSum ต้องมีอยู่ตรงนี้ --}}
+                                <td class="text-center text-danger" id="holdTotalSum">-</td>
+                                <td>ชิ้น</td>
+                            </tr>
+                        </tfoot>
+                    </table>
                 </div>
             </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>
+            </div>
         </div>
+    </div>
+</div>
 
         {{-- Modal: พิมพ์บาร์โค้ด --}}
         <div class="modal fade" id="barcodeModal" tabindex="-1" aria-labelledby="barcodeModalLabel" aria-hidden="true">
@@ -254,11 +254,15 @@
                                 <select name="variant_id" class="form-select" required>
                                     <option value="">-- เลือกสี-ไซส์ --</option>
                                     @foreach($variantsByColor as $cName => $rows)
-                                    @foreach($rows as $v)
-                                    <option value="{{ (int)$v->id }}">
-                                        {{ ($cName ?: 'ไม่ระบุสี') }} - {{ $v->size_name ?: 'ไม่ระบุไซส์' }}
-                                    </option>
-                                    @endforeach
+                                        @foreach($rows as $v)
+                                            @php
+                                                $variantId = (int)($v->variant_id ?? $v->id);
+                                                $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
+                                            @endphp
+                                            <option value="{{ $variantId }}">
+                                                {{ ($cName ?: 'ไม่ระบุสี') }} - {{ $sizeLabel }}
+                                            </option>
+                                        @endforeach
                                     @endforeach
                                 </select>
                             </div>
@@ -278,71 +282,79 @@
         </div>
     </div>
 
+    {{-- holds data for modal --}}
     <script type="application/json" id="holds-json">
         @json($holdsRows, JSON_UNESCAPED_UNICODE)
     </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // ฟังก์ชันเปิด Modal และดึงข้อมูล (เหมือนหน้า Sales)
+    // ฟังก์ชันนี้ต้องหน้าตาประมาณนี้ครับ
+    async function openHoldModal(variantId, color, size) {
+        // 1. ตั้งชื่อหัวข้อ Modal
+        document.getElementById('holdModalTitle').textContent = `ออเดอร์ที่กำลังจับอยู่: {{ $product->name }} (${color} / ${size})`;
+        
+        const tbody = document.getElementById('holdTableBody');
+        const sumEl = document.getElementById('holdTotalSum');
+        
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>';
+        sumEl.textContent = '-';
 
-    <script>
-        (function() {
-            const holdsData = JSON.parse(document.getElementById('holds-json').textContent || '{}');
+        // เปิด Modal
+        new bootstrap.Modal(document.getElementById('holdModal')).show();
 
-            window.openHoldModal = function(variantId, colorName, sizeName) {
-                const title = `${colorName || '-'} - ${sizeName || '-'}`;
-                document.getElementById('hold-title').textContent = title;
+        try {
+            // 2. เรียก API ที่เราเพิ่งสร้างในขั้นตอนที่ 1-2
+            const res = await fetch(`/products/api/check-stock?variant_id=${variantId}`);
+            const data = await res.json();
 
-                const list = holdsData[String(variantId)] || [];
-                const tbody = document.querySelector('#holds-table tbody');
-                const empty = document.getElementById('hold-empty');
-                const sumEl = document.getElementById('hold-total');
-                tbody.innerHTML = '';
+            tbody.innerHTML = ''; // เคลียร์ของเก่า
+
+            if (!data.holds || data.holds.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">ไม่มีออเดอร์ที่จับสินค้านี้อยู่</td></tr>';
+                sumEl.textContent = '0';
+            } else {
                 let sum = 0;
-
-                if (!list.length) {
-                    empty.classList.remove('d-none');
-                    sumEl.textContent = '0';
-                } else {
-                    empty.classList.add('d-none');
-                    list.forEach(row => {
-                        sum += Number(row.quantity || 0);
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td><span class="badge bg-secondary">${escapeHtml(row.order_number ?? row.order_id ?? '-')}</span></td>
-                            <td>${escapeHtml(row.customer_name || '-')}</td>
-                            <td>${formatStatus(row.status)}</td>
-                            <td class="text-end">${Number(row.quantity||0).toLocaleString('th-TH')}</td>
-                            <td>
-                                <a href="/orders/${row.order_id}" class="btn btn-sm btn-outline-info">
-                                    <i class="fas fa-eye"></i> ดูออเดอร์
-                                </a>
-                            </td>`;
-                        tbody.appendChild(tr);
-                    });
-                    sumEl.textContent = sum.toLocaleString('th-TH');
-                }
-
-                const modal = new bootstrap.Modal(document.getElementById('holdsModal'));
-                modal.show();
-            };
-
-            function escapeHtml(x) {
-                if (typeof x !== 'string') return '';
-                return x.replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;')
-                    .replace(/"/g, '&quot;')
-                    .replace(/'/g, '&#039;');
+                // 3. วนลูปแสดงข้อมูล
+                data.holds.forEach(row => {
+                    sum += parseInt(row.quantity);
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row.created_at}</td>
+                        <td><a href="/orders/${row.order_id}" target="_blank">${escapeHtml(row.order_number)}</a></td>
+                        <td>${escapeHtml(row.customer_name)}</td>
+                        <td class="text-center">${formatStatus(row.status)}</td>
+                        <td class="text-center fw-bold text-danger">${parseInt(row.quantity).toLocaleString()}</td>
+                        <td class="text-center">
+                            <a href="/orders/${row.order_id}" class="btn btn-sm btn-outline-info" target="_blank">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                sumEl.textContent = sum.toLocaleString();
             }
+        } catch (err) {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger">เกิดข้อผิดพลาด: ${err.message}</td></tr>`;
+        }
+    }
 
-            function formatStatus(s) {
-                const map = {
-                    pending: '<span class="badge text-bg-warning">รอดำเนินการ</span>',
-                    processing: '<span class="badge text-bg-info">กำลังจัดการ</span>',
-                    shipped: '<span class="badge text-bg-primary">จัดส่งแล้ว</span>',
-                    delivered: '<span class="badge text-bg-success">ส่งสำเร็จ</span>',
-                    cancelled: '<span class="badge text-bg-danger">ยกเลิก</span>'
-                };
-                return map[s] || `<span class="badge text-bg-secondary">${escapeHtml(String(s||'-'))}</span>`;
-            }
-        })();
-    </script>
-    @endsection
+    function escapeHtml(text) {
+        if (!text) return '-';
+        return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function formatStatus(status) {
+        const map = {
+            'pending': '<span class="badge bg-warning text-dark">รอดำเนินการ</span>',
+            'processing': '<span class="badge bg-info text-dark">กำลังเตรียม</span>',
+            'shipped': '<span class="badge bg-primary">จัดส่งแล้ว</span>',
+            'delivered': '<span class="badge bg-success">สำเร็จ</span>',
+            'cancelled': '<span class="badge bg-danger">ยกเลิก</span>'
+        };
+        return map[status] || `<span class="badge bg-secondary">${status}</span>`;
+    }
+</script>
+@endsection
