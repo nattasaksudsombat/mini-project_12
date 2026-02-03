@@ -50,29 +50,30 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware(['auth'])->group(function () {
 
     // ✅ Dashboard (ทุกคน)
-   Route::prefix('reports')->name('reports.')->group(function () {
-    Route::get('/', [ReportController::class, 'index'])->name('index');
-});
-    // ✅ Dashboard (ทุกคน)
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/', [ReportController::class, 'index'])->name('index');
+    });
+    
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::resource('users', UserController::class);
 
     // API สำหรับตรวจสอบสต็อก (ทุกคนใช้ได้)
     Route::get('/stock/api/holds/{variantId}', [ProductController::class, 'getHoldsApi'])->name('stock.api.holds');
     Route::get('/products/api/check-stock', [ProductController::class, 'apiCheckStock'])->name('products.api.check_stock');
     Route::get('/products/api/search-order', [ProductController::class, 'searchApi'])->name('products.api.search');
+    
     Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('/', [ReportController::class, 'index'])->name('index');
-            Route::get('/charts', [ReportController::class, 'charts'])->name('charts');
-            Route::get('/financial', [ReportController::class, 'financial'])->name('financial');
-            Route::get('/export/financial', [ReportController::class, 'exportFinancial'])->name('export.financial');
-            Route::get('/api/customers/{customer}/addresses', function (\App\Models\Customer $customer) {
-                return response()->json($customer->addresses);
-            })->name('api.customer.addresses');
-        });
+        Route::get('/', [ReportController::class, 'index'])->name('index');
+        Route::get('/charts', [ReportController::class, 'charts'])->name('charts');
+        Route::get('/financial', [ReportController::class, 'financial'])->name('financial');
+        Route::get('/export/financial', [ReportController::class, 'exportFinancial'])->name('export.financial');
+        Route::get('/api/customers/{customer}/addresses', function (\App\Models\Customer $customer) {
+            return response()->json($customer->addresses);
+        })->name('api.customer.addresses');
+    });
 
     // =========================================================
-    // 👑 Admin ONLY
+    // 🔑 Admin ONLY
     // =========================================================
     Route::middleware(['role:admin'])->group(function () {
         Route::resource('incomes', IncomeController::class);
@@ -92,19 +93,6 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
         Route::get('/api/global-search', [ProductController::class, 'globalSearch'])->name('api.global.search');
     });
 
-    // =========================================================
-    // 👤 แก้ไขข้อมูลผู้ใช้ (ทุกคน แต่มีเงื่อนไข)
-    // =========================================================
-    // ✅ ใช้ middleware แบบกำหนดเอง
-    /*
-    Route::get('/users/{user}/edit', [UserController::class, 'edit'])
-        ->name('users.edit')
-        ->middleware('check.user.edit');
-        
-    Route::put('/users/{user}', [UserController::class, 'update'])
-        ->name('users.update')
-        ->middleware('check.user.edit');
-*/
     // =========================================================
     // 🛒 Sales Management (Admin + Sales)
     // =========================================================
@@ -144,10 +132,10 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
     // ⚠️ ต้องอยู่ก่อน Public Products Routes
     // =========================================================
     Route::middleware(['role:admin,stock'])->group(function () {
-
+        
         // ✅ CRUD สินค้า - ใช้ resource แต่ exclude index และ show
         Route::resource('products', ProductController::class)->except(['index', 'show']);
-
+        
         // ฟังก์ชันเสริมสินค้า
         Route::controller(ProductController::class)->group(function () {
             Route::get('/export-products', 'export')->name('export.products');
@@ -156,7 +144,7 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
             Route::post('/products/print-barcode', 'printBarcode')->name('products.printBarcode');
         });
 
-        // รูปภาพสินค้า
+        // ✅ รูปภาพสินค้า - แก้ไข Route ให้ถูกต้อง
         Route::prefix('products/{product}/images')->name('product_images.')->group(function () {
             Route::get('/', [ProductImageController::class, 'index'])->name('index');
             Route::post('/', [ProductImageController::class, 'store'])->name('store');
@@ -214,4 +202,4 @@ Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard
         Route::get('/orders', 'index')->name('orders.index');
         Route::get('/orders/{order}', 'show')->name('orders.show');
     });
-});
+}); 

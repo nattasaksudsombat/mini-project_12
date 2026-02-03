@@ -1,6 +1,76 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+    /* ========== ปรับแต่งตารางสินค้าให้เข้ากับธีมดำ-ทอง ========== */
+    
+    /* ตารางสินค้า - พื้นหลังสีเดียวตลอด (ไม่สลับสี) */
+    .table-bordered {
+        background-color: #1e1e1e !important;
+        border-color: rgba(212, 175, 55, 0.3) !important;
+    }
+    
+    /* หัวตาราง */
+    .table-light th {
+        background-color: rgba(212, 175, 55, 0.15) !important;
+        color: #d4af37 !important;
+        border-color: rgba(212, 175, 55, 0.3) !important;
+        font-weight: 600;
+    }
+    
+    /* ลบสีสลับ - ให้ทุก row เป็นสีเดียวกัน */
+    .table-striped tbody tr {
+        background-color: #1e1e1e !important;
+    }
+    
+    /* เซลล์ในตาราง */
+    .table-bordered td,
+    .table-bordered th {
+        color: #e0e0e0 !important;
+        border-color: rgba(212, 175, 55, 0.2) !important;
+    }
+    
+    /* แถว tfoot - ยอดรวมต่างๆ */
+    .table tfoot tr {
+        background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(18, 18, 18, 0.95)) !important;
+        border-top: 2px solid rgba(212, 175, 55, 0.5) !important;
+    }
+    
+    .table tfoot th {
+        color: #e0e0e0 !important;
+        font-weight: 500;
+        padding: 0.8rem !important;
+    }
+    
+    /* แถวยอดรวมทั้งหมด - ทำให้โดดเด่น */
+    .table tfoot tr.table-primary {
+        background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(255, 215, 0, 0.15)) !important;
+        border-top: 2px solid #d4af37 !important;
+        border-bottom: 2px solid #d4af37 !important;
+    }
+    
+    .table tfoot tr.table-primary th {
+        color: #FFD700 !important;
+        font-weight: 700;
+        font-size: 1.1rem;
+        padding: 1rem !important;
+    }
+    
+    .table tfoot tr.table-primary .text-success {
+        color: #FFD700 !important;
+        text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+    }
+    
+    /* ปรับแต่งข้อความในตาราง */
+    .table tbody td strong {
+        color: #f8f8f8 !important;
+    }
+    
+    .table tbody td .text-muted {
+        color: #aaaaaa !important;
+    }
+</style>
+
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>คำสั่งซื้อ #{{ $order->order_number ?? $order->id }}</h1>
@@ -58,7 +128,7 @@
                 </div>
 <div class="col-md-12 mb-3">
     <p class="mb-1"><strong>ที่อยู่จัดส่ง:</strong></p>
-    <div class="p-3 bg-light border rounded">
+    <div class="p-3  border rounded">
         @php
             $showAddress = '- ไม่ระบุ -';
 
@@ -84,11 +154,11 @@
                         ($addr->province ? 'จ.'.$addr->province : '') . ' ' . 
                         $addr->postal_code;
                 
-                $showAddress = $text . " <span class='text-muted small'>(ที่อยู่ลูกค้าปัจจุบัน)</span>";
+                $showAddress = $text . " <span class=' small'>(ที่อยู่ลูกค้าปัจจุบัน)</span>";
             }
         @endphp
 
-        <span class="text-dark">{!! $showAddress !!}</span>
+        <span class="">{!! $showAddress !!}</span>
     </div>
 </div>
             </div>
@@ -175,26 +245,26 @@
                             <th>รหัสสินค้า</th>
                             <th>สี-ไซส์</th>
                             <th>จำนวน</th>
-                            <th>ราคาต่อหน่วย</th>
-                            <th>รวม</th>
+                            <th>ราคา/หน่วย</th>
+                            <th>ยอดรวม</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($order->orderItems as $item)
                         <tr>
-                            <td>{{ $item->product_name }}</td>
-                            <td>{{ $item->product->id_stock ?? '-' }}</td>
-                            <td>{{ $item->variant_name ?? '-' }}</td>
+                            <td><strong>{{ $item->product_name }}</strong></td>
+                            <td class="text-muted">{{ $item->product_sku ?? '-' }}</td>
+                            <td>{{ $item->variant_name }}</td>
                             <td>{{ $item->quantity }}</td>
-                            <td>฿{{ number_format($item->unit_price, 2) }}</td>
-                            <td>฿{{ number_format($item->total_price, 2) }}</td>
+                            <td>฿{{ number_format($item->price, 2) }}</td>
+                            <td>฿{{ number_format($item->price * $item->quantity, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
-                    <tfoot class="table-light">
+                    <tfoot>
                         <tr>
                             <th colspan="5" class="text-end">ยอดรวมสินค้า:</th>
-                            <th>฿{{ number_format($order->subtotal, 2) }}</th>
+                            <th>฿{{ number_format($order->orderItems->sum(fn($i) => $i->price * $i->quantity), 2) }}</th>
                         </tr>
                         <tr>
                             <th colspan="5" class="text-end">ค่าจัดส่ง:</th>
@@ -204,7 +274,7 @@
                             <th colspan="5" class="text-end">ส่วนลด:</th>
                             <th>฿{{ number_format($order->discount, 2) }}</th>
                         </tr>
-                        <tr class="table-primary">
+                        <tr class="">
                             <th colspan="5" class="text-end h5">ยอดรวมทั้งหมด:</th>
                             <th class="h5 text-success">฿{{ number_format($order->total_price, 2) }}</th>
                         </tr>

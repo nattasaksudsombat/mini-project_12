@@ -42,7 +42,11 @@ class OrderItem extends Model
      * Indicates if the model should be timestamped.
      */
     public $timestamps = true;
-
+public function productColorSize()
+    {
+        // เชื่อมโยงกับตาราง product_color_sizes ผ่านคอลัมน์ product_color_size_id
+        return $this->belongsTo(ProductColorSize::class, 'product_color_size_id');
+    }
     /**
      * Get the order that owns the order item.
      */

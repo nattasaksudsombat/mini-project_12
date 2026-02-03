@@ -1,11 +1,218 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+    /* ปรับแต่งตารางให้เข้ากับธีมดำ-ทอง */
+    .table {
+        background-color: #1e1e1e !important;
+        /* พื้นหลังตารางสีเดียว */
+        color: #e0e0e0 !important;
+        /* ข้อความสีสว่าง */
+        border-color: rgba(212, 175, 55, 0.3) !important;
+    }
+
+    /* ลบสลับสี - ใช้สีเดียวทั้งหมด */
+    .table tbody tr {
+        background-color: #1e1e1e !important;
+        /* สีเดียวกันทุก row */
+        border-bottom: 1px solid rgba(212, 175, 55, 0.1) !important;
+    }
+
+    /* ลบ hover effect */
+    .table tbody tr:hover {
+        background-color: #1e1e1e !important;
+        /* คงสีเดิม ไม่เปลี่ยน */
+    }
+
+    /* หัวตาราง */
+    .table thead th {
+        background-color: rgba(212, 175, 55, 0.15) !important;
+        color: #d4af37 !important;
+        /* สีทอง */
+        border-bottom: 2px solid #d4af37 !important;
+        font-weight: 600;
+    }
+
+    /* ข้อความในตาราง - เปลี่ยนจากสีดำเป็นสีสว่าง */
+    .table tbody td {
+        color: #e0e0e0 !important;
+        /* ข้อความสีสว่าง */
+        vertical-align: middle;
+    }
+
+    /* ข้อความ strong ในตาราง */
+    .table tbody td strong {
+        color: #f8f8f8 !important;
+        /* สีขาวอมเทา */
+    }
+
+    /* ข้อความ text-muted */
+    .table tbody td .text,
+    .table tbody td small.text {
+        color: #aaaaaa !important;
+        /* สีเทาอ่อน ไม่ใช่สีดำ */
+    }
+
+    /* ข้อความ text-success */
+    .table tbody td .text-success {
+        color: #75b798 !important;
+        /* สีเขียวอ่อน */
+    }
+
+    /* ข้อความ text-primary */
+    .table tbody td .text-primary {
+        color: #5fedff !important;
+        /* สีน้ำเงินนีออน */
+    }
+
+    /* ปรับแต่ง Badge ให้ชัดเจน */
+    .table tbody td .badge {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.7rem;
+    }
+
+    /* ========== ปรับแต่งปุ่มให้เข้ากับธีมดำ-ทอง ========== */
+
+    /* ปุ่ม Info (ดูรายละเอียด) */
+    .btn-info {
+        background: linear-gradient(135deg, #5fedff, #3a9aa8) !important;
+        border: 1px solid #5fedff !important;
+        color: #000 !important;
+        box-shadow: 0 0 10px rgba(95, 237, 255, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .btn-info:hover {
+        background: linear-gradient(135deg, #3a9aa8, #5fedff) !important;
+        box-shadow: 0 0 15px rgba(95, 237, 255, 0.5);
+        transform: translateY(-2px);
+    }
+
+    /* ปุ่ม Warning (แก้ไข) */
+    .btn-warning {
+        background: linear-gradient(135deg, #FFD700, #e6c300) !important;
+        border: 1px solid #FFD700 !important;
+        color: #000 !important;
+        box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .btn-warning:hover {
+        background: linear-gradient(135deg, #e6c300, #FFD700) !important;
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        transform: translateY(-2px);
+    }
+
+    /* ปุ่ม Success (ชำระเงิน) */
+    .btn-success {
+        background: linear-gradient(135deg, #28a745, #1e7e34) !important;
+        border: 1px solid #28a745 !important;
+        color: #fff !important;
+        box-shadow: 0 0 10px rgba(40, 167, 69, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .btn-success:hover {
+        background: linear-gradient(135deg, #1e7e34, #28a745) !important;
+        box-shadow: 0 0 15px rgba(40, 167, 69, 0.5);
+        transform: translateY(-2px);
+    }
+
+    /* ปุ่ม Primary (Tracking) */
+    .btn-primary {
+        background: linear-gradient(135deg, #007bff, #0056b3) !important;
+        border: 1px solid #007bff !important;
+        color: #fff !important;
+        box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(135deg, #0056b3, #007bff) !important;
+        box-shadow: 0 0 15px rgba(0, 123, 255, 0.5);
+        transform: translateY(-2px);
+    }
+
+    /* ปรับแต่ง btn-group */
+    .btn-group .btn {
+        margin: 0 2px;
+    }
+
+    .btn-sm {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.875rem;
+    }
+
+    /* สร้าง Class ใหม่สำหรับช่องค้นหานี้ */
+    .search-custom {
+        background-color: #e8c862 ;
+        /* สีเขียว (ตามที่คุณพยายามใส่) */
+        color: #ffffff;
+        /* สีข้อความเวลาพิมพ์ (สีขาว) */
+        border: 1px solid #d4af37 ;
+    }
+
+    /* ✅ คำสั่งปรับสี Placeholder โดยเฉพาะ */
+    .search-custom::placeholder {
+        color: #e0e0e0 !important;
+        /* สีขาวควันบุหรี่ (สว่างขึ้น) */
+        opacity: 1;
+        /* บังคับให้สีชัด */
+    }
+
+    /* ตอนเอาเมาส์คลิก (Focus) */
+    .search-custom:focus {
+        background-color: #d4af37 ;
+        color: #ffffff;
+        box-shadow: 0 0 0 0.2rem #d4af37 ;
+    }
+     .pagination {
+        margin-bottom: 0;
+        gap: 0.5rem;
+    }
+    
+    .pagination .page-item .page-link {
+        background: rgba(30, 30, 30, 0.6);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        color: var(--text-secondary);
+        padding: 0.6rem 1rem;
+        border-radius: 6px;
+        transition: all 0.3s ease;
+        font-weight: 500;
+        margin: 0;
+    }
+    
+    .pagination .page-item .page-link:hover {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
+        border-color: var(--gold);
+        color: var(--gold);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+    }
+    
+    .pagination .page-item.active .page-link {
+        background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+        border-color: var(--gold);
+        color: var(--dark-bg);
+        font-weight: 700;
+        box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        transform: scale(1.1);
+    }
+    
+    .pagination .page-item.disabled .page-link {
+        background: rgba(30, 30, 30, 0.3);
+        border-color: rgba(255, 215, 0, 0.1);
+        color: rgba(204, 204, 204, 0.3);
+        cursor: not-allowed;
+    }
+    
+</style>
+
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1>จัดการออเดอร์</h1>
-            <p class="text-muted mb-0">ระบบจัดการคำสั่งซื้อทั้งหมด</p>
+            <p class=" mb-0">ระบบจัดการคำสั่งซื้อทั้งหมด</p>
         </div>
         <div class="d-flex gap-2">
             @if(auth()->user()->role !== 'stock')
@@ -13,7 +220,7 @@
                 <i class="fas fa-users"></i> จัดการลูกค้า
             </a>
             {{-- ซ่อนปุ่มสร้างออเดอร์สำหรับยศ Stock --}}
-            
+
             <a href="{{ route('orders.create') }}" class="btn btn-success">
                 <i class="fas fa-plus"></i> สร้างออเดอร์ใหม่
             </a>
@@ -22,10 +229,10 @@
     </div>
 
     @if(session('success'))
-        <div class="alert alert-success alert-dismissible fade show">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+    <div class="alert alert-success alert-dismissible fade show">
+        {{ session('success') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
     @endif
 
     {{-- ฟอร์มค้นหา --}}
@@ -35,9 +242,11 @@
                 <div class="row g-3">
                     <div class="col-md-3">
                         <label class="form-label">ค้นหา</label>
-                        <input type="text" name="search" class="form-control" 
-                               placeholder="ชื่อลูกค้า หรือ เลขออเดอร์" 
-                               value="{{ request('search') }}">
+                        <input type="text"
+                            name="search"
+                            class="form-control search-custom"
+                            placeholder="ชื่อลูกค้า หรือ เลขออเดอร์"
+                            value="{{ request('search') }}">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">สถานะ</label>
@@ -80,7 +289,7 @@
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table">
                     <thead>
                         <tr>
                             <th>เลขออเดอร์</th>
@@ -103,7 +312,7 @@
                             <td>
                                 {{ $order->customer->name }}
                                 @if($order->customer->phone)
-                                <br><small class="text-muted">{{ $order->customer->phone }}</small>
+                                <br><small class="">{{ $order->customer->phone }}</small>
                                 @endif
                             </td>
                             <td>
@@ -118,12 +327,12 @@
                                     ($order->status == 'cancelled' ? 'danger' : 'secondary')))) 
                                 }}">
                                     @switch($order->status)
-                                        @case('pending') รอดำเนินการ @break
-                                        @case('processing') กำลังจัดการ @break
-                                        @case('shipped') จัดส่งแล้ว @break
-                                        @case('delivered') ส่งสำเร็จ @break
-                                        @case('cancelled') ยกเลิก @break
-                                        @default {{ $order->status }}
+                                    @case('pending') รอดำเนินการ @break
+                                    @case('processing') กำลังจัดการ @break
+                                    @case('shipped') จัดส่งแล้ว @break
+                                    @case('delivered') ส่งสำเร็จ @break
+                                    @case('cancelled') ยกเลิก @break
+                                    @default {{ $order->status }}
                                     @endswitch
                                 </span>
                             </td>
@@ -134,66 +343,70 @@
                             </td>
                             <td>
                                 @if($order->tracking_number)
-                                    <span class="text-primary fw-bold">{{ $order->tracking_number }}</span>
+                                <span class="text-primary fw-bold">{{ $order->tracking_number }}</span>
                                 @else
-                                    <span class="text-muted">-</span>
+                                <span class="">-</span>
                                 @endif
                             </td>
                             <td>
                                 @if($order->slip_image)
-                                    <a href="{{ asset('storage/' . $order->slip_image) }}" target="_blank" class="btn btn-sm btn-outline-success">
-                                        <i class="fas fa-receipt"></i> ดูสลิป
-                                    </a>
+                                <a href="{{ asset('storage/' . $order->slip_image) }}" target="_blank" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-receipt"></i> ดูสลิป
+                                </a>
                                 @else
-                                    <span class="text-muted">-</span>
+                                <span class="">-</span>
                                 @endif
                             </td>
                             <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
                             <td>
-                                <div class="btn-group btn-group-sm" role="group">
-                                    <a href="{{ route('orders.show', $order->id) }}" class="btn btn-info" title="ดูรายละเอียด">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                    {{-- ซ่อนปุ่มแก้ไขสำหรับยศ Stock --}}
+                                <div class="d-flex flex-column gap-2">
+                                    {{-- แถวแรก: ดูรายละเอียด + แก้ไข (สำหรับยศที่ไม่ใช่ Stock) --}}
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ route('orders.show', $order->id) }}" class="btn btn-info" title="ดูรายละเอียด">
+                                            <i class="fas fa-eye"></i> ดู
+                                        </a>
+                                        @if(auth()->user()->role !== 'stock')
+                                        <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-warning" title="แก้ไข">
+                                            <i class="fas fa-edit"></i> แก้ไข
+                                        </a>
+                                        @endif
+                                    </div>
+
+                                    {{-- แถวสอง: ปุ่มตามสถานะการชำระเงิน (เฉพาะยศที่ไม่ใช่ Stock) --}}
                                     @if(auth()->user()->role !== 'stock')
-                                    <a href="{{ route('orders.edit', $order->id) }}" class="btn btn-warning" title="แก้ไข">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    @endif
-                                </div>
-                                
-                                {{-- ซ่อนปุ่มชำระเงินและ Tracking สำหรับยศ Stock --}}
-                                @if(auth()->user()->role !== 'stock')
-                                    @if($order->payment_status === 'pending')
-                                    <button class="btn btn-success btn-sm btn-open-payment-modal" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#paymentModal" 
-                                            data-id="{{ $order->id }}"
-                                            data-order-number="{{ $order->order_number }}"
-                                            title="ชำระเงิน">
+                                    @if($order->payment_status !== 'paid')
+                                    {{-- ถ้ายังไม่ชำระ → แสดงเฉพาะปุ่มชำระเงิน --}}
+                                    <button type="button"
+                                        class="btn btn-success btn-sm btn-open-payment-modal w-100"
+                                        data-id="{{ $order->id }}"
+                                        data-order-number="{{ $order->order_number }}"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#paymentModal"
+                                        title="แนบสลิปชำระเงิน">
                                         <i class="fas fa-money-bill-wave"></i> ชำระเงิน
                                     </button>
-                                    @endif
-                                    
-                                    @if($order->payment_status === 'paid')
-                                    <button class="btn btn-primary btn-sm btn-open-tracking-modal" 
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#trackingModal" 
-                                            data-id="{{ $order->id }}"
-                                            data-order-number="{{ $order->order_number }}"
-                                            data-tracking="{{ $order->tracking_number ?? '' }}"
-                                            title="จัดการ Tracking">
-                                        <i class="fas fa-truck"></i> Tracking
+                                    @else
+                                    {{-- ถ้าชำระแล้ว → แสดงเฉพาะปุ่ม Tracking --}}
+                                    <button type="button"
+                                        class="btn btn-primary btn-sm btn-open-tracking-modal w-100"
+                                        data-id="{{ $order->id }}"
+                                        data-order-number="{{ $order->order_number }}"
+                                        data-tracking="{{ $order->tracking_number }}"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#trackingModal"
+                                        title="เพิ่ม/แก้ไข Tracking Number">
+                                        <i class="fas fa-truck"></i> เลขพัสดุ
                                     </button>
                                     @endif
-                                @endif
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="9" class="text-center py-4">
-                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                                <p class="text-muted">ไม่พบข้อมูลออเดอร์</p>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <p class="">ไม่พบข้อมูลออเดอร์</p>
                             </td>
                         </tr>
                         @endforelse
@@ -202,13 +415,13 @@
             </div>
 
             {{-- Pagination --}}
-            <div class="d-flex justify-content-center mt-4">
-                {{ $orders->appends(request()->query())->links() }}
+            <div class="pagination-container d-flex justify-content-center fade-in delay-4">
+                {{ $orders->links() }}
             </div>
         </div>
     </div>
 
-    {{-- สถิติสรุป --}}
+    {{-- Statistics Cards --}}
     @if($orders->count() > 0)
     <div class="row mt-4">
         <div class="col-md-3">
@@ -216,7 +429,7 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between">
                         <div>
-                            <h4>{{ $orders->total() }}</h4>
+                            <h4>{{ $orders->count() }}</h4>
                             <p class="mb-0">ออเดอร์ทั้งหมด</p>
                         </div>
                         <div>
@@ -247,9 +460,9 @@
                     <div class="d-flex justify-content-between">
                         <div>
                             @php
-                                $totalItems = $orders->sum(function($order) {
-                                    return $order->orderItems->sum('quantity');
-                                });
+                            $totalItems = $orders->sum(function($order) {
+                            return $order->orderItems->sum('quantity');
+                            });
                             @endphp
                             <h4>{{ $totalItems }}</h4>
                             <p class="mb-0">สินค้าที่ขาย</p>
@@ -291,7 +504,7 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="paymentModalLabel">
                         แนบสลิปชำระเงิน
-                        <span class="text-muted ms-2" id="payment-order-display"></span>
+                        <span class=" ms-2" id="payment-order-display"></span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -320,15 +533,15 @@
                 <div class="modal-header">
                     <h5 class="modal-title" id="trackingModalLabel">
                         เพิ่ม/แก้ไข Tracking Number
-                        <span class="text-muted ms-2" id="tracking-order-display"></span>
+                        <span class=" ms-2" id="tracking-order-display"></span>
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="tracking_number" class="form-label">Tracking Number</label>
-                        <input type="text" class="form-control" name="tracking_number" id="tracking_number" 
-                               placeholder="กรอกเลข Tracking">
+                        <input type="text" class="form-control" name="tracking_number" id="tracking_number"
+                            placeholder="กรอกเลข Tracking">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -344,43 +557,43 @@
 
 @push('scripts')
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Payment Modal
-    const paymentButtons = document.querySelectorAll('.btn-open-payment-modal');
-    const paymentForm = document.getElementById('payment-form');
-    const paymentOrderDisplay = document.getElementById('payment-order-display');
-    
-    if (paymentButtons.length > 0 && paymentForm) {
-        paymentButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const orderId = this.getAttribute('data-id');
-                const orderNumber = this.getAttribute('data-order-number');
-                
-                paymentForm.action = `/orders/${orderId}/pay`;
-                paymentOrderDisplay.textContent = `(${orderNumber})`;
+    document.addEventListener('DOMContentLoaded', function() {
+        // Payment Modal
+        const paymentButtons = document.querySelectorAll('.btn-open-payment-modal');
+        const paymentForm = document.getElementById('payment-form');
+        const paymentOrderDisplay = document.getElementById('payment-order-display');
+
+        if (paymentButtons.length > 0 && paymentForm) {
+            paymentButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const orderId = this.getAttribute('data-id');
+                    const orderNumber = this.getAttribute('data-order-number');
+
+                    paymentForm.action = `/orders/${orderId}/pay`;
+                    paymentOrderDisplay.textContent = `(${orderNumber})`;
+                });
             });
-        });
-    }
-    
-    // Tracking Modal
-    const trackingButtons = document.querySelectorAll('.btn-open-tracking-modal');
-    const trackingForm = document.getElementById('tracking-form');
-    const trackingOrderDisplay = document.getElementById('tracking-order-display');
-    const trackingNumberInput = document.getElementById('tracking_number');
-    
-    if (trackingButtons.length > 0 && trackingForm) {
-        trackingButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const orderId = this.getAttribute('data-id');
-                const orderNumber = this.getAttribute('data-order-number');
-                const currentTracking = this.getAttribute('data-tracking');
-                
-                trackingForm.action = `/orders/${orderId}/tracking`;
-                trackingOrderDisplay.textContent = `(${orderNumber})`;
-                trackingNumberInput.value = currentTracking || '';
+        }
+
+        // Tracking Modal
+        const trackingButtons = document.querySelectorAll('.btn-open-tracking-modal');
+        const trackingForm = document.getElementById('tracking-form');
+        const trackingOrderDisplay = document.getElementById('tracking-order-display');
+        const trackingNumberInput = document.getElementById('tracking_number');
+
+        if (trackingButtons.length > 0 && trackingForm) {
+            trackingButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const orderId = this.getAttribute('data-id');
+                    const orderNumber = this.getAttribute('data-order-number');
+                    const currentTracking = this.getAttribute('data-tracking');
+
+                    trackingForm.action = `/orders/${orderId}/tracking`;
+                    trackingOrderDisplay.textContent = `(${orderNumber})`;
+                    trackingNumberInput.value = currentTracking || '';
+                });
             });
-        });
-    }
-});
+        }
+    });
 </script>
 @endpush

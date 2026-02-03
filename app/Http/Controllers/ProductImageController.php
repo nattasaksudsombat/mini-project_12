@@ -28,41 +28,64 @@ class ProductImageController extends Controller
     }
 
     /**
-     * อัปโหลดรูปภาพใหม่ (Store)
+     * อัปโหลดรูปภาพใหม่ (Store) - รองรับหลายไฟล์
      */
-    public function store(Request $request, Product $product)
+    public function store(Request $request, $productId)
     {
-        if ($request->hasFile('images')) {
-            foreach ($request->file('images') as $file) {
-                // ตรวจสอบชนิดไฟล์
-                if (!in_array(strtolower($file->getClientOriginalExtension()), ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                    continue; 
-                }
+        $product = Product::findOrFail($productId);
 
-                $filename = $file->getClientOriginalName();
-
-                // ตรวจสอบไฟล์ซ้ำ
-                $isDuplicate = $product->productImages()
-                    ->where('image_url', 'like', '%product_images/' . $filename)
-                    ->exists();
-
-                if ($isDuplicate) continue;
-
-                // อัปโหลด
-                $path = $file->storeAs('product_images', $filename, 'public');
-
-                // ถ้ายังไม่มีรูปหลัก ให้รูปแรกเป็นรูปหลักอัตโนมัติ
-                $hasMain = $product->productImages()->where('is_main', true)->exists();
-
-                $product->productImages()->create([
-                    'image_url' => $path,
-                    'is_main' => !$hasMain 
-                ]);
-            }
-            return back()->with('success', 'อัปโหลดรูปภาพเรียบร้อยแล้ว');
+        // ตรวจสอบว่ามีไฟล์หรือไม่
+        if (!$request->hasFile('images')) {
+            return back()->with('error', 'กรุณาเลือกไฟล์รูปภาพ');
         }
 
-        return back()->with('error', 'กรุณาเลือกไฟล์รูปภาพ');
+        $uploadCount = 0;
+        $skipCount = 0;
+
+        foreach ($request->file('images') as $file) {
+            // ตรวจสอบชนิดไฟล์
+            $extension = strtolower($file->getClientOriginalExtension());
+            if (!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                $skipCount++;
+                continue; 
+            }
+
+            $filename = $file->getClientOriginalName();
+
+            // ตรวจสอบไฟล์ซ้ำ
+            $isDuplicate = $product->productImages()
+                ->where('image_url', 'like', '%product_images/' . $filename)
+                ->exists();
+
+            if ($isDuplicate) {
+                $skipCount++;
+                continue;
+            }
+
+            // อัปโหลด
+            $path = $file->storeAs('product_images', $filename, 'public');
+
+            // ถ้ายังไม่มีรูปหลัก ให้รูปแรกเป็นรูปหลักอัตโนมัติ
+            $hasMain = $product->productImages()->where('is_main', true)->exists();
+
+            $product->productImages()->create([
+                'image_url' => $path,
+                'is_main' => !$hasMain 
+            ]);
+
+            $uploadCount++;
+        }
+
+        // แจ้งผลลัพธ์
+        if ($uploadCount > 0) {
+            $message = "อัปโหลดรูปภาพสำเร็จ {$uploadCount} ไฟล์";
+            if ($skipCount > 0) {
+                $message .= " (ข้าม {$skipCount} ไฟล์)";
+            }
+            return back()->with('success', $message);
+        } else {
+            return back()->with('error', 'ไม่สามารถอัปโหลดไฟล์ได้ (ไฟล์ซ้ำหรือไม่ถูกต้อง)');
+        }
     }
 
     /**
@@ -86,33 +109,41 @@ class ProductImageController extends Controller
     /**
      * ลบรูปภาพ (Destroy)
      */
-    public function destroy($id)
+    public function destroy($productId, $imageId)
     {
-        $image = ProductImage::findOrFail($id);
+        try {
+            $image = ProductImage::findOrFail($imageId);
 
-        if ($image->image_url && Storage::disk('public')->exists($image->image_url)) {
-            Storage::disk('public')->delete($image->image_url);
+            // ลบไฟล์จาก Storage
+            if ($image->image_url && Storage::disk('public')->exists($image->image_url)) {
+                Storage::disk('public')->delete($image->image_url);
+            }
+
+            $image->delete();
+
+            return back()->with('success', 'ลบรูปภาพเรียบร้อยแล้ว');
+        } catch (\Exception $e) {
+            return back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
         }
-
-        $image->delete();
-
-        return back()->with('success', 'ลบรูปภาพเรียบร้อยแล้ว');
     }
 
     /**
      * ตั้งรูปนี้เป็นรูปหลัก (Set Main)
-     * (Route ต้องชี้มาที่นี่ ถ้าต้องการปุ่มตั้งรูปหลัก)
      */
     public function setMain($productId, $imageId)
     {
-        // Reset รูปทั้งหมดของสินค้านี้
-        ProductImage::where('product_id', $productId)->update(['is_main' => false]);
+        try {
+            // Reset รูปทั้งหมดของสินค้านี้
+            ProductImage::where('product_id', $productId)->update(['is_main' => false]);
 
-        // ตั้งรูปนี้เป็นรูปหลัก
-        $image = ProductImage::findOrFail($imageId);
-        $image->is_main = true;
-        $image->save();
+            // ตั้งรูปนี้เป็นรูปหลัก
+            $image = ProductImage::findOrFail($imageId);
+            $image->is_main = true;
+            $image->save();
 
-        return back()->with('success', 'ตั้งค่ารูปหลักเรียบร้อยแล้ว');
+            return back()->with('success', 'ตั้งค่ารูปหลักเรียบร้อยแล้ว');
+        } catch (\Exception $e) {
+            return back()->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
+        }
     }
 }

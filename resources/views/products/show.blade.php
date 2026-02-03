@@ -15,7 +15,7 @@
         position: relative;
         overflow: hidden;
     }
-    
+
     .product-id-header::before {
         content: '';
         position: absolute;
@@ -26,12 +26,17 @@
         background: radial-gradient(circle, rgba(255, 215, 0, 0.1), transparent);
         animation: rotate 10s linear infinite;
     }
-    
+
     @keyframes rotate {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
     }
-    
+
     .product-id-label {
         color: var(--text-secondary);
         font-size: 0.9rem;
@@ -41,33 +46,36 @@
         position: relative;
         z-index: 1;
     }
-    
+
     .product-id-value {
         color: var(--gold);
         font-size: 3rem;
         font-weight: 700;
         text-shadow: 0 0 30px rgba(255, 215, 0, 0.6),
-                     0 0 50px rgba(255, 215, 0, 0.4),
-                     0 0 70px rgba(255, 215, 0, 0.2);
+            0 0 50px rgba(255, 215, 0, 0.4),
+            0 0 70px rgba(255, 215, 0, 0.2);
         letter-spacing: 3px;
         position: relative;
         z-index: 1;
         animation: glow-pulse 3s infinite;
     }
-    
+
     @keyframes glow-pulse {
-        0%, 100% { 
+
+        0%,
+        100% {
             text-shadow: 0 0 30px rgba(255, 215, 0, 0.6),
-                         0 0 50px rgba(255, 215, 0, 0.4),
-                         0 0 70px rgba(255, 215, 0, 0.2);
+                0 0 50px rgba(255, 215, 0, 0.4),
+                0 0 70px rgba(255, 215, 0, 0.2);
         }
-        50% { 
+
+        50% {
             text-shadow: 0 0 40px rgba(255, 215, 0, 0.8),
-                         0 0 60px rgba(255, 215, 0, 0.6),
-                         0 0 80px rgba(255, 215, 0, 0.4);
+                0 0 60px rgba(255, 215, 0, 0.6),
+                0 0 80px rgba(255, 215, 0, 0.4);
         }
     }
-    
+
     /* Container with Action Buttons on Top Right */
     .product-info-container {
         position: relative;
@@ -78,7 +86,7 @@
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
         border: 1px solid rgba(255, 215, 0, 0.2);
     }
-    
+
     /* Action Buttons - มุมขวาบน */
     .action-buttons-top {
         position: absolute;
@@ -88,7 +96,7 @@
         gap: 0.5rem;
         z-index: 10;
     }
-    
+
     .btn-custom {
         padding: 0.5rem 1rem;
         border-radius: 6px;
@@ -100,43 +108,43 @@
         align-items: center;
         gap: 0.4rem;
     }
-    
+
     .btn-toggle-active {
         background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
         color: var(--gold);
         border: 1px solid rgba(255, 215, 0, 0.3);
     }
-    
+
     .btn-toggle-active:hover {
         background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.2));
         box-shadow: 0 3px 15px rgba(255, 215, 0, 0.3);
         color: var(--gold);
     }
-    
+
     .btn-toggle-inactive {
         background: linear-gradient(135deg, rgba(75, 181, 67, 0.2), rgba(75, 181, 67, 0.1));
         color: #4bb543;
         border: 1px solid rgba(75, 181, 67, 0.3);
     }
-    
+
     .btn-toggle-inactive:hover {
         background: linear-gradient(135deg, rgba(75, 181, 67, 0.3), rgba(75, 181, 67, 0.2));
         box-shadow: 0 3px 15px rgba(75, 181, 67, 0.3);
         color: #4bb543;
     }
-    
+
     .btn-delete {
         background: linear-gradient(135deg, rgba(255, 54, 196, 0.2), rgba(255, 54, 196, 0.1));
         color: var(--neon-pink);
         border: 1px solid rgba(255, 54, 196, 0.3);
     }
-    
+
     .btn-delete:hover:not(:disabled) {
         background: linear-gradient(135deg, rgba(255, 54, 196, 0.3), rgba(255, 54, 196, 0.2));
         box-shadow: 0 3px 15px rgba(255, 54, 196, 0.3);
         color: var(--neon-pink);
     }
-    
+
     .btn-delete:disabled {
         opacity: 0.5;
         cursor: not-allowed;
@@ -144,7 +152,47 @@
         color: rgba(204, 204, 204, 0.5);
         border-color: rgba(100, 100, 100, 0.3);
     }
-    
+
+    /* Disabled Warning Button */
+    .btn-warning:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        background: rgba(255, 193, 7, 0.3) !important;
+        color: rgba(255, 255, 255, 0.5) !important;
+        border-color: rgba(255, 193, 7, 0.3) !important;
+    }
+
+    .btn-warning:disabled:hover {
+        box-shadow: none !important;
+        transform: none !important;
+    }
+
+    /* Button Toggle with Danger State */
+    .btn-toggle.btn-danger {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.3), rgba(220, 53, 69, 0.2));
+        color: #dc3545;
+        border: 1px solid rgba(220, 53, 69, 0.4);
+        font-weight: 600;
+        animation: pulse-danger 2s infinite;
+    }
+
+    @keyframes pulse-danger {
+
+        0%,
+        100% {
+            box-shadow: 0 0 5px rgba(220, 53, 69, 0.4);
+        }
+
+        50% {
+            box-shadow: 0 0 15px rgba(220, 53, 69, 0.6);
+        }
+    }
+
+    .btn-toggle.btn-danger:hover {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.4), rgba(220, 53, 69, 0.3));
+        box-shadow: 0 3px 15px rgba(220, 53, 69, 0.5);
+    }
+
     /* Product Info Table */
     .product-info-table {
         width: 100%;
@@ -152,7 +200,7 @@
         border-collapse: collapse;
         color: var(--text-primary);
     }
-    
+
     .product-info-table th {
         background: rgba(255, 215, 0, 0.1);
         color: var(--gold);
@@ -163,27 +211,27 @@
         width: 200px;
         vertical-align: top;
     }
-    
+
     .product-info-table td {
         padding: 1rem;
         border: 1px solid rgba(255, 215, 0, 0.2);
         color: var(--text-primary);
         vertical-align: top;
     }
-    
+
     .product-info-table th i {
         margin-right: 0.5rem;
         width: 20px;
         text-align: center;
     }
-    
+
     /* Product Image */
     .product-main-image {
         border-radius: 12px;
         border: 3px solid rgba(255, 215, 0, 0.3);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
-    
+
     .no-image-placeholder {
         width: 300px;
         height: 250px;
@@ -197,13 +245,13 @@
         gap: 1rem;
         color: var(--text-secondary);
     }
-    
+
     .no-image-placeholder i {
         font-size: 3rem;
         color: var(--gold);
         opacity: 0.5;
     }
-    
+
     /* Buttons in Table */
     .btn-edit-info {
         background: linear-gradient(135deg, rgba(95, 237, 255, 0.2), rgba(95, 237, 255, 0.1));
@@ -212,13 +260,13 @@
         padding: 0.5rem 1rem;
         font-size: 0.85rem;
     }
-    
+
     .btn-edit-info:hover {
         background: linear-gradient(135deg, rgba(95, 237, 255, 0.3), rgba(95, 237, 255, 0.2));
         box-shadow: 0 3px 15px rgba(95, 237, 255, 0.3);
         color: var(--neon-blue);
     }
-    
+
     .btn-edit-image {
         background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
         color: var(--gold);
@@ -230,13 +278,13 @@
         align-items: center;
         gap: 0.5rem;
     }
-    
+
     .btn-edit-image:hover {
         background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.2));
         box-shadow: 0 3px 15px rgba(255, 215, 0, 0.3);
         color: var(--gold);
     }
-    
+
     /* Tags */
     .tag-badge {
         display: inline-block;
@@ -249,7 +297,7 @@
         margin-right: 0.5rem;
         margin-bottom: 0.5rem;
     }
-    
+
     /* Price & Stock Badge */
     .price-badge {
         display: inline-block;
@@ -262,7 +310,7 @@
         font-size: 1rem;
         box-shadow: 0 3px 10px rgba(255, 215, 0, 0.2);
     }
-    
+
     .stock-badge {
         display: inline-block;
         padding: 0.4rem 0.9rem;
@@ -273,7 +321,7 @@
         font-weight: 600;
         box-shadow: 0 3px 10px rgba(95, 237, 255, 0.2);
     }
-    
+
     /* Section Header */
     .section-header {
         background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent);
@@ -285,14 +333,14 @@
         justify-content: space-between;
         align-items: center;
     }
-    
+
     .section-header h3 {
         color: var(--gold);
         margin: 0;
         font-size: 1.5rem;
         font-weight: 600;
     }
-    
+
     /* Alert Info */
     .stock-info-alert {
         background: linear-gradient(90deg, rgba(95, 237, 255, 0.1), transparent);
@@ -305,7 +353,7 @@
         justify-content: space-between;
         align-items: center;
     }
-    
+
     /* Warning for orders */
     .delete-warning {
         background: linear-gradient(90deg, rgba(255, 54, 196, 0.1), transparent);
@@ -318,37 +366,37 @@
         align-items: center;
         gap: 0.5rem;
     }
-    
+
     /* Modal Styling */
     .modal-content {
         background: var(--dark-secondary);
         border: 1px solid rgba(255, 215, 0, 0.3);
         color: var(--text-primary);
     }
-    
+
     .modal-header {
         border-bottom: 1px solid rgba(255, 215, 0, 0.2);
         background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent);
     }
-    
+
     .modal-title {
         color: var(--gold);
     }
-    
+
     .modal-footer {
         border-top: 1px solid rgba(255, 215, 0, 0.2);
     }
-    
+
     .btn-close {
         filter: invert(1) grayscale(100%) brightness(200%);
     }
-    
+
     /* Responsive */
     @media (max-width: 768px) {
         .product-id-value {
             font-size: 2rem;
         }
-        
+
         .action-buttons-top {
             position: relative;
             top: auto;
@@ -356,12 +404,19 @@
             flex-direction: column;
             margin-bottom: 1rem;
         }
-        
+
         .product-info-table th,
         .product-info-table td {
             display: block;
             width: 100%;
         }
+        .btn:disabled, .btn[disabled] {
+        background-color: #6c757d !important; /* สีเทา */
+        border-color: #6c757d !important;
+        color: #fff !important;
+        opacity: 0.65;
+        cursor: not-allowed; /* เมาส์เป็นรูปห้าม */
+    }
     }
 </style>
 
@@ -387,22 +442,27 @@
                 </button>
             </form>
 
-            <!-- ลบสินค้า -->
-            @php
-                $hasActiveOrders = isset($holdsRows) && collect($holdsRows)->whereIn('status', ['pending', 'processing'])->isNotEmpty();
-            @endphp
-            
-            <form action="{{ route('products.destroy', $product->id) }}" 
-                  method="POST" 
-                  onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้? การกระทำนี้ไม่สามารถย้อนกลับได้!')">
-                @csrf
-                @method('DELETE')
-                <button type="submit" 
-                        class="btn btn-custom btn-delete" 
-                        {{ $hasActiveOrders ? 'disabled' : '' }}>
-                    <i class="fas fa-trash-alt"></i> ลบ
-                </button>
-            </form>
+
+
+<form action="{{ route('products.destroy', $product->id) }}" 
+      method="POST" 
+      style="display: inline-block;"
+      onsubmit="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบสินค้านี้?');">
+    @csrf
+    @method('DELETE')
+    
+   <button type="submit" 
+        class="btn btn-sm btn-delete" 
+        {{-- ✅ ใช้ isset เช็คก่อน เพื่อกัน Error Undefined variable --}}
+        {{ isset($hasActiveOrders) && $hasActiveOrders ? 'disabled' : '' }}
+        title="{{ isset($hasActiveOrders) && $hasActiveOrders ? 'มีออเดอร์ค้างอยู่' : 'ลบสินค้า' }}">
+    <i class="fas fa-trash-alt"></i> ลบ
+    
+    @if(isset($hasActiveOrders) && $hasActiveOrders)
+        <span class="badge bg-light text-dark ms-1">ติดจอง</span>
+    @endif
+</button>
+</form>
         </div>
 
         <!-- Product Info Table -->
@@ -416,22 +476,22 @@
                     </th>
                     <td>
                         @php
-                            $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
+                        $mainImage = $product->productImages->where('is_main', true)->first() ?? $product->productImages->first();
                         @endphp
 
                         @if ($mainImage)
-                            <img src="{{ asset('storage/' . $mainImage->image_url) }}" 
-                                 alt="{{ $product->name }}" 
-                                 width="300" 
-                                 height="250" 
-                                 class="product-main-image">
+                        <img src="{{ asset('storage/' . $mainImage->image_url) }}"
+                            alt="{{ $product->name }}"
+                            width="300"
+                            height="250"
+                            class="product-main-image">
                         @else
-                            <div class="no-image-placeholder">
-                                <i class="fas fa-image"></i>
-                                <p class="mb-0">ไม่มีรูปภาพสินค้า</p>
-                            </div>
+                        <div class="no-image-placeholder">
+                            <i class="fas fa-image"></i>
+                            <p class="mb-0">ไม่มีรูปภาพสินค้า</p>
+                        </div>
                         @endif
-                        
+
                         <div>
                             <a href="{{ route('product_images.index', $product->id) }}" class="btn btn-custom btn-edit-image">
                                 <i class="fas fa-images"></i> แก้ไขรูปภาพ
@@ -484,9 +544,9 @@
                     </th>
                     <td>
                         @forelse ($product->tags as $tag)
-                            <span class="tag-badge">{{ $tag->tag_name }}</span>
+                        <span class="tag-badge">{{ $tag->tag_name }}</span>
                         @empty
-                            <span class="">ไม่มีแท็ก</span>
+                        <span class="">ไม่มีแท็ก</span>
                         @endforelse
                     </td>
                 </tr>
@@ -554,86 +614,87 @@
         </div>
     </div>
 
-     @foreach($variantsByColor as $colorName => $rows)
-        <div class="card mb-3">
-            <div class="card-header">
-                <strong>สี: {{ $colorName ?: 'ไม่ระบุสี' }}</strong>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-bordered mb-0 align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th width="15%">ขนาด</th>
-                                <th width="12%" class="text-end">จำนวน (สต๊อค)</th>
-                                <th width="12%" class="text-end">กำลังถูกจับ</th>
-                                <th width="12%" class="text-end">คงเหลือ</th>
-                                <th width="49%">จัดการ</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($rows as $v)
-                                @php
-                                    // รองรับได้ทั้ง 2 แหล่งข้อมูล:
-                                    // - มาจาก v_current_stock: มี current_stock, reserved_stock, available_stock, variant_id
-                                    // - มาจาก product_color_size เดิม: มี quantity และต้องอิง $reservedByVariantId
-                                    $variantId    = (int)($v->variant_id ?? $v->id);
-                                    $sizeLabel    = $v->size_name ?: 'ไม่ระบุไซส์';
+    @foreach($variantsByColor as $colorName => $rows)
+    <div class="card mb-3">
+        <div class="card-header">
+            <strong>สี: {{ $colorName ?: 'ไม่ระบุสี' }}</strong>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-bordered mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="15%">ขนาด</th>
+                            <th width="12%" class="text-end">จำนวน (สต๊อค)</th>
+                            <th width="12%" class="text-end">กำลังถูกจับ</th>
+                            <th width="12%" class="text-end">คงเหลือ</th>
+                            <th width="49%">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($rows as $v)
+                        @php
+                        // รองรับได้ทั้ง 2 แหล่งข้อมูล:
+                        // - มาจาก v_current_stock: มี current_stock, reserved_stock, available_stock, variant_id
+                        // - มาจาก product_color_size เดิม: มี quantity และต้องอิง $reservedByVariantId
+                        $variantId = (int)($v->variant_id ?? $v->id);
+                        $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
 
-                                    $currentStock = isset($v->current_stock) ? (int)$v->current_stock
-                                                   : (int)($v->quantity ?? 0);
+                        $currentStock = isset($v->current_stock) ? (int)$v->current_stock
+                        : (int)($v->quantity ?? 0);
 
-                                    $reserved     = isset($v->reserved_stock) ? (int)$v->reserved_stock
-                                                   : (int)($reservedByVariantId[$variantId] ?? 0);
+                        $reserved = isset($v->reserved_stock) ? (int)$v->reserved_stock
+                        : (int)($reservedByVariantId[$variantId] ?? 0);
 
-                                    // Golden Rule: available = current - reserved (fallback ป้องกันติดลบ)
-                                    $available    = isset($v->available_stock) ? (int)$v->available_stock
-                                                   : max(0, $currentStock - $reserved);
-                                @endphp
-                                <tr>
-                                    <td>{{ $sizeLabel }}</td>
-                                    <td class="text-end">{{ number_format($currentStock) }}</td>
-                                    <td class="text-end">
-                                        <span class="{{ $reserved > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">
-                                            {{ number_format($reserved) }}
-                                        </span>
-                                    </td>
-                                    <td class="text-end">{{ number_format($available) }}</td>
-                                    <td>
-                                        <div class="d-flex flex-wrap gap-2">
-                                            {{-- ปรับสต็อค (ใช้ StockService) --}}
-                                            <a href="{{ route('stock.adjust.form', $variantId) }}" class="btn btn-sm btn-warning" title="ปรับสต็อค">
-                                                <i class="fas fa-edit"></i> ปรับสต็อค
-                                            </a>
+                        // Golden Rule: available = current - reserved (fallback ป้องกันติดลบ)
+                        $available = isset($v->available_stock) ? (int)$v->available_stock
+                        : max(0, $currentStock - $reserved);
+                        @endphp
+                        <tr>
+                            <td>{{ $sizeLabel }}</td>
+                            <td class="text-end">{{ number_format($currentStock) }}</td>
+                            <td class="text-end">
+                                <span class="{{ $reserved > 0 ? 'text-danger fw-semibold' : 'text' }}">
+                                    {{ number_format($reserved) }}
+                                </span>
+                            </td>
+                            <td class="text-end">{{ number_format($available) }}</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-2">
 
-                                            {{-- ดูประวัติ --}}
-                                            <a href="{{ route('stock.variant.history', $variantId) }}" class="btn btn-sm btn-info" title="ประวัติ">
-                                                <i class="fas fa-history"></i> ประวัติ
-                                            </a>
+                                    <a href="{{ route('stock.adjust.form', $variantId) }}" class="btn btn-sm btn-warning" title="ปรับสต็อค">
+                                        <i class="fas fa-edit"></i> ปรับสต็อค
+                                    </a>
 
-                                            {{-- ดูออเดอร์ที่กำลังจับ (Modal) --}}
-                                            <button type="button"
-                                                    class="btn btn-sm btn-toggle"
-                                                    onclick="openHoldModal({{ $variantId }}, '{{ e($colorName ?: '-') }}', '{{ e($sizeLabel) }}')">
-                                                กำลังจับ?
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforeach
 
-                            @if($rows->isEmpty())
-                                <tr>
-                                    <td colspan="5" class="text-center ">ไม่มีข้อมูลสี/ไซส์</td>
-                                </tr>
-                            @endif
-                        </tbody>
-                    </table>
-                </div>
+                                    {{-- ดูประวัติ (ใช้งานได้เสมอ) --}}
+                                    <a href="{{ route('stock.variant.history', $variantId) }}" class="btn btn-sm btn-info" title="ประวัติ">
+                                        <i class="fas fa-history"></i> ประวัติ
+                                    </a>
+
+                                    {{-- ดูออเดอร์ที่กำลังจับ (Modal) --}}
+                                    <button type="button"
+                                        class="btn btn-sm btn-toggle {{ $reserved > 0 ? 'btn-danger' : '' }}"
+                                        onclick="openHoldModal({{ $variantId }}, '{{ e($colorName ?: '-') }}', '{{ e($sizeLabel) }}')">
+                                        {{ $reserved > 0 ? 'มีออเดอร์จอง!' : 'กำลังจับ?' }}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforeach
+
+                        @if($rows->isEmpty())
+                        <tr>
+                            <td colspan="5" class="text-center ">ไม่มีข้อมูลสี/ไซส์</td>
+                        </tr>
+                        @endif
+                    </tbody>
+                </table>
             </div>
         </div>
-        @endforeach
-   
+    </div>
+    @endforeach
+
 </div>
 
 <!-- Modal: ตรวจสอบออเดอร์ -->
@@ -658,7 +719,9 @@
                             </tr>
                         </thead>
                         <tbody id="holdTableBody">
-                            <tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>
+                            <tr>
+                                <td colspan="6" class="text-center">กำลังโหลด...</td>
+                            </tr>
                         </tbody>
                         <tfoot>
                             <tr class="fw-bold">
@@ -694,15 +757,15 @@
                         <select name="variant_id" class="form-select" required>
                             <option value="">-- เลือกสี-ไซส์ --</option>
                             @foreach($variantsByColor as $cName => $rows)
-                                @foreach($rows as $v)
-                                    @php
-                                        $variantId = (int)($v->variant_id ?? $v->id);
-                                        $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
-                                    @endphp
-                                    <option value="{{ $variantId }}">
-                                        {{ ($cName ?: 'ไม่ระบุสี') }} - {{ $sizeLabel }}
-                                    </option>
-                                @endforeach
+                            @foreach($rows as $v)
+                            @php
+                            $variantId = (int)($v->variant_id ?? $v->id);
+                            $sizeLabel = $v->size_name ?: 'ไม่ระบุไซส์';
+                            @endphp
+                            <option value="{{ $variantId }}">
+                                {{ ($cName ?: 'ไม่ระบุสี') }} - {{ $sizeLabel }}
+                            </option>
+                            @endforeach
                             @endforeach
                         </select>
                     </div>
@@ -726,10 +789,10 @@
     // ฟังก์ชันเปิด Modal และดึงข้อมูล
     async function openHoldModal(variantId, color, size) {
         document.getElementById('holdModalTitle').textContent = `ออเดอร์ที่กำลังจับอยู่: {{ $product->name }} (${color} / ${size})`;
-        
+
         const tbody = document.getElementById('holdTableBody');
         const sumEl = document.getElementById('holdTotalSum');
-        
+
         tbody.innerHTML = '<tr><td colspan="6" class="text-center">กำลังโหลด...</td></tr>';
         sumEl.textContent = '-';
 
