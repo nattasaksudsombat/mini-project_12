@@ -19,6 +19,7 @@ use Picqer\Barcode\BarcodeGeneratorPNG; // ต้องใช้ library barcode
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
+use App\Models\OrderItem;
 
 
 
@@ -28,60 +29,60 @@ class ProductController extends Controller
 {
 
 
-public function searchApi(Request $request)
-{
-    $query = $request->get('q');
-    
-    if (!$query) {
-        return response()->json([]);
-    }
+    public function searchApi(Request $request)
+    {
+        $query = $request->get('q');
 
-    // ค้นหาสินค้า
-    $products = \App\Models\Product::where(function($q) use ($query) {
+        if (!$query) {
+            return response()->json([]);
+        }
+
+        // ค้นหาสินค้า
+        $products = \App\Models\Product::where(function ($q) use ($query) {
             $q->where('id', 'like', "{$query}%")
-              ->orWhere('id_stock', 'like', "{$query}%")
-              ->orWhere('sku', 'like', "{$query}%");
+                ->orWhere('id_stock', 'like', "{$query}%")
+                ->orWhere('sku', 'like', "{$query}%");
         })
-        ->with('colorSizes')
-        ->limit(20)
-        ->get()
-        ->map(function ($p) {
-            // ⭐ คำนวณสต็อกที่จองได้จริง (available) จาก v_current_stock
-            $availableStock = \Illuminate\Support\Facades\DB::table('v_current_stock')
-                ->whereIn('variant_id', $p->colorSizes->pluck('id'))
-                ->sum('available_stock');
-            
-            return [
-                'id' => $p->id,
-                'name' => $p->name, 
-                'price' => $p->price,
-                'id_stock' => $p->id_stock ?? $p->sku ?? $p->id, 
-                'image' => $p->image_url ?? null,
-                'available_stock' => $availableStock, // ⭐ จำนวนที่จองได้จริง
-            ];
-        })
-        ->filter(function ($p) {
-            // กรองเฉพาะที่มีสต็อกจองได้ > 0
-            return $p['available_stock'] > 0;
-        })
-        ->values();
+            ->with('colorSizes')
+            ->limit(20)
+            ->get()
+            ->map(function ($p) {
+                // ⭐ คำนวณสต็อกที่จองได้จริง (available) จาก v_current_stock
+                $availableStock = \Illuminate\Support\Facades\DB::table('v_current_stock')
+                    ->whereIn('variant_id', $p->colorSizes->pluck('id'))
+                    ->sum('available_stock');
 
-    return response()->json($products);
-}
-         public function getVariantsApi($id)
+                return [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'price' => $p->price,
+                    'id_stock' => $p->id_stock ?? $p->sku ?? $p->id,
+                    'image' => $p->image_url ?? null,
+                    'available_stock' => $availableStock, // ⭐ จำนวนที่จองได้จริง
+                ];
+            })
+            ->filter(function ($p) {
+                // กรองเฉพาะที่มีสต็อกจองได้ > 0
+                return $p['available_stock'] > 0;
+            })
+            ->values();
+
+        return response()->json($products);
+    }
+    public function getVariantsApi($id)
     {
         $variants = \App\Models\ProductColorSize::where('product_id', $id)
             ->with(['color', 'size'])
-            ->where('quantity', '>', 0) 
+            ->where('quantity', '>', 0)
             ->get()
             ->map(function ($v) {
-                
+
                 // 1. คำนวณยอดจอง (Logic เดียวกับหน้า Stock History)
                 $reserved = 0;
                 if (\Illuminate\Support\Facades\Schema::hasTable('stock_holds')) {
                     $reserved = \Illuminate\Support\Facades\DB::table('stock_holds')
                         ->where('product_color_size_id', $v->id)
-                        ->where('status', 'active') 
+                        ->where('status', 'active')
                         ->sum('quantity');
                 }
 
@@ -91,12 +92,12 @@ public function searchApi(Request $request)
                 return [
                     'id' => $v->id,
                     'color_name' => $v->color->name ?? '',
-                    'size_name' => $v->size->size_name ?? '', 
+                    'size_name' => $v->size->size_name ?? '',
                     'display_name' => ($v->color->name ?? '-') . ' - ' . ($v->size->size_name ?? '-'),
-                    
+
                     'quantity' => $v->quantity, // ยอดจริง (เก็บไว้ดูเล่น)
                     'available' => $available,  // ✅ ยอดพร้อมขาย (ตัวแปรสำคัญ!)
-                    
+
                     'color_id' => $v->color_id,
                     'size_id' => $v->size_id,
                 ];
@@ -106,22 +107,76 @@ public function searchApi(Request $request)
     }
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'productImages', 'productOptions', 'productColors', 'productTags']);
+        // ✅ รับค่าจากฟอร์มค้นหา
+        $search = trim($request->input('search', ''));
+        $categoryId = $request->input('category_id');
+        $colorId = $request->input('color_id');
+        $sizeId = $request->input('size_id');
+        $tagId = $request->input('tag_id');
+        $priceMin = $request->input('price_min');
+        $priceMax = $request->input('price_max');
+        $stockMin = $request->input('stock_min');
 
-        $search = $request->input('search');
+        // ✅ สร้าง Query
+        $query = Product::query()
+            ->with(['category', 'productImages', 'productOptions', 'productColors', 'productTags', 'colorSizes'])
+            ->where('is_active', 1); // แสดงเฉพาะสินค้าที่เปิดใช้งาน
 
-        $products = Product::query()
-            ->when($search, function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhere('id_stock', 'like', "%{$search}%");
-                })
-                    ->where('is_active', 1); // ✅ แสดงเฉพาะสินค้าที่เปิดใช้งาน
-            })
-            ->with(['category', 'productImages', 'productOptions', 'productColors', 'productTags'])
-            ->get();
-        $products = Product::latest()->paginate(10); // 10 รายการต่อหน้า
+        // ✅ ค้นหาชื่อสินค้า / รหัสสินค้า
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('id_stock', 'like', "%{$search}%");
+            });
+        }
+
+        // ✅ กรองตามหมวดหมู่
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        // ✅ กรองตามสี (ผ่าน product_color_size)
+        if ($colorId) {
+            $query->whereHas('colorSizes', function ($q) use ($colorId) {
+                $q->where('color_id', $colorId);
+            });
+        }
+
+        // ✅ กรองตามไซส์ (ผ่าน product_color_size)
+        if ($sizeId) {
+            $query->whereHas('colorSizes', function ($q) use ($sizeId) {
+                $q->where('size_id', $sizeId);
+            });
+        }
+
+        // ✅ กรองตามแท็ก (ผ่าน product_tags)
+        if ($tagId) {
+            $query->whereHas('tags', function ($q) use ($tagId) {
+                $q->where('tags.id', $tagId);
+            });
+        }
+
+        // ✅ กรองตามช่วงราคา
+        if ($priceMin !== null && $priceMin !== '') {
+            $query->where('price', '>=', $priceMin);
+        }
+        if ($priceMax !== null && $priceMax !== '') {
+            $query->where('price', '<=', $priceMax);
+        }
+
+        // ✅ กรองตามสต็อกขั้นต่ำ (ใช้ subquery)
+        if ($stockMin !== null && $stockMin !== '') {
+            $query->whereHas('colorSizes', function ($q) use ($stockMin) {
+                $q->select(DB::raw('product_id'))
+                  ->groupBy('product_id')
+                  ->havingRaw('SUM(quantity) >= ?', [$stockMin]);
+            });
+        }
+
+        $products = $query->latest()
+            ->paginate(10)
+            ->appends($request->query()); // เก็บทุก query parameter ใน pagination
 
         return view('products.index', compact('products'));
     }
@@ -156,7 +211,7 @@ public function searchApi(Request $request)
                     ->orWhere('tags.tag_name', 'like', "%{$q}%");
             })
             // ✅ แก้ไข 1: เปลี่ยนเป็น products.* เพื่อให้ Model ทำงานสมบูรณ์
-            ->select('products.*') 
+            ->select('products.*')
             ->distinct()
             ->with('productImages') // ✅ แก้ไข 2: โหลดความสัมพันธ์รูปภาพมาด้วย
             ->limit(10)
@@ -221,6 +276,12 @@ public function searchApi(Request $request)
             : (Schema::hasColumn('v_current_stock', 'reserved')       ? 'reserved' : 'reserved_stock');
         $availCol    = Schema::hasColumn('v_current_stock', 'available_stock') ? 'available_stock'
             : (Schema::hasColumn('v_current_stock', 'available')      ? 'available' : 'available_stock');
+            $hasActiveOrders = OrderItem::where('product_id', $product->id)
+            ->whereHas('order', function ($query) {
+                // เช็คเฉพาะออเดอร์ที่สถานะ "กำลังดำเนินการ"
+                $query->whereIn('status', ['pending', 'processing', 'pending_payment']);
+            })
+            ->exists();
 
         // ====== ดึงสต๊อกจากวิว (Golden Rule) ======
         $stockRows = DB::table('v_current_stock as v')
@@ -284,16 +345,16 @@ public function searchApi(Request $request)
             }
         }
 
-        return view('products.show', [
-            'product'               => $product,
-            'variantsByColor'       => $variantsByColor,
-            'reservedByVariantId'   => $reservedByVariantId,
-            'availableByVariantId'  => $availableByVariantId,
-            'onhandByVariantId'     => $onhandByVariantId,
-            'holdsRows'             => $holdsRows,
-            'openStatuses'          => $openStatuses,
-            'products.show',
-            compact('product', 'scope')
+       return view('products.show', [
+            'product'              => $product,
+            'variantsByColor'      => $variantsByColor,
+            'reservedByVariantId'  => $reservedByVariantId,
+            'availableByVariantId' => $availableByVariantId,
+            'onhandByVariantId'    => $onhandByVariantId,
+            'holdsRows'            => $holdsRows,
+            'openStatuses'         => $openStatuses,
+            'scope'                => $scope,           // ✅ ใส่ตัวแปร scope ตรงนี้
+            'hasActiveOrders'      => $hasActiveOrders  // ✅ ใส่ตัวแปร hasActiveOrders ตรงนี้
         ]);
     }
     public function globalSearch(Request $request)
@@ -358,13 +419,13 @@ public function searchApi(Request $request)
 
         $products = \App\Models\Product::with('productImages') // โหลดความสัมพันธ์รูปภาพ
             ->where('is_active', 1)
-            ->where(function($q) use ($query) {
+            ->where(function ($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")
-                  ->orWhere('id_stock', 'like', "%{$query}%");
+                    ->orWhere('id_stock', 'like', "%{$query}%");
             })
             ->take(10)
             ->get()
-            ->map(function($item) {
+            ->map(function ($item) {
                 // ✅ ลอจิกเดียวกับ Blade: เช็คว่ามีรูปไหม ถ้ามีเอาอันแรก
                 $imgUrl = 'https://placehold.co/50x50?text=No+Img'; // ค่าเริ่มต้น (ไม่มีรูป)
 
@@ -381,7 +442,7 @@ public function searchApi(Request $request)
                     'name' => $item->name,
                     'price' => number_format($item->price),
                     'image_url' => $imgUrl, // ✅ ส่ง URL รูปภาพไปให้ JS
-                    'url' => route('products.show', $item->id) 
+                    'url' => route('products.show', $item->id)
                 ];
             });
 
@@ -780,7 +841,7 @@ public function searchApi(Request $request)
         if ($request->has('search')) {
             $search = $request->get('search');
             $query->where('name', 'like', "%{$search}%")
-                  ->orWhere('id_stock', 'like', "%{$search}%");
+                ->orWhere('id_stock', 'like', "%{$search}%");
         }
 
         $products = $query->latest()->paginate(12);
@@ -792,12 +853,12 @@ public function searchApi(Request $request)
      * แสดงรายละเอียดสินค้าสำหรับ Sales (View: sales/products/show)
      */
 
-    
+
     public function salesShow(Product $product)
     {
         // โหลดข้อมูลสัมพันธ์ที่จำเป็นสำหรับหน้าขาย
         $product->load(['category', 'productImages', 'productColors', 'productSizes', 'productColorSizes']);
-        
+
         return view('sales.products.show', compact('product'));
     }
     // 4. ตั้งรูปหลัก
@@ -823,35 +884,51 @@ public function searchApi(Request $request)
 
         return back()->with('success', 'เปลี่ยนสถานะเรียบร้อยแล้ว');
     }
-   public function getHoldsApi($variantId)
-{
-    try {
-        // ดึงจาก order_items แทน stock_holds
-        $holds = DB::table('order_items')
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->leftJoin('customers', 'orders.customer_id', '=', 'customers.id')
-            ->where('order_items.product_color_size_id', $variantId)
-            ->whereIn('orders.status', ['pending', 'processing', 'pending_payment'])
-            ->select([
-                'order_items.id as hold_id',
-                'order_items.quantity',
-                'order_items.created_at',
-                'orders.id as order_id',
-                'orders.order_number',
-                'orders.status',
-                DB::raw("COALESCE(customers.name, CONCAT_WS(' ', customers.first_name, customers.last_name), 'ไม่ระบุ') as customer_name")
-            ])
-            ->orderBy('order_items.created_at', 'desc')
-            ->get();
+    public function getHoldsApi($variantId)
+    {
+        try {
+            // ดึงข้อมูล variant เพื่อหา product_id, color_id, size_id
+            $variant = \App\Models\ProductColorSize::findOrFail($variantId);
 
-        return response()->json($holds);
+            // ค้นหา order_items ที่ตรงกับ product_id, color_id, size_id
+            $items = \App\Models\OrderItem::where('product_id', $variant->product_id)
+                ->where('color_id', $variant->color_id)
+                ->where('size_id', $variant->size_id)
+                ->whereHas('order', function ($query) {
+                    $query->whereIn('status', ['pending', 'processing', 'pending_payment']);
+                })
+                ->with(['order.customer'])
+                ->orderByDesc('created_at')
+                ->get();
 
-    } catch (\Exception $e) {
-        \Log::error('Error: ' . $e->getMessage());
-        return response()->json(['error' => $e->getMessage()], 500);
+            // จัดรูปแบบข้อมูลให้ตรงกับที่ JavaScript ต้องการ
+            $holds = $items->map(function ($item) {
+                return [
+                    'hold_id' => $item->id,
+                    'quantity' => $item->quantity,
+                    'created_at' => $item->created_at,
+                    'order_id' => $item->order->id,
+                    'order_number' => $item->order->order_number ?? ('#' . $item->order->id),
+                    'status' => $item->order->status,
+                    'customer_name' => $item->order->customer->name ?? 'ไม่ระบุ'
+                ];
+            });
+
+            Log::info('getHoldsApi Success', [
+                'variant_id' => $variantId,
+                'product_id' => $variant->product_id,
+                'color_id' => $variant->color_id,
+                'size_id' => $variant->size_id,
+                'found_items' => $holds->count()
+            ]);
+
+            return response()->json($holds);
+        } catch (\Exception $e) {
+            Log::error('getHoldsApi Error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
-}
-    // เพิ่มฟังก์ชันนี้ลงไปใน ProductController
     // ✅ ฟังก์ชันใหม่สำหรับดึงข้อมูลการจับจอง (แก้ปัญหา SQL Error)
     public function apiCheckStock(Request $request)
     {
@@ -861,31 +938,114 @@ public function searchApi(Request $request)
             return response()->json(['error' => 'No variant ID'], 400);
         }
 
-        // ค้นหาออเดอร์ที่สถานะ "กำลังดำเนินการ"
-        $items = \App\Models\OrderItem::where('product_color_size_id', $variantId)
-            ->whereHas('order', function ($query) {
-                // สถานะที่ถือว่าตัดสต็อกแล้ว หรือกำลังจองอยู่
-                $query->whereIn('status', ['pending', 'processing', 'pending_payment']); 
-            })
-            ->with(['order.customer']) // โหลดข้อมูลลูกค้า
-            ->orderByDesc('created_at')
-            ->get();
+        try {
+            // ดึงข้อมูล variant เพื่อหา product_id, color_id, size_id
+            $variant = \App\Models\ProductColorSize::findOrFail($variantId);
 
-        // จัดรูปแบบข้อมูลส่งกลับ (ใช้ customer->name ตรงๆ)
-        $holds = $items->map(function ($item) {
-            return [
-                'created_at' => $item->order->created_at->format('d/m/Y H:i'),
-                'order_number' => $item->order->order_number ?? ('#' . $item->order->id),
-                'customer_name' => $item->order->customer->name ?? 'ลูกค้าทั่วไป', // ✅ ใช้ name ตาม DB
-                'status' => $item->order->status,
-                'quantity' => $item->quantity,
-                'order_id' => $item->order->id,
-            ];
-        });
+            // ค้นหาออเดอร์ที่สถานะ "กำลังดำเนินการ"
+            $items = \App\Models\OrderItem::where('product_id', $variant->product_id)
+                ->where('color_id', $variant->color_id)
+                ->where('size_id', $variant->size_id)
+                ->whereHas('order', function ($query) {
+                    // สถานะที่ถือว่าตัดสต็อกแล้ว หรือกำลังจองอยู่
+                    $query->whereIn('status', ['pending', 'processing', 'pending_payment']);
+                })
+                ->with(['order.customer']) // โหลดข้อมูลลูกค้า
+                ->orderByDesc('created_at')
+                ->get();
 
-        return response()->json([
-            'holds' => $holds,
-            'total_hold' => $holds->sum('quantity')
-        ]);
+            // จัดรูปแบบข้อมูลส่งกลับ (ใช้ customer->name ตรงๆ)
+            $holds = $items->map(function ($item) {
+                return [
+                    'created_at' => $item->order->created_at->format('d/m/Y H:i'),
+                    'order_number' => $item->order->order_number ?? ('#' . $item->order->id),
+                    'customer_name' => $item->order->customer->name ?? 'ลูกค้าทั่วไป',
+                    'status' => $item->order->status,
+                    'quantity' => $item->quantity,
+                    'order_id' => $item->order->id,
+                ];
+            });
+
+            return response()->json([
+                'holds' => $holds,
+                'total_hold' => $holds->sum('quantity')
+            ]);
+        } catch (\Exception $e) {
+            Log::error('apiCheckStock Error: ' . $e->getMessage());
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
+     private function checkHasActiveOrders($productId)
+    {
+        return OrderItem::where('product_id', $productId)
+            ->whereHas('order', function ($query) {
+                $query->whereIn('status', ['pending', 'processing', 'pending_payment', 'shipped']);
+            })
+            ->exists();
+    }
+    public function destroy($id)
+    {
+        try {
+            $product = Product::findOrFail($id);
+
+            // ✅ ตรวจสอบว่ามีออเดอร์ที่ใช้สินค้านี้อยู่หรือไม่
+            $hasActiveOrders = \App\Models\OrderItem::where('product_id', $product->id)
+                ->whereHas('order', function ($query) {
+                    // ตรวจสอบออเดอร์ที่ยังไม่เสร็จสิ้น
+                    $query->whereIn('status', ['pending', 'processing', 'pending_payment', 'shipped']);
+                })
+                ->exists();
+
+            if ($hasActiveOrders) {
+                return redirect()
+                    ->route('products.index')
+                    ->with('error', '❌ ไม่สามารถลบสินค้านี้ได้ เนื่องจากมีออเดอร์ที่กำลังใช้งานอยู่');
+            }
+
+            // ✅ ตรวจสอบว่ามีออเดอร์เก่าๆ ที่เสร็จสิ้นแล้วหรือไม่
+            $hasCompletedOrders = \App\Models\OrderItem::where('product_id', $product->id)
+                ->whereHas('order', function ($query) {
+                    $query->whereIn('status', ['completed', 'cancelled']);
+                })
+                ->exists();
+
+            if ($hasCompletedOrders) {
+                // ถ้ามีออเดอร์เก่า ให้ปิดการใช้งานแทน
+                $product->is_active = false;
+                $product->save();
+
+                return redirect()
+                    ->route('products.index')
+                    ->with('warning', '⚠️ สินค้านี้มีประวัติออเดอร์ จึงถูกปิดการใช้งานแทนการลบ');
+            }
+
+            // ✅ ถ้าไม่มีออเดอร์เลย ก็ลบได้
+            // ลบรูปภาพทั้งหมดของสินค้านี้
+            foreach ($product->productImages as $image) {
+                // ลบไฟล์จริงจาก Storage
+                if ($image->image_url && \Illuminate\Support\Facades\Storage::disk('public')->exists($image->image_url)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($image->image_url);
+                }
+                $image->delete();
+            }
+
+            // ลบ variants (ถ้ามี)
+            if ($product->colorSizes) {
+                $product->colorSizes()->delete();
+            }
+
+            // ลบสินค้า
+            $product->delete();
+
+            return redirect()
+                ->route('products.index')
+                ->with('success', '✅ ลบสินค้าเรียบร้อยแล้ว');
+        } catch (\Exception $e) {
+            Log::error('Product Delete Error: ' . $e->getMessage());
+            return redirect()
+                ->route('products.index')
+                ->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
+        }
+    }
+   
 }

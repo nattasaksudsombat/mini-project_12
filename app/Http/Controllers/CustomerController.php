@@ -81,25 +81,32 @@ class CustomerController extends Controller
             'addresses.*.province'    => 'nullable|string|max:100',
             'addresses.*.postal_code' => 'nullable|string|max:20',
 
-            'address'          => 'nullable|string|max:500',
+            'address'          => 'nullable|string|max:500', // รับค่า address เดี่ยวเผื่อไว้ (Legacy)
         ]);
 
         return DB::transaction(function () use ($request) {
-            // สร้างลูกค้า
-            $customer = Customer::create([
+            // ✅ สร้างลูกค้า (ตัด 'address' ออกถ้าใน Table ไม่มีคอลัมน์นี้)
+            // เช็คว่า Table customers มีคอลัมน์ address ไหม ถ้ามีก็ใส่ ถ้าไม่มีก็ไม่ใส่
+            $customerData = [
                 'name'             => $request->input('name'),
                 'phone'            => $request->input('phone'),
                 'email'            => $request->input('email'),
                 'purchase_channel' => $request->input('purchase_channel'),
                 'payment_method'   => $request->input('payment_method'),
                 'notes'            => $request->input('notes'),
-                'address'          => $request->input('address', ''), 
-            ]);
+            ];
+
+            if (Schema::hasColumn('customers', 'address')) {
+                $customerData['address'] = $request->input('address', '');
+            }
+
+            $customer = Customer::create($customerData);
 
             // บันทึกที่อยู่
             if (Schema::hasTable('customer_addresses')) {
                 $addresses = $this->sanitizeAddressesArray($request->input('addresses', []));
 
+                // กรณีส่งมาเป็น Array หลายที่อยู่
                 if (!empty($addresses)) {
                     foreach ($addresses as $a) {
                         CustomerAddress::create([
@@ -108,17 +115,19 @@ class CustomerController extends Controller
                             'address'     => $a['address'] ?? '',
                             'soi'         => $a['soi'] ?? '',
                             'road'        => $a['road'] ?? '',
-                            'subdistrict' => $a['subdistrict'] ?? '', // ✅ ใส่ค่า default เป็น ''
+                            'subdistrict' => $a['subdistrict'] ?? '',
                             'district'    => $a['district'] ?? '',
                             'province'    => $a['province'] ?? '',
                             'postal_code' => $a['postal_code'] ?? '',
                         ]);
                     }
-                } elseif ($customer->address) {
+                } 
+                // กรณีส่งมาแบบฟิลด์เดียว (Legacy support)
+                elseif ($request->filled('address')) {
                     CustomerAddress::create([
                         'customer_id' => $customer->id,
                         'name'        => 'ที่อยู่หลัก',
-                        'address'     => $customer->address,
+                        'address'     => $request->input('address'),
                         'soi'         => '',
                         'road'        => '',
                         'subdistrict' => $request->input('subdistrict', ''),
@@ -167,16 +176,29 @@ class CustomerController extends Controller
         ]);
 
         return DB::transaction(function () use ($request, $customer) {
-            $customer->update([
+            
+            // ✅ เตรียมข้อมูลอัปเดต (ตัด address ออกก่อนถ้าไม่มีคอลัมน์นี้)
+            $updateData = [
                 'name'             => $request->input('name'),
                 'phone'            => $request->input('phone'),
                 'email'            => $request->input('email'),
                 'purchase_channel' => $request->input('purchase_channel'),
                 'payment_method'   => $request->input('payment_method'),
                 'notes'            => $request->input('notes'),
-                'address'          => $request->input('address', $customer->address),
-            ]);
+            ];
 
+            // เช็คว่ามีคอลัมน์ address ในตาราง customers ไหม
+            if (Schema::hasColumn('customers', 'address')) {
+                // ถ้ามีคอลัมน์ address ถึงจะยอมให้อัปเดตค่านี้ลงไป
+                // โดยใช้ค่าจาก input 'address' หรือถ้าไม่มีก็ใช้ค่าเดิม
+                $updateData['address'] = $request->input('address', $customer->address);
+            }
+
+            // ทำการ Update เฉพาะข้อมูลที่เตรียมไว้ (ไม่มี address หลุดไปถ้าไม่มีคอลัมน์)
+            $customer->update($updateData);
+
+
+            // --- จัดการตารางลูก (CustomerAddress) ---
             if (Schema::hasTable('customer_addresses')) {
                 $payload = $this->sanitizeAddressesArray($request->input('addresses', []));
                 $keepIds = [];
@@ -190,13 +212,14 @@ class CustomerController extends Controller
                         'address'     => $a['address'] ?? '',
                         'soi'         => $a['soi'] ?? '',
                         'road'        => $a['road'] ?? '',
-                        'subdistrict' => $a['subdistrict'] ?? '', // ✅ ใส่ค่า default
+                        'subdistrict' => $a['subdistrict'] ?? '', 
                         'district'    => $a['district'] ?? '',
                         'province'    => $a['province'] ?? '',
                         'postal_code' => $a['postal_code'] ?? '',
                     ];
 
                     if ($rowId > 0) {
+                        // อัปเดตรายการเดิม
                         $row = $customer->addresses()->where('id', $rowId)->first();
                         if ($row) {
                             $row->update($dataToSave);
@@ -205,14 +228,20 @@ class CustomerController extends Controller
                         }
                     }
 
+                    // สร้างรายการใหม่
                     $new = $customer->addresses()->create($dataToSave);
                     $keepIds[] = $new->id;
                 }
 
+                // ลบรายการที่ไม่ได้ถูกส่งมา (ที่โดนลบจากหน้าเว็บ)
                 if (!empty($keepIds)) {
                     $customer->addresses()->whereNotIn('id', $keepIds)->delete();
                 } else {
-                    $customer->addresses()->delete();
+                    // ถ้าไม่มีการส่ง addresses มาเลย ให้เช็คว่าเราตั้งใจจะลบทั้งหมดไหม
+                    // (กรณีนี้ถ้า input addresses เป็น [] อาจจะหมายถึงลบหมด)
+                    if ($request->has('addresses')) {
+                         $customer->addresses()->delete();
+                    }
                 }
             }
 
@@ -242,17 +271,17 @@ class CustomerController extends Controller
             if (!is_array($a)) continue;
             $row = [
                 'id'          => isset($a['id']) ? (int) $a['id'] : null,
-                'name'        => $this->t($a['name'] ?? null) ?? '',        // ✅ ใส่ default ''
-                'address'     => $this->t($a['address'] ?? null) ?? '',     // ✅
-                'soi'         => $this->t($a['soi'] ?? null) ?? '',         // ✅
-                'road'        => $this->t($a['road'] ?? null) ?? '',        // ✅
-                'subdistrict' => $this->t($a['subdistrict'] ?? null) ?? '', // ✅ สำคัญที่สุด!
-                'district'    => $this->t($a['district'] ?? null) ?? '',    // ✅
-                'province'    => $this->t($a['province'] ?? null) ?? '',    // ✅
-                'postal_code' => $this->t($a['postal_code'] ?? null) ?? '', // ✅
+                'name'        => $this->t($a['name'] ?? null) ?? '',       
+                'address'     => $this->t($a['address'] ?? null) ?? '',     
+                'soi'         => $this->t($a['soi'] ?? null) ?? '',        
+                'road'        => $this->t($a['road'] ?? null) ?? '',        
+                'subdistrict' => $this->t($a['subdistrict'] ?? null) ?? '', 
+                'district'    => $this->t($a['district'] ?? null) ?? '',    
+                'province'    => $this->t($a['province'] ?? null) ?? '',    
+                'postal_code' => $this->t($a['postal_code'] ?? null) ?? '', 
             ];
-            // เช็คว่ามีข้อมูลบ้างไหม (อย่างน้อย 1 field)
-            if ($row['address'] || $row['subdistrict'] || $row['district'] || $row['province']) {
+            // เช็คว่ามีข้อมูลบ้างไหม (อย่างน้อย 1 field ต้องไม่ว่าง ถึงจะเก็บ)
+            if ($row['address'] || $row['subdistrict'] || $row['district'] || $row['province'] || $row['name']) {
                 $clean[] = $row;
             }
         }

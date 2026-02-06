@@ -3,209 +3,418 @@
 
 @section('content')
 <style>
-    /* ธีมสีดำสำหรับ Modal */
-    .dark-modal .modal-content {
-        background-color: #2c2c2c !important;
-        color: #ffffff !important;
+    /* Colors Page - Black & Gold Theme */
+    .colors-header {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(30, 30, 30, 0.9));
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        border-radius: 15px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.1);
     }
 
-    .dark-modal .modal-header,
-    .dark-modal .modal-footer {
-        background-color: #1e1e1e !important;
-        color: #ffffff !important;
-        border-color: #444;
+    .colors-header h2 {
+        color: var(--gold);
+        text-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+        font-weight: 600;
+        margin: 0;
     }
 
-    .dark-modal .form-control {
-        background-color: #444 !important;
-        color: white !important;
-        border: 1px solid #666;
+    /* Alert Styling */
+    .alert-success {
+        background: linear-gradient(135deg, rgba(25, 135, 84, 0.2), rgba(30, 30, 30, 0.9));
+        color: #7de5a4 !important;
+        border: 1px solid rgba(25, 135, 84, 0.5);
+        border-radius: 12px;
     }
 
-    .dark-modal .form-control:focus {
-        background-color: #555 !important;
-        border-color: #888;
-        color: white !important;
+    .alert-danger {
+        background: linear-gradient(135deg, rgba(220, 53, 69, 0.2), rgba(30, 30, 30, 0.9));
+        color: #ff6b7d !important;
+        border: 1px solid rgba(220, 53, 69, 0.5);
+        border-radius: 12px;
     }
 
-    .dark-modal label {
+    /* Button */
+    .btn-add {
+        background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+        border: none;
+        color: #000 !important;
+        font-weight: 600;
+        padding: 0.6rem 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+    }
+
+    .btn-add:hover {
+        color: #000 !important;
+        box-shadow: 0 8px 25px rgba(255, 215, 0, 0.5);
+    }
+
+    /* Table Card */
+    .table-card {
+        background: linear-gradient(135deg, rgba(30, 30, 30, 0.95), rgba(18, 18, 18, 0.95));
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        border-radius: 15px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4), 0 0 25px rgba(255, 215, 0, 0.15);
+        overflow: hidden;
+    }
+
+    /* Table */
+    .table-colors {
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .table-colors thead th {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(30, 30, 30, 0.8));
+        color: var(--gold);
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        padding: 1rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        text-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+    }
+
+    .table-colors tbody td {
+        background: rgba(18, 18, 18, 0.6);
+        border: 1px solid rgba(255, 215, 0, 0.15);
+        padding: 1rem;
+        vertical-align: middle;
+        color: #e8e8e8 !important;
+    }
+
+    .table-colors tbody tr:hover td {
+        background: rgba(30, 30, 30, 0.8);
+        border-color: rgba(255, 215, 0, 0.3);
+    }
+
+    /* Color Preview */
+    .color-preview {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 215, 0, 0.3);
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Badge */
+    .badge {
+        padding: 0.5rem 0.8rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    .badge.bg-info {
+        background: linear-gradient(135deg, #5fedff, #36d8ff) !important;
+        color: #000 !important;
+        border: 1px solid rgba(95, 237, 255, 0.5);
+    }
+
+    .text-muted {
+        color: #888 !important;
+    }
+
+    /* Buttons in Table */
+    .btn-action {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        border: none;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .btn-warning {
+        background: linear-gradient(135deg, var(--gold), var(--gold-dark)) !important;
+        color: #000 !important;
+    }
+
+    .btn-warning:hover {
+        color: #000 !important;
+        box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+    }
+
+    .btn-danger {
+        background: linear-gradient(135deg, #ff5c8d, #ff3366) !important;
         color: #fff !important;
     }
 
-    .dark-modal .btn-secondary {
-        border: 1px solid #666;
-        background-color: #444;
-        color: #ccc;
+    .btn-danger:hover {
+        color: #fff !important;
+        box-shadow: 0 5px 15px rgba(255, 51, 102, 0.5);
     }
-    
+
+    .btn-action:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* Dark Modal */
+    .dark-modal .modal-content {
+        background: linear-gradient(135deg, rgba(30, 30, 30, 0.98), rgba(18, 18, 18, 0.98));
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        color: #ffffff !important;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .dark-modal .modal-header {
+        background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(30, 30, 30, 0.8));
+        border-bottom: 2px solid rgba(255, 215, 0, 0.4);
+        color: #ffffff !important;
+    }
+
+    .dark-modal .modal-header .modal-title {
+        color: var(--gold);
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+        font-weight: 600;
+    }
+
+    .dark-modal .modal-footer {
+        background-color: rgba(30, 30, 30, 0.8);
+        border-top: 1px solid rgba(255, 215, 0, 0.2);
+    }
+
+    .dark-modal .form-control {
+        background-color: rgba(10, 10, 10, 0.8) !important;
+        color: #e8e8e8 !important;
+        border: 1px solid rgba(255, 215, 0, 0.3) !important;
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+    }
+
+    .dark-modal .form-control:focus {
+        background-color: rgba(10, 10, 10, 0.9) !important;
+        border-color: var(--gold) !important;
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.3) !important;
+        color: #e8e8e8 !important;
+    }
+
+    .dark-modal .form-control-color {
+        height: 50px;
+        cursor: pointer;
+    }
+
+    .dark-modal label {
+        color: var(--gold) !important;
+        font-weight: 600;
+        text-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+    }
+
+    .dark-modal .text-danger {
+        color: #ff6b7d !important;
+    }
+
+    .dark-modal .btn-secondary {
+        border: 1px solid rgba(255, 215, 0, 0.3);
+        background-color: rgba(30, 30, 30, 0.8);
+        color: var(--text-primary);
+    }
+
     .dark-modal .btn-secondary:hover {
-        background-color: #555;
-        color: white;
+        background-color: rgba(40, 40, 40, 0.9);
+        border-color: var(--gold);
+        color: var(--gold);
     }
 
     .dark-modal .btn-close {
-        filter: invert(1);
+        filter: invert(1) brightness(1.5);
     }
 
     .dark-modal .invalid-feedback {
-        color: #ff6b6b !important;
+        color: #ff6b7d !important;
     }
 </style>
 
-<div class="container">
-    <h2>รายการสี</h2>
+<div class="container py-4">
+    <div class="colors-header d-flex justify-content-between align-items-center">
+        <h2>
+            <i class="fas fa-palette me-2"></i>รายการสี
+        </h2>
+        <button class="btn btn-add" data-bs-toggle="modal" data-bs-target="#addColorModal">
+            <i class="fas fa-plus me-2"></i>เพิ่มสีใหม่
+        </button>
+    </div>
 
-    {{-- Alert แจ้งเตือน Success --}}
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <i class="fas fa-check-circle me-2"></i>{{ session('success') }}
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
         </div>
     @endif
 
-    {{-- Alert แจ้งเตือน Error ทั่วไป --}}
     @if($errors->any() && !old('action'))
         <div class="alert alert-danger alert-dismissible fade show">
-            {{ $errors->first() }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <i class="fas fa-exclamation-triangle me-2"></i>{{ $errors->first() }}
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
         </div>
     @endif
 
-    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addColorModal">
-        <i class="fas fa-plus"></i> เพิ่มสีใหม่
-    </button>
-
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <table class="table table-bordered table-hover">
-                <thead class="table-light">
-                    <tr>
-                        <th width="30%">ชื่อสี</th>
-                        <th width="20%">ตัวอย่างสี</th>
-                        <th width="20%" class="text-center">จำนวนสินค้า</th>
-                        <th width="30%" class="text-center">การจัดการ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($colors as $color)
-                        @php
-                            $count = 0;
-                            if($color->relationLoaded('productColorSizes')) {
-                                $count = $color->productColorSizes->count();
-                            } elseif(method_exists($color, 'productColorSizes')) {
-                                $count = $color->productColorSizes()->count();
-                            }
-                        @endphp
+    <div class="card table-card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-colors mb-0">
+                    <thead>
                         <tr>
-                            <td>{{ $color->name }}</td>
-                            <td>
-                                <div style="width: 30px; height: 30px; background-color: {{ $color->hex_code }}; border: 1px solid #ccc; border-radius: 4px;"></div>
-                            </td>
-                            <td class="text-center">
-                                @if($count > 0)
-                                    <span class="badge bg-info text-dark">{{ $count }} รายการ</span>
-                                @else
-                                    <span class="text-muted">-</span>
-                                @endif
-                            </td>
-                            <td class="text-center">
-                                {{-- ปุ่มแก้ไข --}}
-                                <button class="btn btn-warning btn-sm me-1" 
-                                    data-bs-toggle="modal" 
-                                    data-bs-target="#editModal{{ $color->id }}"
-                                    {{ $count > 0 ? 'disabled' : '' }}
-                                    title="{{ $count > 0 ? 'แก้ไขไม่ได้เพราะมีสินค้าใช้อยู่' : 'แก้ไข' }}">
-                                    <i class="fas fa-edit"></i> แก้ไข
-                                </button>
-
-                                <form action="{{ route('colors.destroy', $color->id) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('ยืนยันการลบสีนี้?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="btn btn-danger btn-sm" 
-                                        {{ $count > 0 ? 'disabled' : '' }}
-                                        title="{{ $count > 0 ? 'ลบไม่ได้เพราะมีสินค้าใช้อยู่' : 'ลบ' }}">
-                                        <i class="fas fa-trash"></i> ลบ
-                                    </button>
-                                </form>
-                            </td>
+                            <th width="30%">
+                                <i class="fas fa-tag me-2"></i>ชื่อสี
+                            </th>
+                            <th width="20%">
+                                <i class="fas fa-paint-brush me-2"></i>ตัวอย่างสี
+                            </th>
+                            <th width="20%" class="text-center">
+                                <i class="fas fa-box me-2"></i>จำนวนสินค้า
+                            </th>
+                            <th width="30%" class="text-center">
+                                <i class="fas fa-cogs me-2"></i>การจัดการ
+                            </th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @foreach($colors as $color)
+                            @php
+                                $count = 0;
+                                if($color->relationLoaded('productColorSizes')) {
+                                    $count = $color->productColorSizes->count();
+                                } elseif(method_exists($color, 'productColorSizes')) {
+                                    $count = $color->productColorSizes()->count();
+                                }
+                            @endphp
+                            <tr>
+                                <td>
+                                    <strong>{{ $color->name }}</strong>
+                                </td>
+                                <td>
+                                    <div class="color-preview" style="background-color: {{ $color->hex_code }};" 
+                                         title="{{ $color->hex_code }}"></div>
+                                </td>
+                                <td class="text-center">
+                                    @if($count > 0)
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-boxes me-1"></i>{{ $count }} รายการ
+                                        </span>
+                                    @else
+                                        <span class="text-muted">-</span>
+                                    @endif
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-warning btn-action btn-sm me-1" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#editModal{{ $color->id }}"
+                                        {{ $count > 0 ? 'disabled' : '' }}
+                                        title="{{ $count > 0 ? 'แก้ไขไม่ได้เพราะมีสินค้าใช้อยู่' : 'แก้ไข' }}">
+                                        <i class="fas fa-edit me-1"></i>แก้ไข
+                                    </button>
+
+                                    <form action="{{ route('colors.destroy', $color->id) }}" method="POST" style="display:inline-block;" onsubmit="return confirm('ยืนยันการลบสีนี้?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="btn btn-danger btn-action btn-sm" 
+                                            {{ $count > 0 ? 'disabled' : '' }}
+                                            title="{{ $count > 0 ? 'ลบไม่ได้เพราะมีสินค้าใช้อยู่' : 'ลบ' }}">
+                                            <i class="fas fa-trash-alt me-1"></i>ลบ
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 
-{{-- 1. Modal เพิ่มสี (Add) --}}
+{{-- Modal เพิ่มสี --}}
 <div class="modal fade dark-modal" id="addColorModal" tabindex="-1">
   <div class="modal-dialog">
     <form class="modal-content" method="POST" action="{{ route('colors.store') }}">
       @csrf
-      {{-- Hidden Field: บอกว่าเป็นฟอร์มเพิ่ม --}}
       <input type="hidden" name="action" value="create_color">
 
       <div class="modal-header">
-        <h5 class="modal-title">เพิ่มสีใหม่</h5>
+        <h5 class="modal-title">
+            <i class="fas fa-plus-circle me-2"></i>เพิ่มสีใหม่
+        </h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
-          <label>ชื่อสี <span class="text-danger">*</span></label>
-          <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name') }}" required placeholder="เช่น แดง, ดำ, น้ำเงิน">
+          <label><i class="fas fa-tag me-2"></i>ชื่อสี <span class="text-danger">*</span></label>
+          <input type="text" name="name" 
+                 class="form-control @error('name') is-invalid @enderror" 
+                 value="{{ old('name') }}" 
+                 required 
+                 placeholder="เช่น แดง, ดำ, น้ำเงิน">
           @if($errors->has('name') && old('action') == 'create_color')
               <div class="invalid-feedback">{{ $errors->first('name') }}</div>
           @endif
         </div>
         <div class="mb-3">
-          <label>รหัสสี (เลือกจากแถบ) <span class="text-danger">*</span></label>
-          <input type="color" name="hex_code" class="form-control form-control-color" value="{{ old('hex_code', '#000000') }}" required>
+          <label><i class="fas fa-paint-brush me-2"></i>รหัสสี (เลือกจากแถบ) <span class="text-danger">*</span></label>
+          <input type="color" name="hex_code" 
+                 class="form-control form-control-color w-100" 
+                 value="{{ old('hex_code', '#000000') }}" 
+                 required>
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-        <button type="submit" class="btn btn-primary">
-            <i class="fas fa-save"></i> บันทึก
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>ยกเลิก
+        </button>
+        <button type="submit" class="btn btn-add">
+            <i class="fas fa-save me-2"></i>บันทึก
         </button>
       </div>
     </form>
   </div>
 </div>
 
-{{-- 2. Modal แก้ไขสี (Edit) - แยกออกมานอกตาราง --}}
+{{-- Modal แก้ไขสี --}}
 @foreach($colors as $color)
 <div class="modal fade dark-modal" id="editModal{{ $color->id }}" tabindex="-1">
     <div class="modal-dialog">
         <form class="modal-content" method="POST" action="{{ route('colors.update', $color->id) }}">
             @csrf
             @method('PUT')
-            {{-- Hidden Fields: บอกว่าเป็นฟอร์มแก้ไข และแก้ ID ไหน --}}
             <input type="hidden" name="action" value="edit_color">
             <input type="hidden" name="edit_id" value="{{ $color->id }}">
 
             <div class="modal-header">
-                <h5 class="modal-title">แก้ไขสี</h5>
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>แก้ไขสี
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body text-start">
+            <div class="modal-body">
                 <div class="mb-3">
-                    <label>ชื่อสี <span class="text-danger">*</span></label>
+                    <label><i class="fas fa-tag me-2"></i>ชื่อสี <span class="text-danger">*</span></label>
                     <input type="text" name="name" 
                            class="form-control {{ $errors->has('name') && old('edit_id') == $color->id ? 'is-invalid' : '' }}" 
-                           value="{{ old('edit_id') == $color->id ? old('name') : $color->name }}" required>
+                           value="{{ old('edit_id') == $color->id ? old('name') : $color->name }}" 
+                           required>
                     
                     @if($errors->has('name') && old('edit_id') == $color->id)
                         <div class="invalid-feedback">{{ $errors->first('name') }}</div>
                     @endif
                 </div>
                 <div class="mb-3">
-                    <label>รหัสสี <span class="text-danger">*</span></label>
-                    <input type="color" name="hex_code" class="form-control form-control-color" value="{{ $color->hex_code }}" required>
+                    <label><i class="fas fa-paint-brush me-2"></i>รหัสสี <span class="text-danger">*</span></label>
+                    <input type="color" name="hex_code" 
+                           class="form-control form-control-color w-100" 
+                           value="{{ $color->hex_code }}" 
+                           required>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-2"></i>ยกเลิก
+                </button>
                 <button type="submit" class="btn btn-warning">
-                    <i class="fas fa-save"></i> อัปเดต
+                    <i class="fas fa-save me-2"></i>อัปเดต
                 </button>
             </div>
         </form>
@@ -218,13 +427,11 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // กรณี Error จากการ "เพิ่มใหม่"
         @if($errors->any() && old('action') == 'create_color')
             var addModal = new bootstrap.Modal(document.getElementById('addColorModal'));
             addModal.show();
         @endif
 
-        // กรณี Error จากการ "แก้ไข"
         @if($errors->any() && old('action') == 'edit_color')
             var editId = "{{ old('edit_id') }}";
             var editModalEl = document.getElementById('editModal' + editId);
@@ -233,6 +440,15 @@
                 editModal.show();
             }
         @endif
+
+        // Auto dismiss alerts
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
     });
 </script>
 @endpush

@@ -28,8 +28,15 @@
     }
 
     @keyframes headerGlow {
-        0%, 100% { transform: translate(0, 0) scale(1); }
-        50% { transform: translate(-10%, -10%) scale(1.1); }
+
+        0%,
+        100% {
+            transform: translate(0, 0) scale(1);
+        }
+
+        50% {
+            transform: translate(-10%, -10%) scale(1.1);
+        }
     }
 
     .edit-header h2 {
@@ -258,6 +265,7 @@
             opacity: 0;
             transform: translateY(-20px);
         }
+
         to {
             opacity: 1;
             transform: translateY(0);
@@ -320,12 +328,12 @@
                 <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
                     <h2 class="mb-0">
                         <i class="fas fa-user-edit me-2"></i>
-                        {{ auth()->user()->role === 'admin' ? 'แก้ไขผู้ใช้' : 'แก้ไขข้อมูลส่วนตัว' }}: 
+                        {{ auth()->user()->role === 'admin' ? 'แก้ไขผู้ใช้' : 'แก้ไขข้อมูลส่วนตัว' }}:
                         <span style="color: var(--neon-gold);">{{ $user->username }}</span>
                     </h2>
-                    
-                    <a href="{{ auth()->user()->role === 'admin' ? route('users.index') : route('dashboard') }}" 
-                       class="btn btn-back">
+
+                    <a href="{{ auth()->user()->role === 'admin' ? route('users.index') : route('dashboard') }}"
+                        class="btn btn-back">
                         <i class="fas fa-arrow-left me-2"></i>กลับ
                     </a>
                 </div>
@@ -333,23 +341,23 @@
 
             {{-- ✅ แจ้งเตือนบันทึกสำเร็จ --}}
             @if(session('success'))
-                <div class="alert alert-success alert-dismissible fade show" role="alert" data-aos="fade-down" data-aos-duration="600">
-                    <strong><i class="fas fa-check-circle me-2"></i>สำเร็จ!</strong> {{ session('success') }}
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
+            <div class="alert alert-success alert-dismissible fade show" role="alert" data-aos="fade-down" data-aos-duration="600">
+                <strong><i class="fas fa-check-circle me-2"></i>สำเร็จ!</strong> {{ session('success') }}
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
             @endif
 
             {{-- แสดง Error รวมด้านบน --}}
             @if($errors->any())
-                <div class="alert alert-danger alert-dismissible fade show" data-aos="fade-down" data-aos-duration="600">
-                    <strong><i class="fas fa-exclamation-triangle me-2"></i>พบข้อผิดพลาด:</strong>
-                    <ul class="mb-0 mt-2">
-                        @foreach($errors->all() as $error)
-                            <li>{{ $error }}</li>
-                        @endforeach
-                    </ul>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
-                </div>
+            <div class="alert alert-danger alert-dismissible fade show" data-aos="fade-down" data-aos-duration="600">
+                <strong><i class="fas fa-exclamation-triangle me-2"></i>พบข้อผิดพลาด:</strong>
+                <ul class="mb-0 mt-2">
+                    @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="alert"></button>
+            </div>
             @endif
 
             {{-- ฟอร์มแก้ไข --}}
@@ -371,14 +379,14 @@
                             </label>
                             <div class="input-group">
                                 <i class="fas fa-user"></i>
-                                <input type="text" 
-                                       name="username" 
-                                       class="form-control @error('username') is-invalid @enderror" 
-                                       value="{{ old('username', $user->username) }}" 
-                                       required
-                                       placeholder="กรอกชื่อผู้ใช้">
+                                <input type="text"
+                                    name="username"
+                                    class="form-control @error('username') is-invalid @enderror"
+                                    value="{{ old('username', $user->username) }}"
+                                    required
+                                    placeholder="กรอกชื่อผู้ใช้">
                                 @error('username')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                                <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
                         </div>
@@ -390,14 +398,14 @@
                             </label>
                             <div class="input-group">
                                 <i class="fas fa-envelope"></i>
-                                <input type="email" 
-                                       name="email" 
-                                       class="form-control @error('email') is-invalid @enderror" 
-                                       value="{{ old('email', $user->email) }}" 
-                                       required
-                                       placeholder="example@email.com">
+                                <input type="email"
+                                    name="email"
+                                    class="form-control @error('email') is-invalid @enderror"
+                                    value="{{ old('email', $user->email) }}"
+                                    required
+                                    placeholder="example@email.com">
                                 @error('email')
-                                    <div class="invalid-feedback">{{ $message }}</div>
+                                <div class="invalid-feedback">{{ $message }}</div>
                                 @enderror
                             </div>
                         </div>
@@ -415,13 +423,13 @@
                                 </label>
                                 <div class="input-group">
                                     <i class="fas fa-lock"></i>
-                                    <input type="password" 
-                                           name="password" 
-                                           id="password"
-                                           class="form-control @error('password') is-invalid @enderror" 
-                                           placeholder="••••••••">
+                                    <input type="password"
+                                        name="password"
+                                        id="password"
+                                        class="form-control @error('password') is-invalid @enderror"
+                                        placeholder="••••••••">
                                     @error('password')
-                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                                 <small class="text-muted">
@@ -434,11 +442,11 @@
                                 </label>
                                 <div class="input-group">
                                     <i class="fas fa-lock"></i>
-                                    <input type="password" 
-                                           name="password_confirmation" 
-                                           id="password_confirmation"
-                                           class="form-control" 
-                                           placeholder="••••••••">
+                                    <input type="password"
+                                        name="password_confirmation"
+                                        id="password_confirmation"
+                                        class="form-control"
+                                        placeholder="••••••••">
                                 </div>
                             </div>
                         </div>
@@ -447,53 +455,57 @@
 
                         {{-- บทบาท (Role) - Logic แยกตามสิทธิ์ --}}
                         @if(auth()->user()->role === 'admin')
-                            {{-- Admin: เห็น Dropdown เลือกเปลี่ยนได้ --}}
-                            <div class="mb-4">
-                                <label class="form-label">
-                                    <i class="fas fa-shield-alt me-2"></i>บทบาท (Role) <span class="text-danger">*</span>
-                                </label>
-                                <select name="role" class="form-select @error('role') is-invalid @enderror" required>
-                                    <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>
-                                        👑 ผู้ดูแลระบบ (Admin)
-                                    </option>
-                                    <option value="stock" {{ old('role', $user->role) == 'stock' ? 'selected' : '' }}>
-                                        📦 คลังสินค้า (Stock)
-                                    </option>
-                                    <option value="sales" {{ old('role', $user->role) == 'sales' ? 'selected' : '' }}>
-                                        📊 ฝ่ายขาย (Sales)
-                                    </option>
-                                </select>
-                                @error('role')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
+                        {{-- Admin: เห็น Dropdown เลือกเปลี่ยนได้ --}}
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <i class="fas fa-shield-alt me-2"></i>บทบาท (Role) <span class="text-danger">*</span>
+                            </label>
+                            <select name="role" class="form-select @error('role') is-invalid @enderror" required>
+                                <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>
+                                    👑 ผู้ดูแลระบบ (Admin)
+                                </option>
+                                <option value="stock" {{ old('role', $user->role) == 'stock' ? 'selected' : '' }}>
+                                    📦 คลังสินค้า (Stock)
+                                </option>
+                                <option value="sales" {{ old('role', $user->role) == 'sales' ? 'selected' : '' }}>
+                                    📊 ฝ่ายขาย (Sales)
+                                </option>
+                            </select>
+                            @error('role')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
                         @else
-                            {{-- User ทั่วไป: เห็นแค่ข้อความ (เปลี่ยนไม่ได้) --}}
-                            <div class="mb-4">
-                                <label class="form-label">
-                                    <i class="fas fa-shield-alt me-2"></i>บทบาท (Role)
-                                </label>
-                                <input type="text" 
-                                       class="form-control bg-light" 
-                                       value="@php
-                                           $roleName = [
-                                               'admin' => '👑 ผู้ดูแลระบบ (Admin)',
-                                               'stock' => '📦 คลังสินค้า (Stock)',
-                                               'sales' => '📊 ฝ่ายขาย (Sales)',
-                                           ][$user->role] ?? ucfirst($user->role);
-                                           echo $roleName;
-                                       @endphp
-                                       readonly>
-                                <small class="text-muted">
-                                    <i class="fas fa-lock me-1"></i>คุณไม่สามารถเปลี่ยนตำแหน่งของตัวเองได้ ติดต่อผู้ดูแลระบบหากต้องการแก้ไข
-                                </small>
-                            </div>
+                        {{-- User ทั่วไป: เห็นแค่ข้อความ (เปลี่ยนไม่ได้) --}}
+                        {{-- 1. เตรียมตัวแปรชื่อตำแหน่ง (ใส่ไว้ด้านบน input หรือบนสุดของไฟล์ก็ได้) --}}
+                        @php
+                        $roleName = match($user->role) {
+                        'admin' => '👑 ผู้ดูแลระบบ (Admin)',
+                        'stock' => '📦 คลังสินค้า (Stock)',
+                        'sales' => '📊 ฝ่ายขาย (Sales)',
+                        default => ucfirst($user->role)
+                        };
+                        @endphp
+
+                        {{-- 2. ส่วนแสดงผล Input --}}
+                        <div class="mb-3">
+                            <label class="form-label">บทบาท (Role)</label>
+
+                            <input type="text"
+                                class="form-control bg-light"
+                                value="{{ $roleName }}"
+                                readonly> {{-- ✅ ปิด tag ให้เรียบร้อยที่นี่ --}}
+
+                            <small class="text-muted">
+                                คุณไม่สามารถเปลี่ยนตำแหน่งของตัวเองได้ ติดต่อผู้ดูแลระบบหากต้องการแก้ไข
+                            </small>
+                        </div>
                         @endif
 
                         {{-- ปุ่ม Action --}}
                         <div class="d-grid gap-2 mt-4 d-md-flex justify-content-md-end">
-                            <a href="{{ auth()->user()->role === 'admin' ? route('users.index') : route('dashboard') }}" 
-                               class="btn btn-cancel">
+                            <a href="{{ auth()->user()->role === 'admin' ? route('users.index') : route('dashboard') }}"
+                                class="btn btn-cancel">
                                 <i class="fas fa-times me-2"></i>ยกเลิก
                             </a>
                             <button type="submit" class="btn btn-save">
@@ -522,7 +534,7 @@
     document.getElementById('editUserForm').addEventListener('submit', function(e) {
         const password = document.getElementById('password').value;
         const passwordConfirm = document.getElementById('password_confirmation').value;
-        
+
         if (password && password !== passwordConfirm) {
             e.preventDefault();
             alert('⚠️ รหัสผ่านไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง');

@@ -253,18 +253,18 @@
                         @foreach($order->orderItems as $item)
                         <tr>
                             <td><strong>{{ $item->product_name }}</strong></td>
-                            <td class="text-muted">{{ $item->product_sku ?? '-' }}</td>
+                            <td class="text-muted">{{ $item->product->id_stock ?? '-' }}</td>
                             <td>{{ $item->variant_name }}</td>
                             <td>{{ $item->quantity }}</td>
-                            <td>฿{{ number_format($item->price, 2) }}</td>
-                            <td>฿{{ number_format($item->price * $item->quantity, 2) }}</td>
+                            <td>฿{{ number_format($item->unit_price, 2) }}</td>
+                            <td>฿{{ number_format($item->unit_price * $item->quantity, 2) }}</td>
                         </tr>
                         @endforeach
                     </tbody>
                     <tfoot>
                         <tr>
                             <th colspan="5" class="text-end">ยอดรวมสินค้า:</th>
-                            <th>฿{{ number_format($order->orderItems->sum(fn($i) => $i->price * $i->quantity), 2) }}</th>
+                            <th>฿{{ number_format($order->orderItems->sum(fn($i) => $i->subtotal * $i->quantity), 2) }}</th>
                         </tr>
                         <tr>
                             <th colspan="5" class="text-end">ค่าจัดส่ง:</th>

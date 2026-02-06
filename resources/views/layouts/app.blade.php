@@ -446,7 +446,7 @@
         
         .table tbody tr {
             background-color: rgba(255, 255, 255, 0.02);
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 inset2px 5px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
         }
         

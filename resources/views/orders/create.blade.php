@@ -1,6 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
+<style>
+      .tt-suggestion {
+        color: black;
+    }
+        
+</style>
 <div class="container">
     <h1>สร้างออเดอร์ใหม่</h1>
  @if ($errors->any())
@@ -218,7 +224,7 @@
 <!-- Modal เลือกสี-ไซส์ -->
 <div class="modal fade" id="variantModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content"style=" background-color: black;">
             <div class="modal-header">
                 <h5 class="modal-title">เลือกสี-ไซส์</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

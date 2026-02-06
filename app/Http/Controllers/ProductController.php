@@ -107,22 +107,76 @@ class ProductController extends Controller
     }
     public function index(Request $request)
     {
-        $query = Product::with(['category', 'productImages', 'productOptions', 'productColors', 'productTags']);
+        // ✅ รับค่าจากฟอร์มค้นหา
+        $search = trim($request->input('search', ''));
+        $categoryId = $request->input('category_id');
+        $colorId = $request->input('color_id');
+        $sizeId = $request->input('size_id');
+        $tagId = $request->input('tag_id');
+        $priceMin = $request->input('price_min');
+        $priceMax = $request->input('price_max');
+        $stockMin = $request->input('stock_min');
 
-        $search = $request->input('search');
+        // ✅ สร้าง Query
+        $query = Product::query()
+            ->with(['category', 'productImages', 'productOptions', 'productColors', 'productTags', 'colorSizes'])
+            ->where('is_active', 1); // แสดงเฉพาะสินค้าที่เปิดใช้งาน
 
-        $products = Product::query()
-            ->when($search, function ($query) use ($search) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhere('id_stock', 'like', "%{$search}%");
-                })
-                    ->where('is_active', 1); // ✅ แสดงเฉพาะสินค้าที่เปิดใช้งาน
-            })
-            ->with(['category', 'productImages', 'productOptions', 'productColors', 'productTags'])
-            ->get();
-        $products = Product::latest()->paginate(10); // 10 รายการต่อหน้า
+        // ✅ ค้นหาชื่อสินค้า / รหัสสินค้า
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('id_stock', 'like', "%{$search}%");
+            });
+        }
+
+        // ✅ กรองตามหมวดหมู่
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        // ✅ กรองตามสี (ผ่าน product_color_size)
+        if ($colorId) {
+            $query->whereHas('colorSizes', function ($q) use ($colorId) {
+                $q->where('color_id', $colorId);
+            });
+        }
+
+        // ✅ กรองตามไซส์ (ผ่าน product_color_size)
+        if ($sizeId) {
+            $query->whereHas('colorSizes', function ($q) use ($sizeId) {
+                $q->where('size_id', $sizeId);
+            });
+        }
+
+        // ✅ กรองตามแท็ก (ผ่าน product_tags)
+        if ($tagId) {
+            $query->whereHas('tags', function ($q) use ($tagId) {
+                $q->where('tags.id', $tagId);
+            });
+        }
+
+        // ✅ กรองตามช่วงราคา
+        if ($priceMin !== null && $priceMin !== '') {
+            $query->where('price', '>=', $priceMin);
+        }
+        if ($priceMax !== null && $priceMax !== '') {
+            $query->where('price', '<=', $priceMax);
+        }
+
+        // ✅ กรองตามสต็อกขั้นต่ำ (ใช้ subquery)
+        if ($stockMin !== null && $stockMin !== '') {
+            $query->whereHas('colorSizes', function ($q) use ($stockMin) {
+                $q->select(DB::raw('product_id'))
+                  ->groupBy('product_id')
+                  ->havingRaw('SUM(quantity) >= ?', [$stockMin]);
+            });
+        }
+
+        $products = $query->latest()
+            ->paginate(10)
+            ->appends($request->query()); // เก็บทุก query parameter ใน pagination
 
         return view('products.index', compact('products'));
     }
@@ -780,17 +834,76 @@ class ProductController extends Controller
      */
     public function salesIndex(Request $request)
     {
-        $query = Product::with(['category', 'productImages', 'productColorSizes'])
+        // ✅ รับค่าจากฟอร์มค้นหา
+        $search = trim($request->input('search', ''));
+        $categoryId = $request->input('category_id');
+        $colorId = $request->input('color_id');
+        $sizeId = $request->input('size_id');
+        $tagId = $request->input('tag_id');
+        $priceMin = $request->input('price_min');
+        $priceMax = $request->input('price_max');
+        $stockMin = $request->input('stock_min');
+
+        // ✅ สร้าง Query
+        $query = Product::query()
+            ->with(['category', 'productImages', 'productColorSizes', 'colorSizes'])
             ->where('is_active', 1); // แสดงเฉพาะสินค้าที่เปิดขาย
 
-        // (เผื่อมีค้นหา)
-        if ($request->has('search')) {
-            $search = $request->get('search');
-            $query->where('name', 'like', "%{$search}%")
-                ->orWhere('id_stock', 'like', "%{$search}%");
+        // ✅ ค้นหาชื่อสินค้า / รหัสสินค้า
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
+                  ->orWhere('id_stock', 'like', "%{$search}%");
+            });
         }
 
-        $products = $query->latest()->paginate(12);
+        // ✅ กรองตามหมวดหมู่ (ประเภท)
+        if ($categoryId) {
+            $query->where('category_id', $categoryId);
+        }
+
+        // ✅ กรองตามสี (ผ่าน product_color_size)
+        if ($colorId) {
+            $query->whereHas('colorSizes', function ($q) use ($colorId) {
+                $q->where('color_id', $colorId);
+            });
+        }
+
+        // ✅ กรองตามไซส์ (ผ่าน product_color_size)
+        if ($sizeId) {
+            $query->whereHas('colorSizes', function ($q) use ($sizeId) {
+                $q->where('size_id', $sizeId);
+            });
+        }
+
+        // ✅ กรองตามแท็ก (ผ่าน product_tags)
+        if ($tagId) {
+            $query->whereHas('tags', function ($q) use ($tagId) {
+                $q->where('tags.id', $tagId);
+            });
+        }
+
+        // ✅ กรองตามช่วงราคา
+        if ($priceMin !== null && $priceMin !== '') {
+            $query->where('price', '>=', $priceMin);
+        }
+        if ($priceMax !== null && $priceMax !== '') {
+            $query->where('price', '<=', $priceMax);
+        }
+
+        // ✅ กรองตามสต็อกขั้นต่ำ (ใช้ subquery)
+        if ($stockMin !== null && $stockMin !== '') {
+            $query->whereHas('colorSizes', function ($q) use ($stockMin) {
+                $q->select(DB::raw('product_id'))
+                  ->groupBy('product_id')
+                  ->havingRaw('SUM(quantity) >= ?', [$stockMin]);
+            });
+        }
+
+        $products = $query->latest()
+            ->paginate(12)
+            ->appends($request->query()); // เก็บทุก query parameter ใน pagination
 
         return view('sales.products.index', compact('products'));
     }
@@ -860,7 +973,7 @@ class ProductController extends Controller
                 ];
             });
 
-            \Log::info('getHoldsApi Success', [
+            Log::info('getHoldsApi Success', [
                 'variant_id' => $variantId,
                 'product_id' => $variant->product_id,
                 'color_id' => $variant->color_id,
@@ -870,8 +983,8 @@ class ProductController extends Controller
 
             return response()->json($holds);
         } catch (\Exception $e) {
-            \Log::error('getHoldsApi Error: ' . $e->getMessage());
-            \Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('getHoldsApi Error: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -917,7 +1030,7 @@ class ProductController extends Controller
                 'total_hold' => $holds->sum('quantity')
             ]);
         } catch (\Exception $e) {
-            \Log::error('apiCheckStock Error: ' . $e->getMessage());
+            Log::error('apiCheckStock Error: ' . $e->getMessage());
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -987,7 +1100,7 @@ class ProductController extends Controller
                 ->route('products.index')
                 ->with('success', '✅ ลบสินค้าเรียบร้อยแล้ว');
         } catch (\Exception $e) {
-            \Log::error('Product Delete Error: ' . $e->getMessage());
+            Log::error('Product Delete Error: ' . $e->getMessage());
             return redirect()
                 ->route('products.index')
                 ->with('error', 'เกิดข้อผิดพลาด: ' . $e->getMessage());
