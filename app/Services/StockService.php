@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Exception;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Database\QueryException;
 
 class StockService
 {
@@ -21,18 +22,22 @@ class StockService
         return max(0, $current - $reserved);
     }
 
-    public function reserveStock(int $variantId, int $qty, int $orderId, string $orderNumber = ''): void
-    {
-        if ($qty <= 0) return;
+   public function reserveStock(int $variantId, int $qty, int $orderId, string $orderNumber = ''): void
+{
+    if ($qty <= 0) return;
 
+    try {
         DB::transaction(function () use ($variantId, $qty, $orderId) {
+            // ล็อกแถวสินค้าหลักเพื่อป้องกันคนอื่นมาอ่านพร้อมกัน (Pessimistic Locking)
             DB::table('product_color_size')->where('id', $variantId)->lockForUpdate()->first();
 
+            // เช็คจำนวนสต๊อก
             $sum = $this->getVariantSummary($variantId, $orderId);
             if ($qty > $sum['available_stock']) {
-                throw new \Exception("สต๊อคไม่พอ (คงเหลือ {$sum['available_stock']} ชิ้น)");
+                throw new Exception("สต๊อคไม่พอ (คงเหลือ {$sum['available_stock']} ชิ้น)");
             }
 
+            // เช็คว่ามีรายการกั๊กสต๊อกสำหรับออเดอร์นี้อยู่แล้วหรือยัง
             $hold = DB::table('stock_holds')->where([
                 'product_color_size_id' => $variantId,
                 'order_id' => $orderId,
@@ -40,11 +45,13 @@ class StockService
             ])->lockForUpdate()->first();
 
             if ($hold) {
+                // ถ้ามีแล้ว ให้อัปเดตจำนวนบวกเพิ่มเข้าไป
                 DB::table('stock_holds')->where('id', $hold->id)->update([
                     'quantity'   => (int)$hold->quantity + $qty,
                     'updated_at' => now(),
                 ]);
             } else {
+                // ถ้ายังไม่มี ให้สร้างใหม่
                 DB::table('stock_holds')->insert([
                     'product_color_size_id' => $variantId,
                     'order_id' => $orderId,
@@ -55,7 +62,18 @@ class StockService
                 ]);
             }
         });
+    } catch (QueryException $e) {
+        // ✅ จุดที่เพิ่มเข้ามา: ดักจับ Error ข้อมูลซ้ำ (Race Condition) จากฐานข้อมูล
+        // รหัส 23000 คือ Integrity constraint violation (เช่น แทรกข้อมูลลง Unique Key ซ้ำพร้อมกัน)
+        if ($e->getCode() == 23000) {
+            throw new Exception("ระบบกำลังประมวลผลรายการนี้อยู่ หรือมีการกดซ้ำ กรุณารอสักครู่");
+        }
+
+        // ✅ สำคัญ: หากเป็น Error เรื่องอื่น (เช่น คอลัมน์ผิด, หาตารางไม่เจอ) ให้โยน Error คืนระบบไปตามปกติ
+        // ทำให้การดักจับนี้ "ไม่ไปรบกวน" หรือ "ปิดบัง" บั๊กอื่นๆ ของระบบ
+        throw $e;
     }
+}
 
     public function getVariantSummary(int $variantId, int $orderId = 0): array
     {
