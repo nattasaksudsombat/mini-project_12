@@ -63,7 +63,7 @@
 
     #results .list-group-item {
         padding: 8px 12px;
-    }
+    } 
 
     #results img {
         border-radius: 4px;

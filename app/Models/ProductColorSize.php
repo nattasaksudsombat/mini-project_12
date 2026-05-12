@@ -25,7 +25,6 @@ class ProductColorSize extends Model
 
     public function size()
     {
-        // ชื่่อคอลัมน์ในตาราง sizes คือ size_name (อ้างอิงสคีมา), FK ของ variant คือ size_id
         return $this->belongsTo(Size::class, 'size_id');
     }
-}
+}   

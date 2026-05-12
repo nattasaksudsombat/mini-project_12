@@ -80,10 +80,11 @@ class ReportController extends Controller
         // --------------------------------------------------
         // 4. สินค้าที่สต็อกใกล้หมด (available_stock <= 10)
         // --------------------------------------------------
-        $lowStockCount = DB::table('v_current_stock')
-            ->where('available_stock', '<=', 10)
-            ->where('available_stock', '>', 0)
-            ->count();
+        $lowStockCount = DB::table('product_color_size as pcs')
+    ->leftJoin(DB::raw('(SELECT product_color_size_id, SUM(quantity) as reserved FROM stock_holds WHERE status="active" GROUP BY product_color_size_id) as h'), 'h.product_color_size_id', '=', 'pcs.id')
+    ->selectRaw('GREATEST(0, pcs.quantity - COALESCE(h.reserved,0)) as available_stock')
+    ->havingRaw('available_stock <= 10 AND available_stock > 0')
+    ->count();
 
         // --------------------------------------------------
         // ส่งข้อมูลไป View

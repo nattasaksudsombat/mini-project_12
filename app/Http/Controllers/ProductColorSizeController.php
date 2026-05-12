@@ -237,7 +237,7 @@ class ProductColorSizeController extends Controller
         try {
             $validated = $request->validate([
                 'variants' => 'required|array',
-                'variants.*.id' => 'required|exists:product_color_sizes,id',
+                'variants.*.id' => 'required|exists:product_color_size,id',
                 'variants.*.quantity' => 'required|integer|min:0',
             ]);
 
@@ -267,7 +267,7 @@ class ProductColorSizeController extends Controller
     // 1. ดึงสีตามสินค้า
     public function getColors($id)
     {
-        // ดึงสีที่มีการจับคู่กับสินค้านี้ (ผ่านตาราง product_color_sizes)
+        // ดึงสีที่มีการจับคู่กับสินค้านี้ (ผ่านตาราง product_color_size)
         // หรือจะดึงจาก ProductColor โดยตรงก็ได้ แล้วแต่โครงสร้าง
         
         // ตัวอย่าง: ดึงสีที่มีในสต็อกจริง

@@ -11,14 +11,14 @@ use Illuminate\Support\Facades\Log;
 
 class StockService
 {
-    private function vStockPk(): string
+    private function getAvailableStock(int $variantId): int
     {
-        foreach (['variant_id', 'product_color_size_id', 'id'] as $col) {
-            if (Schema::hasColumn('v_current_stock', $col)) {
-                return $col;
-            }
-        }
-        return 'id'; 
+        $current = (int) DB::table('product_color_size')->where('id', $variantId)->value('quantity');
+        $reserved = (int) DB::table('stock_holds')
+            ->where('product_color_size_id', $variantId)
+            ->where('status', 'active')
+            ->sum('quantity');
+        return max(0, $current - $reserved);
     }
 
     public function reserveStock(int $variantId, int $qty, int $orderId, string $orderNumber = ''): void
@@ -254,9 +254,7 @@ class StockService
                 'updated_at'            => now(),
             ]);
 
-            $pk = $this->vStockPk();
-            $v = DB::table('v_current_stock')->where($pk, $variantId)->lockForUpdate()->first();
-            $availableBefore = (int)($v->available_stock ?? 0);
+            $availableBefore = $this->getAvailableStock($variantId);
             $availableAfter  = $availableBefore - $quantity;
 
             DB::table('stock_transactions')->insert([

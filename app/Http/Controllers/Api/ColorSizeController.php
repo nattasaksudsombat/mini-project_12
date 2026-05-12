@@ -29,8 +29,8 @@ class ColorSizeController extends Controller
                 return response()->json(['error' => 'Missing required parameters'], 400);
             }
             
-            // ค้นหาจากตาราง product_color_sizes โดยใช้ JOIN
-            $colorSize = DB::table('product_color_sizes as pcs')
+            // ค้นหาจากตาราง product_color_size โดยใช้ JOIN
+            $colorSize = DB::table('product_color_size as pcs')
                 ->join('colors as c', 'pcs.color_id', '=', 'c.id')
                 ->join('sizes as s', 'pcs.size_id', '=', 's.id')
                 ->where('pcs.product_id', $productId)
@@ -48,7 +48,7 @@ class ColorSizeController extends Controller
             
             if (!$colorSize) {
                 // ลองค้นหาด้วย size_name field ถ้าไม่พบ
-                $colorSize = DB::table('product_color_sizes as pcs')
+                $colorSize = DB::table('product_color_size as pcs')
                     ->join('colors as c', 'pcs.color_id', '=', 'c.id')
                     ->join('sizes as s', 'pcs.size_id', '=', 's.id')
                     ->where('pcs.product_id', $productId)
@@ -120,7 +120,7 @@ class ColorSizeController extends Controller
             }
             
             // ตรวจสอบว่ามีอยู่แล้วหรือไม่
-            $existing = DB::table('product_color_sizes')
+            $existing = DB::table('product_color_size')
                 ->where('product_id', $productId)
                 ->where('color_id', $colorId)
                 ->where('size_id', $sizeId)
@@ -140,7 +140,7 @@ class ColorSizeController extends Controller
             }
             
             // สร้างใหม่
-            $id = DB::table('product_color_sizes')->insertGetId([
+            $id = DB::table('product_color_size')->insertGetId([
                 'product_id' => $productId,
                 'color_id' => $colorId,
                 'size_id' => $sizeId,
@@ -176,7 +176,7 @@ class ColorSizeController extends Controller
     public function getVariant($id)
     {
         try {
-            $variant = DB::table('product_color_sizes as pcs')
+            $variant = DB::table('product_color_size as pcs')
                 ->join('colors as c', 'pcs.color_id', '=', 'c.id')
                 ->join('sizes as s', 'pcs.size_id', '=', 's.id')
                 ->where('pcs.id', $id)
