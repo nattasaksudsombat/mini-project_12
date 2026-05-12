@@ -11,10 +11,14 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('tags', function (Blueprint $table) {
-            $table->id();
-            $table->timestamps();
-        });
+        // เช็คก่อนว่ามีตาราง 'tags' ในฐานข้อมูลหรือยัง
+        if (!Schema::hasTable('tags')) {
+            Schema::create('tags', function (Blueprint $table) {
+                $table->id();
+                // ถ้ามีคอลัมน์อื่นเพิ่มเติม ก็ใส่ไว้ตรงนี้ได้ปกติครับ
+                $table->timestamps();
+            });
+        }
     }
 
     /**
